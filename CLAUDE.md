@@ -21,7 +21,7 @@ Beta scope: rally review only. No shot types, no player tracking, no clip export
 
 Copied from the `frontend/` folder of
 [full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template)
-(commit `aabb901`, Nov 2026), MIT license kept as `TEMPLATE_LICENSE`. The backend uses
+(commit `aabb901`, Nov 2026), its MIT copyright notice is kept in `LICENSE` (next to ours). The backend uses
 the same template, so login/signup/password reset/user settings already work against it.
 Keep the template's structure and conventions; delete what we don't use.
 

@@ -10,7 +10,7 @@ wrapped with Capacitor for iOS/Android.
 Backend: [`../badminton-backend`](../badminton-backend) (FastAPI). Started from the
 `frontend/` folder of
 [full-stack-fastapi-template](https://github.com/fastapi/full-stack-fastapi-template)
-(license in `TEMPLATE_LICENSE`).
+(MIT; its copyright notice is kept in `LICENSE`).
 
 ## Setup
 
