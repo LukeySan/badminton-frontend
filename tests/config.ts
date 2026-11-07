@@ -5,7 +5,8 @@ import dotenv from "dotenv"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-dotenv.config({ path: path.join(__dirname, "../../.env") })
+// This repo's own .env (the template was a monorepo and read ../../.env)
+dotenv.config({ path: path.join(__dirname, "../.env") })
 
 function getEnvVar(name: string): string {
   const value = process.env[name]

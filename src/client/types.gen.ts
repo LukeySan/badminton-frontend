@@ -35,6 +35,59 @@ export type Body_login_login_access_token = {
 };
 
 /**
+ * Body_videos-upload_video
+ */
+export type Body_videos_upload_video = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
+ * CourtUpdate
+ */
+export type CourtUpdate = {
+    /**
+     * Corners
+     *
+     * Fractions of width/height, order: far-left, far-right, near-right, near-left. 0-1 is inside the frame; -0.3 to 1.3 is accepted (see court_out_of_frame on the video).
+     */
+    corners: [
+        [
+            number,
+            number
+        ],
+        [
+            number,
+            number
+        ],
+        [
+            number,
+            number
+        ],
+        [
+            number,
+            number
+        ]
+    ];
+};
+
+/**
+ * FileUrl
+ */
+export type FileUrl = {
+    /**
+     * Url
+     */
+    url: string;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HTTPValidationError = {
@@ -42,74 +95,6 @@ export type HTTPValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
-};
-
-/**
- * ItemCreate
- */
-export type ItemCreate = {
-    /**
-     * Title
-     */
-    title: string;
-    /**
-     * Description
-     */
-    description?: string | null;
-};
-
-/**
- * ItemPublic
- */
-export type ItemPublic = {
-    /**
-     * Title
-     */
-    title: string;
-    /**
-     * Description
-     */
-    description?: string | null;
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Owner Id
-     */
-    owner_id: string;
-    /**
-     * Created At
-     */
-    created_at?: string | null;
-};
-
-/**
- * ItemUpdate
- */
-export type ItemUpdate = {
-    /**
-     * Title
-     */
-    title?: string | null;
-    /**
-     * Description
-     */
-    description?: string | null;
-};
-
-/**
- * ItemsPublic
- */
-export type ItemsPublic = {
-    /**
-     * Data
-     */
-    data: Array<ItemPublic>;
-    /**
-     * Count
-     */
-    count: number;
 };
 
 /**
@@ -156,6 +141,42 @@ export type PrivateUserCreate = {
      * Is Verified
      */
     is_verified?: boolean;
+};
+
+/**
+ * RalliesPublic
+ */
+export type RalliesPublic = {
+    /**
+     * Data
+     */
+    data: Array<RallyPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
+ * RallyPublic
+ */
+export type RallyPublic = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+    /**
+     * Duration
+     */
+    readonly duration: number;
 };
 
 /**
@@ -340,6 +361,196 @@ export type ValidationError = {
     ctx?: {
         [key: string]: unknown;
     };
+};
+
+/**
+ * VideoPublic
+ */
+export type VideoPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Status
+     */
+    status: 'uploaded' | 'queued' | 'processing' | 'done' | 'failed';
+    /**
+     * Progress
+     */
+    progress: number;
+    /**
+     * Error
+     */
+    error: string | null;
+    /**
+     * Duration
+     */
+    duration: number | null;
+    /**
+     * Fps
+     */
+    fps: number | null;
+    /**
+     * Width
+     */
+    width: number | null;
+    /**
+     * Height
+     */
+    height: number | null;
+    /**
+     * Court Corners
+     */
+    court_corners: Array<[
+        number,
+        number
+    ]> | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Court Out Of Frame
+     *
+     * Warning, not an error: part of the court is well outside the video, so
+     * results may be less accurate. The app should tell the user and let them
+     * decide. Computed here so the web and mobile apps can't disagree.
+     */
+    readonly court_out_of_frame: boolean;
+};
+
+/**
+ * VideosPublic
+ */
+export type VideosPublic = {
+    /**
+     * Data
+     */
+    data: Array<VideoPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
+ * RalliesPublic
+ */
+export type RalliesPublicWritable = {
+    /**
+     * Data
+     */
+    data: Array<RallyPublicWritable>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
+ * RallyPublic
+ */
+export type RallyPublicWritable = {
+    /**
+     * Id
+     */
+    id: number;
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+};
+
+/**
+ * VideoPublic
+ */
+export type VideoPublicWritable = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Status
+     */
+    status: 'uploaded' | 'queued' | 'processing' | 'done' | 'failed';
+    /**
+     * Progress
+     */
+    progress: number;
+    /**
+     * Error
+     */
+    error: string | null;
+    /**
+     * Duration
+     */
+    duration: number | null;
+    /**
+     * Fps
+     */
+    fps: number | null;
+    /**
+     * Width
+     */
+    width: number | null;
+    /**
+     * Height
+     */
+    height: number | null;
+    /**
+     * Court Corners
+     */
+    court_corners: Array<[
+        number,
+        number
+    ]> | null;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * VideosPublic
+ */
+export type VideosPublicWritable = {
+    /**
+     * Data
+     */
+    data: Array<VideoPublicWritable>;
+    /**
+     * Count
+     */
+    count: number;
 };
 
 export type loginLoginAccessTokenData = {
@@ -772,7 +983,7 @@ export type utilsHealthCheckResponses = {
 
 export type utilsHealthCheckResponse = utilsHealthCheckResponses[keyof utilsHealthCheckResponses];
 
-export type itemsReadItemsData = {
+export type videosReadVideosData = {
     body?: never;
     path?: never;
     query?: {
@@ -785,53 +996,53 @@ export type itemsReadItemsData = {
          */
         limit?: number;
     };
-    url: '/api/v1/items/';
+    url: '/api/v1/videos/';
 };
 
-export type itemsReadItemsErrors = {
+export type videosReadVideosErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type itemsReadItemsError = itemsReadItemsErrors[keyof itemsReadItemsErrors];
+export type videosReadVideosError = videosReadVideosErrors[keyof videosReadVideosErrors];
 
-export type itemsReadItemsResponses = {
+export type videosReadVideosResponses = {
     /**
      * Successful Response
      */
-    200: ItemsPublic;
+    200: VideosPublic;
 };
 
-export type itemsReadItemsResponse = itemsReadItemsResponses[keyof itemsReadItemsResponses];
+export type videosReadVideosResponse = videosReadVideosResponses[keyof videosReadVideosResponses];
 
-export type itemsCreateItemData = {
-    body: ItemCreate;
+export type videosUploadVideoData = {
+    body: Body_videos_upload_video;
     path?: never;
     query?: never;
-    url: '/api/v1/items/';
+    url: '/api/v1/videos/';
 };
 
-export type itemsCreateItemErrors = {
+export type videosUploadVideoErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type itemsCreateItemError = itemsCreateItemErrors[keyof itemsCreateItemErrors];
+export type videosUploadVideoError = videosUploadVideoErrors[keyof videosUploadVideoErrors];
 
-export type itemsCreateItemResponses = {
+export type videosUploadVideoResponses = {
     /**
      * Successful Response
      */
-    200: ItemPublic;
+    201: VideoPublic;
 };
 
-export type itemsCreateItemResponse = itemsCreateItemResponses[keyof itemsCreateItemResponses];
+export type videosUploadVideoResponse = videosUploadVideoResponses[keyof videosUploadVideoResponses];
 
-export type itemsDeleteItemData = {
+export type videosReadVideoData = {
     body?: never;
     path: {
         /**
@@ -840,28 +1051,93 @@ export type itemsDeleteItemData = {
         id: string;
     };
     query?: never;
-    url: '/api/v1/items/{id}';
+    url: '/api/v1/videos/{id}';
 };
 
-export type itemsDeleteItemErrors = {
+export type videosReadVideoErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type itemsDeleteItemError = itemsDeleteItemErrors[keyof itemsDeleteItemErrors];
+export type videosReadVideoError = videosReadVideoErrors[keyof videosReadVideoErrors];
 
-export type itemsDeleteItemResponses = {
+export type videosReadVideoResponses = {
     /**
      * Successful Response
      */
-    200: Message;
+    200: VideoPublic;
 };
 
-export type itemsDeleteItemResponse = itemsDeleteItemResponses[keyof itemsDeleteItemResponses];
+export type videosReadVideoResponse = videosReadVideoResponses[keyof videosReadVideoResponses];
 
-export type itemsReadItemData = {
+export type videosReadVideoFrameData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: {
+        /**
+         * T
+         *
+         * Seconds; the very first frame is often black
+         */
+        t?: number;
+    };
+    url: '/api/v1/videos/{id}/frame';
+};
+
+export type videosReadVideoFrameErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type videosReadVideoFrameError = videosReadVideoFrameErrors[keyof videosReadVideoFrameErrors];
+
+export type videosReadVideoFrameResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type videosUpdateVideoCourtData = {
+    body: CourtUpdate;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/court';
+};
+
+export type videosUpdateVideoCourtErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type videosUpdateVideoCourtError = videosUpdateVideoCourtErrors[keyof videosUpdateVideoCourtErrors];
+
+export type videosUpdateVideoCourtResponses = {
+    /**
+     * Successful Response
+     */
+    200: VideoPublic;
+};
+
+export type videosUpdateVideoCourtResponse = videosUpdateVideoCourtResponses[keyof videosUpdateVideoCourtResponses];
+
+export type videosProcessVideoData = {
     body?: never;
     path: {
         /**
@@ -870,29 +1146,29 @@ export type itemsReadItemData = {
         id: string;
     };
     query?: never;
-    url: '/api/v1/items/{id}';
+    url: '/api/v1/videos/{id}/process';
 };
 
-export type itemsReadItemErrors = {
+export type videosProcessVideoErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type itemsReadItemError = itemsReadItemErrors[keyof itemsReadItemErrors];
+export type videosProcessVideoError = videosProcessVideoErrors[keyof videosProcessVideoErrors];
 
-export type itemsReadItemResponses = {
+export type videosProcessVideoResponses = {
     /**
      * Successful Response
      */
-    200: ItemPublic;
+    200: VideoPublic;
 };
 
-export type itemsReadItemResponse = itemsReadItemResponses[keyof itemsReadItemResponses];
+export type videosProcessVideoResponse = videosProcessVideoResponses[keyof videosProcessVideoResponses];
 
-export type itemsUpdateItemData = {
-    body: ItemUpdate;
+export type videosReadVideoRalliesData = {
+    body?: never;
     path: {
         /**
          * Id
@@ -900,26 +1176,91 @@ export type itemsUpdateItemData = {
         id: string;
     };
     query?: never;
-    url: '/api/v1/items/{id}';
+    url: '/api/v1/videos/{id}/rallies';
 };
 
-export type itemsUpdateItemErrors = {
+export type videosReadVideoRalliesErrors = {
     /**
      * Validation Error
      */
     422: HTTPValidationError;
 };
 
-export type itemsUpdateItemError = itemsUpdateItemErrors[keyof itemsUpdateItemErrors];
+export type videosReadVideoRalliesError = videosReadVideoRalliesErrors[keyof videosReadVideoRalliesErrors];
 
-export type itemsUpdateItemResponses = {
+export type videosReadVideoRalliesResponses = {
     /**
      * Successful Response
      */
-    200: ItemPublic;
+    200: RalliesPublic;
 };
 
-export type itemsUpdateItemResponse = itemsUpdateItemResponses[keyof itemsUpdateItemResponses];
+export type videosReadVideoRalliesResponse = videosReadVideoRalliesResponses[keyof videosReadVideoRalliesResponses];
+
+export type videosReadVideoFileUrlData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/file-url';
+};
+
+export type videosReadVideoFileUrlErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type videosReadVideoFileUrlError = videosReadVideoFileUrlErrors[keyof videosReadVideoFileUrlErrors];
+
+export type videosReadVideoFileUrlResponses = {
+    /**
+     * Successful Response
+     */
+    200: FileUrl;
+};
+
+export type videosReadVideoFileUrlResponse = videosReadVideoFileUrlResponses[keyof videosReadVideoFileUrlResponses];
+
+export type videosReadVideoFileData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query: {
+        /**
+         * Token
+         *
+         * From GET /videos/{id}/file-url
+         */
+        token: string;
+    };
+    url: '/api/v1/videos/{id}/file';
+};
+
+export type videosReadVideoFileErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type videosReadVideoFileError = videosReadVideoFileErrors[keyof videosReadVideoFileErrors];
+
+export type videosReadVideoFileResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

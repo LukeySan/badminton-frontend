@@ -11,7 +11,6 @@ node_modules
 dist
 dist-ssr
 *.local
-openapi.json
 
 # Editor directories and files
 .vscode/*
@@ -28,3 +27,6 @@ openapi.json
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+# Local settings (copy .env.example)
+.env
