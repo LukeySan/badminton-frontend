@@ -17,6 +17,9 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
+import { Route as LayoutUploadRouteImport } from './routes/_layout/upload'
+import { Route as LayoutVideosIdIndexRouteImport } from './routes/_layout/videos/$id/index'
+import { Route as LayoutVideosIdCourtRouteImport } from './routes/_layout/videos/$id/court'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -57,6 +60,21 @@ const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutUploadRoute = LayoutUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutVideosIdIndexRoute = LayoutVideosIdIndexRouteImport.update({
+  id: '/videos/$id/',
+  path: '/videos/$id/',
+  getParentRoute: () => LayoutRoute,
+} as any)
+const LayoutVideosIdCourtRoute = LayoutVideosIdCourtRouteImport.update({
+  id: '/videos/$id/court',
+  path: '/videos/$id/court',
+  getParentRoute: () => LayoutRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -66,6 +84,9 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/settings': typeof LayoutSettingsRoute
+  '/upload': typeof LayoutUploadRoute
+  '/videos/$id/court': typeof LayoutVideosIdCourtRoute
+  '/videos/$id/': typeof LayoutVideosIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -74,7 +95,10 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/admin': typeof LayoutAdminRoute
   '/settings': typeof LayoutSettingsRoute
+  '/upload': typeof LayoutUploadRoute
   '/': typeof LayoutIndexRoute
+  '/videos/$id/court': typeof LayoutVideosIdCourtRoute
+  '/videos/$id': typeof LayoutVideosIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -85,7 +109,10 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/_layout/admin': typeof LayoutAdminRoute
   '/_layout/settings': typeof LayoutSettingsRoute
+  '/_layout/upload': typeof LayoutUploadRoute
   '/_layout/': typeof LayoutIndexRoute
+  '/_layout/videos/$id/court': typeof LayoutVideosIdCourtRoute
+  '/_layout/videos/$id/': typeof LayoutVideosIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -97,6 +124,9 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/settings'
+    | '/upload'
+    | '/videos/$id/court'
+    | '/videos/$id/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -105,7 +135,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/admin'
     | '/settings'
+    | '/upload'
     | '/'
+    | '/videos/$id/court'
+    | '/videos/$id'
   id:
     | '__root__'
     | '/_layout'
@@ -115,7 +148,10 @@ export interface FileRouteTypes {
     | '/signup'
     | '/_layout/admin'
     | '/_layout/settings'
+    | '/_layout/upload'
     | '/_layout/'
+    | '/_layout/videos/$id/court'
+    | '/_layout/videos/$id/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -184,19 +220,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutSettingsRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/upload': {
+      id: '/_layout/upload'
+      path: '/upload'
+      fullPath: '/upload'
+      preLoaderRoute: typeof LayoutUploadRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/videos/$id/': {
+      id: '/_layout/videos/$id/'
+      path: '/videos/$id'
+      fullPath: '/videos/$id/'
+      preLoaderRoute: typeof LayoutVideosIdIndexRouteImport
+      parentRoute: typeof LayoutRoute
+    }
+    '/_layout/videos/$id/court': {
+      id: '/_layout/videos/$id/court'
+      path: '/videos/$id/court'
+      fullPath: '/videos/$id/court'
+      preLoaderRoute: typeof LayoutVideosIdCourtRouteImport
+      parentRoute: typeof LayoutRoute
+    }
   }
 }
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
+  LayoutUploadRoute: typeof LayoutUploadRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
+  LayoutVideosIdCourtRoute: typeof LayoutVideosIdCourtRoute
+  LayoutVideosIdIndexRoute: typeof LayoutVideosIdIndexRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
+  LayoutUploadRoute: LayoutUploadRoute,
   LayoutIndexRoute: LayoutIndexRoute,
+  LayoutVideosIdCourtRoute: LayoutVideosIdCourtRoute,
+  LayoutVideosIdIndexRoute: LayoutVideosIdIndexRoute,
 }
 
 const LayoutRouteWithChildren =
