@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
-import { ChevronLeft, CircleCheck, MapPin, RotateCw } from "lucide-react"
+import { ChevronLeft, MapPin, RotateCw } from "lucide-react"
 
 import type { VideoPublic } from "@/client"
 import { VideosService } from "@/client"
+import { Player } from "@/components/Player/Player"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -18,12 +19,12 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
-  ralliesQueryOptions,
   videoQueryOptions,
   videosQueryOptions,
 } from "@/components/Videos/queries"
 import { VideoStatusBadge } from "@/components/Videos/VideoStatusBadge"
 import { formatDate, formatDuration, formatMinutes } from "@/lib/format"
+import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
 export const Route = createFileRoute("/_layout/videos/$id/")({
@@ -54,7 +55,13 @@ function VideoPage() {
   } = useQuery(videoQueryOptions(id))
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+    <div
+      className={cn(
+        "mx-auto flex w-full flex-col gap-6",
+        // The player gets the full width; the status cards stay narrow.
+        video?.status === "done" ? "max-w-7xl" : "max-w-2xl",
+      )}
+    >
       <Button variant="ghost" size="sm" asChild className="-ml-3 self-start">
         <Link to="/">
           <ChevronLeft />
@@ -115,7 +122,7 @@ function VideoStatusView({ video }: { video: VideoPublic }) {
     case "failed":
       return <Failed video={video} />
     case "done":
-      return <Done video={video} />
+      return <Player video={video} />
   }
 }
 
@@ -233,29 +240,6 @@ function Failed({ video }: { video: VideoPublic }) {
           Try again
         </LoadingButton>
       </CardFooter>
-    </Card>
-  )
-}
-
-// Placeholder until the player (M5): confirms the result end to end.
-function Done({ video }: { video: VideoPublic }) {
-  const rallies = useQuery(ralliesQueryOptions(video.id))
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CircleCheck className="size-5 text-primary" />
-          Rallies ready
-        </CardTitle>
-        <CardDescription>
-          {rallies.isSuccess
-            ? `${rallies.data.count} rallies found.`
-            : rallies.isError
-              ? extractErrorMessage(rallies.error)
-              : "Loading rallies…"}{" "}
-          The player with chapters comes next.
-        </CardDescription>
-      </CardHeader>
     </Card>
   )
 }
