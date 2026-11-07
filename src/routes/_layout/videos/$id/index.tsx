@@ -86,7 +86,7 @@ function VideoPage() {
         <>
           <div className="flex flex-col gap-2">
             <div className="flex items-start justify-between gap-3">
-              <h1 className="min-w-0 break-words text-2xl font-bold tracking-tight">
+              <h1 className="min-w-0 wrap-break-word text-2xl font-bold tracking-tight">
                 {video.filename}
               </h1>
               <div className="pt-1.5">
@@ -203,7 +203,7 @@ function Failed({ video }: { video: VideoPublic }) {
         {video.error && (
           <Alert variant="destructive">
             <AlertTitle>Error</AlertTitle>
-            <AlertDescription className="max-h-40 overflow-y-auto break-words">
+            <AlertDescription className="max-h-40 overflow-y-auto wrap-break-word">
               {video.error}
             </AlertDescription>
           </Alert>

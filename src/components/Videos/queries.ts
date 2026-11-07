@@ -39,6 +39,24 @@ export function videoQueryOptions(id: string) {
   })
 }
 
+/** One frame (JPEG) at `t` seconds, for marking the court. */
+export function frameQueryOptions(id: string, t: number) {
+  return queryOptions({
+    queryKey: ["videos", id, "frame", t],
+    queryFn: async () => {
+      // Needs the login header, so it's fetched through the client (not <img src>).
+      const { data } = await VideosService.readVideoFrame({
+        path: { id },
+        query: { t },
+      })
+      // The spec only says "image/jpeg", so the generated type is `unknown`.
+      if (!(data instanceof Blob)) throw new Error("Expected an image")
+      return data
+    },
+    staleTime: Number.POSITIVE_INFINITY, // a frame of the same video never changes
+  })
+}
+
 export function ralliesQueryOptions(id: string) {
   return queryOptions({
     queryKey: ["videos", id, "rallies"],
