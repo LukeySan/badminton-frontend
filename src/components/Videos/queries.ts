@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query"
 
 import { type VideoPublic, VideosService } from "@/client"
+import { parseApiDate } from "@/lib/format"
 
 export type VideoStatus = VideoPublic["status"]
 
@@ -54,6 +55,33 @@ export function frameQueryOptions(id: string, t: number) {
       return data
     },
     staleTime: Number.POSITIVE_INFINITY, // a frame of the same video never changes
+  })
+}
+
+/** Get a new link this long before the old one expires. */
+const FILE_URL_RENEW_MS = 5 * 60_000
+
+/** Signed, expiring link for <video src> (the video tag can't send the login header). */
+export function fileUrlQueryOptions(id: string) {
+  const msUntilRenewal = (expiresAt: string | undefined) =>
+    expiresAt
+      ? Math.max(
+          0,
+          parseApiDate(expiresAt).getTime() - Date.now() - FILE_URL_RENEW_MS,
+        )
+      : 0
+  return queryOptions({
+    queryKey: ["videos", id, "file-url"],
+    queryFn: async () =>
+      (await VideosService.readVideoFileUrl({ path: { id } })).data,
+    // Every fetch returns a *new* URL, and a new URL reloads the video. So the link
+    // counts as fresh until shortly before it expires (no refetch on window focus
+    // or remount), and is renewed once at that point.
+    staleTime: (query) => msUntilRenewal(query.state.data?.expires_at),
+    refetchInterval: (query) =>
+      query.state.data
+        ? Math.max(10_000, msUntilRenewal(query.state.data.expires_at))
+        : false,
   })
 }
 

@@ -27,7 +27,15 @@ const dateFormat = new Intl.DateTimeFormat(undefined, {
   timeStyle: "short",
 })
 
+/**
+ * The API sends microseconds ("…T07:13:41.290559Z"); keep milliseconds only, which
+ * every JS engine parses (older Safari, i.e. the future iOS app, may not otherwise).
+ */
+export function parseApiDate(iso: string): Date {
+  return new Date(iso.replace(/(\.\d{3})\d+/, "$1"))
+}
+
 /** In the user's locale and time zone. */
 export function formatDate(iso: string): string {
-  return dateFormat.format(new Date(iso))
+  return dateFormat.format(parseApiDate(iso))
 }
