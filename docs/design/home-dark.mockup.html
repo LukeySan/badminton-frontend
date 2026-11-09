@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Home · Dark</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#101017}
+a{color:#7FD69B;text-decoration:none}a:hover{color:#DEFFF2}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #191923; color: #DEFFF2; font-family: Manrope, system-ui, sans-serif; overflow: hidden">
+
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 6px">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <span style="width: 32px; height: 32px; border-radius: 10px; background: #399E5A; display: flex; align-items: center; justify-content: center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#191923" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 18h16"></path><path d="M7 18V9"></path><path d="M12 18V5"></path><path d="M17 18v-6"></path></svg>
+      </span>
+      <span style="font-size: 18px; font-weight: 800">Rally Analyzer</span>
+    </div>
+    <button aria-label="Account" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; padding: 0">
+      <span style="width: 34px; height: 34px; border-radius: 999px; background: #23232F; border: 1px solid #34343F; color: #DEFFF2; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800">B</span>
+    </button>
+  </header>
+
+  <div style="padding: 10px 16px 0">
+    <h1 style="margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.01em">Your matches</h1>
+    <p style="margin: 4px 0 0; font-size: 13px; color: #9DB8AC">5 videos · 2 ready to watch</p>
+  </div>
+
+  <div style="margin: 16px 16px 0; padding: 14px; border-radius: 18px; background: #03440C; display: flex; align-items: center; gap: 12px">
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px">
+      <span style="font-size: 12px; font-weight: 700; color: #7FD69B">Last match</span>
+      <span style="font-size: 22px; font-weight: 800; line-height: 1.15">5:09 of play<br><span style="font-size: 14px; font-weight: 600; color: #B9D1C6">out of 21:24 recorded</span></span>
+    </div>
+    <a href="PaletteDark.dc.html" style="height: 40px; padding: 0 14px; border-radius: 12px; background: #DEFFF2; color: #191923; display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+      Watch
+    </a>
+  </div>
+
+  <div style="display: flex; align-items: center; justify-content: space-between; padding: 20px 16px 8px">
+    <h2 style="margin: 0; font-size: 15px; font-weight: 800">Recent</h2>
+    <div role="group" aria-label="Filter videos" style="display: flex; gap: 4px">
+      <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
+        <sc-if value="{{f.on}}" hint-placeholder-val="{{ false }}">
+          <button aria-pressed="true" onClick="{{f.pick}}" style="height: 30px; padding: 0 12px; border: none; border-radius: 999px; background: #DEFFF2; color: #191923; font-size: 12px; font-weight: 800">{{f.label}}</button>
+        </sc-if>
+        <sc-if value="{{f.off}}" hint-placeholder-val="{{ true }}">
+          <button aria-pressed="false" onClick="{{f.pick}}" style="height: 30px; padding: 0 12px; border: 1px solid #34343F; border-radius: 999px; background: transparent; color: #9DB8AC; font-size: 12px; font-weight: 600">{{f.label}}</button>
+        </sc-if>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 12px">
+    <sc-for list="{{videos}}" as="v" hint-placeholder-count="5">
+      <a href="{{v.href}}" style="display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 8px; border-radius: 14px; color: #DEFFF2">
+        <span style="position: relative; width: 96px; height: 54px; border-radius: 10px; overflow: hidden; background: #03440C; display: block">
+          <svg width="96" height="54" viewBox="0 0 96 54" fill="none" stroke="#399E5A" stroke-width="1.2" aria-hidden="true"><path d="M32 12 L64 12 L90 50 L6 50 Z"></path><path d="M24 27 L72 27" stroke="#DEFFF2"></path></svg>
+          <span style="position: absolute; right: 4px; bottom: 4px; padding: 1px 5px; border-radius: 4px; background: rgba(25,25,35,0.85); font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums">{{v.length}}</span>
+        </span>
+        <span style="min-width: 0; display: flex; flex-direction: column; gap: 4px">
+          <span style="font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{v.title}}</span>
+          <span style="font-size: 12px; color: #9DB8AC">{{v.date}}</span>
+          <sc-if value="{{v.ready}}" hint-placeholder-val="{{ true }}">
+            <span style="align-self: flex-start; height: 22px; padding: 0 8px; border-radius: 999px; background: rgba(57,158,90,0.18); color: #7FD69B; display: flex; align-items: center; font-size: 11px; font-weight: 800">Ready · {{v.rallies}} rallies</span>
+          </sc-if>
+          <sc-if value="{{v.analyzing}}" hint-placeholder-val="{{ false }}">
+            <span style="display: flex; align-items: center; gap: 8px">
+              <span style="font-size: 11px; font-weight: 800; color: #DEFFF2; white-space: nowrap">Analyzing {{v.pct}}%</span>
+              <span style="flex: 1; height: 4px; border-radius: 2px; background: #2E2E3B; position: relative; overflow: hidden"><span style="{{v.bar}}"></span></span>
+            </span>
+          </sc-if>
+          <sc-if value="{{v.needsCourt}}" hint-placeholder-val="{{ false }}">
+            <span style="align-self: flex-start; height: 22px; padding: 0 8px; border-radius: 999px; border: 1px solid #9DB8AC; color: #DEFFF2; display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 800">Mark the court
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+            </span>
+          </sc-if>
+          <sc-if value="{{v.failed}}" hint-placeholder-val="{{ false }}">
+            <span style="align-self: flex-start; height: 22px; padding: 0 8px; border-radius: 999px; background: rgba(255,51,102,0.16); color: #FF8FAB; display: flex; align-items: center; font-size: 11px; font-weight: 800">Failed · Try again</span>
+          </sc-if>
+        </span>
+      </a>
+    </sc-for>
+  </div>
+
+  <nav aria-label="Main" style="height: 76px; flex-shrink: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: center; border-top: 1px solid #2A2A36; background: #191923; padding-bottom: 8px; box-sizing: border-box">
+    <a href="#" aria-current="page" style="height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #DEFFF2; font-size: 11px; font-weight: 800">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"></rect><path d="M10 9.5v5l4-2.5z" fill="currentColor"></path></svg>
+      Matches
+    </a>
+    <a href="#" aria-label="Upload a video" style="height: 56px; display: flex; align-items: center; justify-content: center">
+      <span style="width: 52px; height: 52px; border-radius: 18px; background: #399E5A; color: #191923; display: flex; align-items: center; justify-content: center">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+      </span>
+    </a>
+    <a href="#" style="height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; color: #9DB8AC; font-size: 11px; font-weight: 700">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>
+      Profile
+    </a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { filter: 'all' };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+    var all = [
+      { title: 'Saturday doubles · Court 3', date: 'Nov 7 · 9:40 PM', length: '21:24', status: 'ready', rallies: 73, href: 'PaletteDark.dc.html' },
+      { title: 'Club night singles', date: 'Nov 7 · 7:15 PM', length: '7:06', status: 'analyzing', pct: 42, href: '#' },
+      { title: 'Tournament round 2', date: 'Nov 5 · 2:30 PM', length: '18:40', status: 'court', href: '#' },
+      { title: 'Footwork drills', date: 'Nov 3 · 6:05 PM', length: '4:12', status: 'failed', href: '#' },
+      { title: 'Friday doubles', date: 'Nov 1 · 8:20 PM', length: '7:06', status: 'ready', rallies: 31, href: '#' }
+    ];
+    var list = all.filter(function (v) {
+      if (st.filter === 'ready') return v.status === 'ready';
+      if (st.filter === 'todo') return v.status !== 'ready';
+      return true;
+    });
+    var videos = list.map(function (v) {
+      return { title: v.title, date: v.date, length: v.length, rallies: v.rallies, pct: v.pct, href: v.href,
+        ready: v.status === 'ready', analyzing: v.status === 'analyzing', needsCourt: v.status === 'court', failed: v.status === 'failed',
+        bar: 'position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:#399E5A;width:' + (v.pct || 0) + '%;' };
+    });
+    var filters = [{ v: 'all', label: 'All' }, { v: 'ready', label: 'Ready' }, { v: 'todo', label: 'To do' }].map(function (f) {
+      var on = st.filter === f.v;
+      return { label: f.label, on: on, off: !on, pick: function () { self.setState({ filter: f.v }); } };
+    });
+    return { videos: videos, filters: filters };
+  }
+}
+</script>
+</body>
+</html>

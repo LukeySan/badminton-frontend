@@ -1,109 +1,155 @@
-import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { ChevronRight, Film, Upload } from "lucide-react"
+import { Upload } from "lucide-react"
 
 import type { VideoPublic } from "@/client"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
-import { formatDate, formatDuration } from "@/lib/format"
-import { extractErrorMessage } from "@/utils"
-import { isInProgress, videosQueryOptions } from "./queries"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { formatShortDate } from "@/lib/format"
+import { cn } from "@/lib/utils"
+import { CourtThumbnail } from "./CourtThumbnail"
 import { VideoStatusBadge } from "./VideoStatusBadge"
 
-// A stacked list instead of the template's DataTable: a 5-column table doesn't fit a
-// phone screen, while a row with a truncating filename and a badge works at any width.
+export type VideoFilter = "all" | "ready" | "todo"
 
-export function VideoList() {
-  const { data, isPending, isError, error, refetch, isRefetching } = useQuery(
-    videosQueryOptions(),
-  )
+const FILTERS: { value: VideoFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "ready", label: "Ready" },
+  { value: "todo", label: "To do" },
+]
 
-  if (isPending) return <VideoListSkeleton />
+export function matchesFilter(video: VideoPublic, filter: VideoFilter) {
+  if (filter === "ready") return video.status === "done"
+  if (filter === "todo") return video.status !== "done"
+  return true
+}
 
-  if (isError) {
-    return (
-      <Alert variant="destructive">
-        <AlertTitle>Couldn't load your videos</AlertTitle>
-        <AlertDescription>
-          <p>{extractErrorMessage(error)}</p>
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-2"
-            onClick={() => refetch()}
-            disabled={isRefetching}
-          >
-            Try again
-          </Button>
-        </AlertDescription>
-      </Alert>
-    )
-  }
-
-  if (data.data.length === 0) return <EmptyState />
-
+/** All / Ready / To do pills. Selected = foreground fill (DESIGN.md). */
+export function VideoFilterChips({
+  value,
+  onChange,
+}: {
+  value: VideoFilter
+  onChange: (filter: VideoFilter) => void
+}) {
   return (
-    <div className="flex flex-col gap-2">
-      <ul className="divide-y overflow-hidden rounded-lg border">
-        {data.data.map((video) => (
-          <li key={video.id}>
-            <VideoRow video={video} />
-          </li>
-        ))}
-      </ul>
-      {data.count > data.data.length && (
-        <p className="text-sm text-muted-foreground">
-          Showing the newest {data.data.length} of {data.count} videos.
-        </p>
-      )}
-    </div>
+    <ToggleGroup
+      type="single"
+      spacing={1}
+      value={value}
+      // Radix lets you un-press the selected item; a filter always has a value.
+      onValueChange={(next) => next && onChange(next as VideoFilter)}
+      aria-label="Filter videos"
+    >
+      {FILTERS.map((filter) => (
+        <ToggleGroupItem
+          key={filter.value}
+          value={filter.value}
+          className={cn(
+            "relative h-[30px] min-w-0 rounded-full border px-3 text-xs font-semibold text-muted-foreground",
+            "data-[state=off]:bg-card data-[state=off]:hover:bg-secondary data-[state=off]:hover:text-foreground dark:data-[state=off]:bg-transparent",
+            "data-[state=on]:border-transparent data-[state=on]:bg-foreground data-[state=on]:font-extrabold data-[state=on]:text-background data-[state=on]:hover:bg-foreground data-[state=on]:hover:text-background",
+            // 44 px tall touch target around the 30 px pill
+            "after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']",
+          )}
+        >
+          {filter.label}
+        </ToggleGroupItem>
+      ))}
+    </ToggleGroup>
   )
 }
 
-function VideoRow({ video }: { video: VideoPublic }) {
-  // Open the screen for the video's next step: a video without a court goes straight
-  // to court marking; everything else to its status/player page.
-  const to = video.status === "uploaded" ? "/videos/$id/court" : "/videos/$id"
+/** Light theme: each row is a white card; dark: flat rows (DESIGN.md "Video row"). */
+export function VideoList({
+  videos,
+  rallyCounts,
+  filter,
+}: {
+  videos: VideoPublic[]
+  rallyCounts: Record<string, number | undefined>
+  filter: VideoFilter
+}) {
+  if (videos.length === 0) {
+    return (
+      <p className="rounded-2xl border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+        {filter === "ready"
+          ? "No videos are ready yet. They show up here once analyzed."
+          : "Nothing to do: every video is ready to watch."}
+      </p>
+    )
+  }
+  return (
+    <ul className="-mx-1 flex flex-col gap-1.5 lg:grid lg:grid-cols-2 dark:-mx-2 dark:gap-0">
+      {videos.map((video) => (
+        <li key={video.id}>
+          <VideoRow video={video} rallyCount={rallyCounts[video.id]} />
+        </li>
+      ))}
+    </ul>
+  )
+}
 
+function VideoRow({
+  video,
+  rallyCount,
+}: {
+  video: VideoPublic
+  rallyCount: number | undefined
+}) {
+  // The row opens the video's next step: court marking until the court is set.
+  const to = video.status === "uploaded" ? "/videos/$id/court" : "/videos/$id"
   return (
     <Link
       to={to}
       params={{ id: video.id }}
-      className="flex items-center gap-3 p-4 transition-colors hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none"
+      className={cn(
+        "grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3 rounded-2xl bg-card p-2 transition-colors",
+        "hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none",
+        "dark:rounded-[14px] dark:bg-transparent dark:py-2.5 dark:hover:bg-card dark:focus-visible:bg-card",
+      )}
     >
-      <div className="hidden size-10 shrink-0 items-center justify-center rounded-md bg-muted sm:flex">
-        <Film className="size-5 text-muted-foreground" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{video.filename}</p>
-        <p className="text-sm text-muted-foreground">
-          {formatDate(video.created_at)} · {formatDuration(video.duration)}
-        </p>
-        {isInProgress(video.status) && (
-          <Progress
-            value={video.progress * 100}
-            className="mt-2 h-1.5"
-            aria-label={`${video.filename} progress`}
-          />
-        )}
-      </div>
-      <VideoStatusBadge video={video} />
-      <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+      <CourtThumbnail duration={video.duration} />
+      <span className="flex min-w-0 flex-col gap-1">
+        <span className="truncate text-sm font-bold">
+          {video.filename.replace(/\.[^.]+$/, "")}
+        </span>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {formatShortDate(video.created_at)}
+        </span>
+        <VideoStatusBadge video={video} rallyCount={rallyCount} />
+      </span>
     </Link>
   )
 }
 
-function EmptyState() {
+export function VideoListSkeleton() {
   return (
-    <div className="flex flex-col items-center gap-4 rounded-lg border border-dashed px-4 py-12 text-center">
-      <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-        <Film className="size-6 text-muted-foreground" />
-      </div>
+    <ul className="-mx-1 flex flex-col gap-1.5 dark:-mx-2" aria-busy="true">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <li
+          key={index}
+          className="grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3 p-2"
+        >
+          <Skeleton className="h-[54px] w-24 rounded-[10px]" />
+          <span className="flex flex-col gap-2">
+            <Skeleton className="h-4 w-40 max-w-full" />
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-[22px] w-28 rounded-full" />
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
+}
+
+export function NoVideosYet() {
+  return (
+    <div className="mt-4 flex flex-col items-center gap-4 rounded-xl border border-dashed px-4 py-12 text-center">
+      <CourtThumbnail duration={null} />
       <div>
-        <h2 className="text-lg font-semibold">No videos yet</h2>
-        <p className="text-muted-foreground">
+        <h2 className="text-[15px] font-extrabold">No matches yet</h2>
+        <p className="text-sm text-muted-foreground">
           Upload a match and we'll find every rally for you.
         </p>
       </div>
@@ -114,22 +160,5 @@ function EmptyState() {
         </Link>
       </Button>
     </div>
-  )
-}
-
-function VideoListSkeleton() {
-  return (
-    <ul className="divide-y rounded-lg border" aria-busy="true">
-      {Array.from({ length: 3 }).map((_, index) => (
-        <li key={index} className="flex items-center gap-3 p-4">
-          <Skeleton className="hidden size-10 rounded-md sm:block" />
-          <div className="flex flex-1 flex-col gap-2">
-            <Skeleton className="h-4 w-40 max-w-full" />
-            <Skeleton className="h-3 w-28" />
-          </div>
-          <Skeleton className="h-5 w-16 rounded-full" />
-        </li>
-      ))}
-    </ul>
   )
 }

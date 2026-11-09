@@ -24,7 +24,6 @@ import {
 } from "@/components/Videos/queries"
 import { VideoStatusBadge } from "@/components/Videos/VideoStatusBadge"
 import { formatDate, formatDuration, formatMinutes } from "@/lib/format"
-import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 
 export const Route = createFileRoute("/_layout/videos/$id/")({
@@ -54,14 +53,17 @@ function VideoPage() {
     refetch,
   } = useQuery(videoQueryOptions(id))
 
+  // A finished video is the player screen, with its own header (back, title, menu).
+  if (video?.status === "done") {
+    return (
+      <div className="mx-auto w-full max-w-7xl">
+        <Player video={video} />
+      </div>
+    )
+  }
+
   return (
-    <div
-      className={cn(
-        "mx-auto flex w-full flex-col gap-6",
-        // The player gets the full width; the status cards stay narrow.
-        video?.status === "done" ? "max-w-7xl" : "max-w-2xl",
-      )}
-    >
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
       <Button variant="ghost" size="sm" asChild className="-ml-3 self-start">
         <Link to="/">
           <ChevronLeft />
@@ -72,7 +74,7 @@ function VideoPage() {
       {isPending ? (
         <div className="flex flex-col gap-4">
           <Skeleton className="h-8 w-64 max-w-full" />
-          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-40 w-full rounded-xl" />
         </div>
       ) : isError ? (
         <Alert variant="destructive">
@@ -93,14 +95,14 @@ function VideoPage() {
         <>
           <div className="flex flex-col gap-2">
             <div className="flex items-start justify-between gap-3">
-              <h1 className="min-w-0 wrap-break-word text-2xl font-bold tracking-tight">
-                {video.filename}
+              <h1 className="min-w-0 wrap-break-word text-[26px] font-extrabold tracking-[-0.01em]">
+                {video.filename.replace(/\.[^.]+$/, "")}
               </h1>
               <div className="pt-1.5">
                 <VideoStatusBadge video={video} />
               </div>
             </div>
-            <p className="text-muted-foreground">
+            <p className="text-[13px] text-muted-foreground tabular-nums">
               {formatDuration(video.duration)} · uploaded{" "}
               {formatDate(video.created_at)}
             </p>
@@ -137,7 +139,7 @@ function NeedsCourt({ video }: { video: VideoPublic }) {
         </CardDescription>
       </CardHeader>
       <CardFooter>
-        <Button asChild className="w-full sm:w-auto">
+        <Button asChild size="lg" className="w-full sm:w-auto">
           <Link to="/videos/$id/court" params={{ id: video.id }}>
             <MapPin />
             Mark court
@@ -170,7 +172,10 @@ function Processing({ video }: { video: VideoPublic }) {
       <CardContent className="flex flex-col gap-2">
         <Progress value={percent} aria-label="Processing progress" />
         {/* aria-live: screen readers announce the updates the polling brings in */}
-        <p className="text-sm text-muted-foreground" aria-live="polite">
+        <p
+          className="text-[13px] text-muted-foreground tabular-nums"
+          aria-live="polite"
+        >
           {queued
             ? "In line: starts as soon as a worker is free."
             : `${percent}% done`}
@@ -225,13 +230,19 @@ function Failed({ video }: { video: VideoPublic }) {
         )}
       </CardContent>
       <CardFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button variant="outline" asChild className="w-full sm:w-auto">
+        <Button
+          variant="outline"
+          asChild
+          size="lg"
+          className="w-full sm:w-auto"
+        >
           <Link to="/videos/$id/court" params={{ id: video.id }}>
             <MapPin />
             Re-mark court
           </Link>
         </Button>
         <LoadingButton
+          size="lg"
           className="w-full sm:w-auto"
           loading={retry.isPending}
           onClick={() => retry.mutate()}

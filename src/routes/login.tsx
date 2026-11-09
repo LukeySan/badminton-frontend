@@ -75,7 +75,9 @@ function Login() {
           className="flex flex-col gap-6"
         >
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Login to your account</h1>
+            <h1 className="text-[26px] font-extrabold tracking-[-0.01em]">
+              Login to your account
+            </h1>
           </div>
 
           <div className="grid gap-4">
@@ -107,7 +109,7 @@ function Login() {
                     <FormLabel>Password</FormLabel>
                     <RouterLink
                       to="/recover-password"
-                      className="ml-auto text-sm underline-offset-4 hover:underline"
+                      className="ml-auto text-[13px] font-semibold text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                     >
                       Forgot your password?
                     </RouterLink>
@@ -124,14 +126,21 @@ function Login() {
               )}
             />
 
-            <LoadingButton type="submit" loading={loginMutation.isPending}>
+            <LoadingButton
+              type="submit"
+              size="lg"
+              loading={loginMutation.isPending}
+            >
               Log In
             </LoadingButton>
           </div>
 
-          <div className="text-center text-sm">
+          <div className="text-center text-[13px] text-muted-foreground">
             Don't have an account yet?{" "}
-            <RouterLink to="/signup" className="underline underline-offset-4">
+            <RouterLink
+              to="/signup"
+              className="font-bold text-success-text underline underline-offset-4"
+            >
               Sign up
             </RouterLink>
           </div>

@@ -42,12 +42,12 @@ export function RecordingTips() {
         <ul className="flex flex-col gap-4">
           {TIPS.map(({ Icon, title, text }) => (
             <li key={title} className="flex gap-3">
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted">
-                <Icon className="size-4 text-muted-foreground" />
+              <div className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-success-soft text-success-text">
+                <Icon className="size-4" />
               </div>
               <div>
-                <p className="text-sm font-medium">{title}</p>
-                <p className="text-sm text-muted-foreground">{text}</p>
+                <p className="text-sm font-bold">{title}</p>
+                <p className="text-[13px] text-muted-foreground">{text}</p>
               </div>
             </li>
           ))}

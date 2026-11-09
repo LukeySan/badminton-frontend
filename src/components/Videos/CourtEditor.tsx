@@ -191,17 +191,17 @@ export function CourtEditor({ video }: { video: VideoPublic }) {
   return (
     <div className="flex flex-col gap-4">
       <div
-        className="flex items-center gap-3 rounded-lg border p-3"
+        className="flex items-center gap-3 rounded-xl bg-card p-3"
         aria-live="polite"
       >
         <CourtDiagram next={next} />
         <div className="min-w-0">
-          <p className="font-medium">
+          <p className="text-sm font-bold">
             {next < 4
               ? `Tap the ${CORNER_NAMES[next]} corner (${next + 1} of 4)`
               : "All four corners marked"}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             {next < 4
               ? "Far is the baseline at the top of the picture. If a corner is cut off, tap where it would be in the gray area."
               : "Drag a corner to adjust it, then analyze."}
@@ -236,14 +236,14 @@ export function CourtEditor({ video }: { video: VideoPublic }) {
           disabled={busy}
         />
       )}
-      <p className="text-sm text-muted-foreground sm:hidden">
+      <p className="text-[13px] text-muted-foreground sm:hidden">
         Tip: turn your phone sideways for a bigger picture.
       </p>
 
       <div className="flex flex-wrap gap-2">
         <Button
           variant="outline"
-          size="sm"
+          size="lg"
           onClick={() => updateCorners(corners.slice(0, -1))}
           disabled={busy || corners.length === 0}
         >
@@ -252,7 +252,7 @@ export function CourtEditor({ video }: { video: VideoPublic }) {
         </Button>
         <Button
           variant="outline"
-          size="sm"
+          size="lg"
           onClick={() => updateCorners([])}
           disabled={busy || corners.length === 0}
         >
@@ -262,7 +262,7 @@ export function CourtEditor({ video }: { video: VideoPublic }) {
         {times.length > 1 && (
           <Button
             variant="outline"
-            size="sm"
+            size="lg"
             onClick={() => setTimeIndex((i) => (i + 1) % times.length)}
             disabled={frame.isFetching}
           >
@@ -300,7 +300,7 @@ export function CourtEditor({ video }: { video: VideoPublic }) {
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
         {video.status === "done" && (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-[13px] text-muted-foreground">
             Analyzing again replaces the current rallies.
           </p>
         )}
@@ -421,7 +421,7 @@ function CourtBoard({
       data-testid="court-board"
       className={cn(
         // touch-none: the browser must not scroll or zoom while placing corners.
-        "relative mx-auto touch-none select-none rounded-lg bg-muted [-webkit-touch-callout:none]",
+        "relative mx-auto touch-none select-none rounded-xl bg-muted [-webkit-touch-callout:none]",
         corners.length < 4 && !disabled ? "cursor-crosshair" : "",
       )}
       // Full width, but never taller than 75% of the screen (portrait videos, phones
@@ -464,7 +464,7 @@ function CourtBoard({
         {corners.length === 4 ? (
           <polygon
             points={svgPoints}
-            className="fill-primary/20 stroke-primary"
+            className="fill-court-line/20 stroke-court-line"
             strokeWidth={2}
             vectorEffect="non-scaling-stroke"
           />
@@ -472,7 +472,7 @@ function CourtBoard({
           corners.length > 1 && (
             <polyline
               points={svgPoints}
-              className="fill-none stroke-primary"
+              className="fill-none stroke-court-line"
               strokeWidth={2}
               vectorEffect="non-scaling-stroke"
             />
@@ -501,8 +501,11 @@ function CourtBoard({
         >
           <span
             className={cn(
-              "flex size-6 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white shadow-md",
-              index === errorCorner ? "bg-destructive" : "bg-primary",
+              // Mint ring: visible on any video frame.
+              "flex size-6 items-center justify-center rounded-full border-2 border-court-foreground text-[11px] font-bold shadow-md",
+              index === errorCorner
+                ? "bg-highlight text-highlight-foreground"
+                : "bg-chapter text-chapter-foreground",
             )}
           >
             {index + 1}
@@ -542,7 +545,7 @@ function Magnifier({
   const top = toBoardPercent(point[1])
   return (
     <div
-      className="pointer-events-none absolute z-10 rounded-full border-2 border-white bg-muted bg-no-repeat shadow-lg"
+      className="pointer-events-none absolute z-10 rounded-full border-2 border-court-foreground bg-muted bg-no-repeat shadow-lg"
       style={{
         width: SIZE,
         height: SIZE,
@@ -557,7 +560,7 @@ function Magnifier({
       }}
       data-testid="magnifier"
     >
-      <div className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-primary" />
+      <div className="absolute left-1/2 top-1/2 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-court-line" />
     </div>
   )
 }
@@ -592,8 +595,8 @@ function CourtDiagram({ next }: { next: number }) {
           cy={cy}
           r={i === next ? 5 : 3.5}
           className={cn(
-            i < next && "fill-primary",
-            i === next && "animate-pulse fill-primary",
+            i < next && "fill-chapter",
+            i === next && "animate-pulse fill-chapter",
             i > next && "fill-muted-foreground/50",
           )}
         />

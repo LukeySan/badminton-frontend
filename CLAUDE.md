@@ -7,6 +7,7 @@ decisions already made, and the milestones in order.
   section **"Using it from the frontend"** and its `CLAUDE.md` are the source of truth
   for the API's behavior.
 - Research history and numbers: `../CLAUDE.md` and `../badminton-test/`.
+- Visual design: **`DESIGN.md`** — all UI work must follow it (see Conventions).
 
 ## What the app does
 
@@ -156,6 +157,11 @@ rally boundaries, delete fakes — needs backend endpoints); Capacitor.
 
 ## Conventions
 
+- **All UI work must follow `DESIGN.md`.** Read it before touching any screen or
+  component: colors, fonts and radii come only from its theme tokens (Tailwind classes
+  like `bg-background`, `bg-highlight`, never hard-coded values); a missing color gets a
+  token in `DESIGN.md` and `src/index.css` first. Check changes on `/styleguide` in both
+  themes and at phone width (390 px).
 - All API calls go through the generated client + TanStack Query. Query keys like
   `["videos"]`, `["videos", id]`, `["videos", id, "rallies"]`; invalidate them after
   mutations (save court, process, upload).
@@ -163,7 +169,12 @@ rally boundaries, delete fakes — needs backend endpoints); Capacitor.
 - Business rules (court limits, status transitions) live in the backend. The frontend
   shows what the API returns.
 - Use existing shadcn/ui components before writing new ones; add new ones with the
-  shadcn CLI so they match.
+  shadcn CLI so they match. **After every `shadcn add`**, fix its imports: it writes
+  `import { cn } from "cn"` and `import { X as XPrimitive } from "radix-ui"` and installs
+  the `cn` and `radix-ui` packages. Use `@/lib/utils` and the separate
+  `@radix-ui/react-*` package (`import * as XPrimitive from "@radix-ui/react-x"`) like
+  the other components, and `bun remove cn radix-ui`. Then check the new file for
+  hard-coded colors (DESIGN.md rule 1).
 - Run `bun run lint` and `bun run build` before committing.
 
 ## Working style

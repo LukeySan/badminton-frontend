@@ -1,47 +1,71 @@
-import {
-  CircleCheck,
-  CircleExclamationPoint,
-  Clock,
-  LoaderCircle,
-  MapPin,
-} from "lucide-react"
+import { ChevronRight } from "lucide-react"
 
 import type { VideoPublic } from "@/client"
-import { Badge } from "@/components/ui/badge"
-import type { VideoStatus } from "./queries"
+import { cn } from "@/lib/utils"
 
-// `satisfies Record<VideoStatus, …>`: if the backend adds a status and the client is
-// regenerated, the build fails here until it gets a label.
-const STATUS = {
-  uploaded: { label: "Needs court", variant: "outline", Icon: MapPin },
-  queued: { label: "Queued", variant: "secondary", Icon: Clock },
-  processing: { label: "Analyzing", variant: "secondary", Icon: LoaderCircle },
-  done: { label: "Ready", variant: "default", Icon: CircleCheck },
-  failed: {
-    label: "Failed",
-    variant: "destructive",
-    Icon: CircleExclamationPoint,
-  },
-} as const satisfies Record<
-  VideoStatus,
-  {
-    label: string
-    variant: "default" | "secondary" | "destructive" | "outline"
-    Icon: typeof MapPin
-  }
->
+const pill =
+  "inline-flex h-[22px] shrink-0 items-center gap-1 self-start whitespace-nowrap rounded-full px-2 text-[11px] font-extrabold"
 
+/**
+ * Status pill (DESIGN.md "Status badge"). Green = ready, pink = needs fixing,
+ * outline = your next step, a thin bar while the worker runs.
+ */
 export function VideoStatusBadge({
   video,
+  rallyCount,
 }: {
   video: Pick<VideoPublic, "status" | "progress">
+  /** Shown on ready videos when known ("Ready · 73 rallies"). */
+  rallyCount?: number
 }) {
-  const { label, variant, Icon } = STATUS[video.status]
-  return (
-    <Badge variant={variant} data-testid="video-status">
-      <Icon className={video.status === "processing" ? "animate-spin" : ""} />
-      {label}
-      {video.status === "processing" && ` ${Math.round(video.progress * 100)}%`}
-    </Badge>
-  )
+  switch (video.status) {
+    case "done":
+      return (
+        <span
+          data-testid="video-status"
+          className={cn(pill, "bg-success-soft text-success-text")}
+        >
+          Ready{rallyCount !== undefined && ` · ${rallyCount} rallies`}
+        </span>
+      )
+    case "queued":
+    case "processing": {
+      const percent = Math.round(video.progress * 100)
+      return (
+        <span
+          data-testid="video-status"
+          className="flex min-w-0 items-center gap-2"
+        >
+          <span className="whitespace-nowrap text-[11px] font-extrabold tabular-nums">
+            {video.status === "queued" ? "Queued" : `Analyzing ${percent}%`}
+          </span>
+          <span className="relative h-1 min-w-12 flex-1 overflow-hidden rounded-full bg-track">
+            <span
+              className="absolute inset-y-0 left-0 rounded-full bg-chapter"
+              style={{ width: `${video.status === "queued" ? 0 : percent}%` }}
+            />
+          </span>
+        </span>
+      )
+    }
+    case "uploaded":
+      return (
+        <span
+          data-testid="video-status"
+          className={cn(pill, "border border-muted-foreground text-foreground")}
+        >
+          Mark the court
+          <ChevronRight className="size-3" strokeWidth={2.5} />
+        </span>
+      )
+    case "failed":
+      return (
+        <span
+          data-testid="video-status"
+          className={cn(pill, "bg-highlight/16 text-highlight-text-strong")}
+        >
+          Failed · Try again
+        </span>
+      )
+  }
 }

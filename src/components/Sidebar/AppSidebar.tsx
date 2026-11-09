@@ -1,6 +1,6 @@
-import { Film, Upload, Users } from "lucide-react"
-
+import { Upload, Users } from "lucide-react"
 import { SidebarAppearance } from "@/components/Common/Appearance"
+import { MatchesIcon } from "@/components/Common/AppIcons"
 import { Logo } from "@/components/Common/Logo"
 import {
   Sidebar,
@@ -13,7 +13,7 @@ import { type Item, Main } from "./Main"
 import { User } from "./User"
 
 const baseItems: Item[] = [
-  { icon: Film, title: "Videos", path: "/" },
+  { icon: MatchesIcon, title: "Matches", path: "/" },
   { icon: Upload, title: "Upload", path: "/upload" },
 ]
 

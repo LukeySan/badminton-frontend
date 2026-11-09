@@ -35,6 +35,30 @@ export function parseApiDate(iso: string): Date {
   return new Date(iso.replace(/(\.\d{3})\d+/, "$1"))
 }
 
+const dayFormat = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+})
+const dayYearFormat = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+})
+const timeFormat = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+})
+
+/** "Nov 7 · 9:40 PM" (with the year only if it isn't this year). For lists. */
+export function formatShortDate(iso: string): string {
+  const date = parseApiDate(iso)
+  const day =
+    date.getFullYear() === new Date().getFullYear()
+      ? dayFormat.format(date)
+      : dayYearFormat.format(date)
+  return `${day} · ${timeFormat.format(date)}`
+}
+
 /** In the user's locale and time zone. */
 export function formatDate(iso: string): string {
   return dateFormat.format(parseApiDate(iso))

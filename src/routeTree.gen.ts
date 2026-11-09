@@ -14,6 +14,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as RecoverPasswordRouteImport } from './routes/recover-password'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as StyleguideRouteImport } from './routes/styleguide'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
@@ -43,6 +44,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StyleguideRoute = StyleguideRouteImport.update({
+  id: '/styleguide',
+  path: '/styleguide',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LayoutIndexRoute = LayoutIndexRouteImport.update({
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/styleguide': typeof StyleguideRoute
   '/admin': typeof LayoutAdminRoute
   '/settings': typeof LayoutSettingsRoute
   '/upload': typeof LayoutUploadRoute
@@ -93,6 +100,7 @@ export interface FileRoutesByTo {
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/styleguide': typeof StyleguideRoute
   '/admin': typeof LayoutAdminRoute
   '/settings': typeof LayoutSettingsRoute
   '/upload': typeof LayoutUploadRoute
@@ -107,6 +115,7 @@ export interface FileRoutesById {
   '/recover-password': typeof RecoverPasswordRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/styleguide': typeof StyleguideRoute
   '/_layout/admin': typeof LayoutAdminRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/upload': typeof LayoutUploadRoute
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
     | '/recover-password'
     | '/reset-password'
     | '/signup'
+    | '/styleguide'
     | '/admin'
     | '/settings'
     | '/upload'
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/recover-password'
     | '/reset-password'
     | '/signup'
+    | '/styleguide'
     | '/admin'
     | '/settings'
     | '/upload'
@@ -146,6 +157,7 @@ export interface FileRouteTypes {
     | '/recover-password'
     | '/reset-password'
     | '/signup'
+    | '/styleguide'
     | '/_layout/admin'
     | '/_layout/settings'
     | '/_layout/upload'
@@ -160,6 +172,7 @@ export interface RootRouteChildren {
   RecoverPasswordRoute: typeof RecoverPasswordRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  StyleguideRoute: typeof StyleguideRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -197,6 +210,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/styleguide': {
+      id: '/styleguide'
+      path: '/styleguide'
+      fullPath: '/styleguide'
+      preLoaderRoute: typeof StyleguideRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_layout/': {
@@ -271,6 +291,7 @@ const rootRouteChildren: RootRouteChildren = {
   RecoverPasswordRoute: RecoverPasswordRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  StyleguideRoute: StyleguideRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

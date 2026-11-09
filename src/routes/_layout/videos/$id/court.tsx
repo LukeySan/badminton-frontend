@@ -46,16 +46,18 @@ function MarkCourt() {
         </Link>
       </Button>
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Mark the court</h1>
+        <h1 className="text-[26px] font-extrabold tracking-[-0.01em]">
+          Mark the court
+        </h1>
         {video && (
-          <p className="wrap-break-word text-muted-foreground">
-            {video.filename}
+          <p className="mt-1 wrap-break-word text-[13px] text-muted-foreground">
+            {video.filename.replace(/\.[^.]+$/, "")}
           </p>
         )}
       </div>
 
       {isPending ? (
-        <Skeleton className="aspect-video w-full" />
+        <Skeleton className="aspect-video w-full rounded-xl" />
       ) : isError ? (
         <Alert variant="destructive">
           <AlertTitle>Couldn't load this video</AlertTitle>
@@ -81,7 +83,12 @@ function MarkCourt() {
             </CardDescription>
           </CardHeader>
           <CardFooter>
-            <Button asChild variant="outline" className="w-full sm:w-auto">
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="w-full sm:w-auto"
+            >
               <Link to="/videos/$id" params={{ id }}>
                 See progress
               </Link>

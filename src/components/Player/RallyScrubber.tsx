@@ -12,20 +12,25 @@ import { type Segment, segmentAt } from "./rallies"
 const KEY_STEP = 5 // seconds per arrow key press
 
 /**
- * Timeline with each rally drawn as a chapter segment (position = time / duration).
- * Click, tap or drag to seek; arrow keys move 5 s when it has focus.
+ * Timeline with each rally drawn as a chapter segment (DESIGN.md "Chapter scrubber"):
+ * 12 px track, rallies in green, filtered-out ones dimmed, the current one pink and
+ * taller. Click, tap or drag to seek; arrow keys move 5 s when it has focus.
  */
 export function RallyScrubber({
   duration,
   time,
   segments,
+  visibleNumbers,
   currentNumber,
   onSeek,
   onScrubbingChange,
 }: {
   duration: number
   time: number
+  /** All rallies, so filtered-out ones can be drawn dimmed. */
   segments: Segment[]
+  /** Rallies that pass the length filter. */
+  visibleNumbers: Set<number>
   currentNumber: number | undefined
   onSeek: (t: number) => void
   onScrubbingChange: (scrubbing: boolean) => void
@@ -92,14 +97,14 @@ export function RallyScrubber({
       ref={ref}
       role="slider"
       tabIndex={0}
-      aria-label="Seek"
+      aria-label="Video position"
       aria-valuemin={0}
       aria-valuemax={Math.round(duration)}
       aria-valuenow={Math.round(time)}
       aria-valuetext={`${formatDuration(time)}${currentSegment ? `, rally ${currentSegment.number}` : ""}`}
       data-testid="scrubber"
-      // Tall invisible hit area around a thin track; no scrolling while dragging.
-      className="group relative h-8 cursor-pointer touch-none select-none rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      // 44 px tall touch target around the 12 px track; no scrolling while dragging
+      className="relative flex h-11 cursor-pointer touch-none select-none items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
@@ -107,37 +112,44 @@ export function RallyScrubber({
       onPointerLeave={() => !dragging && setHover(null)}
       onKeyDown={onKeyDown}
     >
-      <div className="absolute inset-x-0 top-1/2 h-2 -translate-y-1/2 overflow-hidden rounded-full bg-muted transition-[height] group-hover:h-3">
-        {segments.map((s) => (
-          <div
-            key={s.number}
-            data-testid="chapter"
-            className={cn(
-              "absolute inset-y-0",
-              s.number === currentNumber ? "bg-primary" : "bg-primary/45",
-            )}
-            // A 1.5 s rally in a 20 min video is under 1 px on a phone: keep it visible.
-            style={{
-              left: percent(s.rally.start),
-              width: `max(2px, ${percent(s.rally.duration)})`,
-            }}
-          />
-        ))}
-        {/* Played part, as a light veil over everything before the playhead */}
+      <div className="relative h-3 w-full rounded-[6px] bg-track">
+        {segments.map((s) => {
+          const isCurrent = s.number === currentNumber
+          return (
+            <div
+              key={s.number}
+              data-testid="chapter"
+              data-current={isCurrent || undefined}
+              data-dimmed={!visibleNumbers.has(s.number) || undefined}
+              className={cn(
+                "absolute rounded-[3px]",
+                // Current: pink AND taller (pink is never the only difference)
+                isCurrent
+                  ? "-inset-y-[3px] z-10 min-w-1 bg-highlight"
+                  : "inset-y-0 min-w-0.5",
+                !isCurrent &&
+                  (visibleNumbers.has(s.number)
+                    ? "bg-chapter"
+                    : "bg-chapter-dim"),
+              )}
+              // A 1.5 s rally in a 20 min video is under 1 px on a phone: keep it visible.
+              style={{
+                left: percent(s.rally.start),
+                width: percent(s.rally.duration),
+              }}
+            />
+          )
+        })}
+        {/* Playhead: 4 px bar, 7 px taller than the track, ringed in the page color */}
         <div
-          className="absolute inset-y-0 left-0 bg-foreground/20"
-          style={{ width: percent(time) }}
+          className="pointer-events-none absolute -inset-y-[7px] z-20 w-1 -translate-x-1/2 rounded-[2px] bg-foreground ring-2 ring-background"
+          style={{ left: percent(time) }}
         />
       </div>
 
-      <div
-        className="pointer-events-none absolute top-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-foreground shadow ring-2 ring-background"
-        style={{ left: percent(time) }}
-      />
-
       {hover !== null && (
         <div
-          className="pointer-events-none absolute bottom-full mb-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs tabular-nums text-popover-foreground shadow-md"
+          className="pointer-events-none absolute bottom-full z-30 -translate-x-1/2 whitespace-nowrap rounded-md bg-popover px-2 py-1 text-xs tabular-nums text-popover-foreground shadow-md"
           // Keep the label inside the bar at both ends.
           style={{ left: `clamp(3rem, ${percent(hover)}, calc(100% - 3rem))` }}
         >

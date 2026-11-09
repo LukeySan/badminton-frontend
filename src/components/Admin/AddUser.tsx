@@ -112,7 +112,7 @@ const AddUser = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Email <span className="text-destructive">*</span>
+                      Email <span className="text-highlight-text">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -147,7 +147,8 @@ const AddUser = () => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Set Password <span className="text-destructive">*</span>
+                      Set Password{" "}
+                      <span className="text-highlight-text">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -169,7 +170,7 @@ const AddUser = () => {
                   <FormItem>
                     <FormLabel>
                       Confirm Password{" "}
-                      <span className="text-destructive">*</span>
+                      <span className="text-highlight-text">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
