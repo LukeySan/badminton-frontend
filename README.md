@@ -44,16 +44,32 @@ Commit `openapi.json` and `src/client/` together.
 
 ## Commands
 
-| Command           | What it does                                               |
-| ----------------- | ---------------------------------------------------------- |
-| `bun run dev`     | dev server with hot reload                                 |
-| `bun run build`   | type-check + production build into `dist/`                 |
-| `bun run lint`    | Biome lint + format (fixes files in place)                 |
-| `bun run test`    | Playwright end-to-end tests (starts the dev server itself) |
-| `bun run test:ui` | the same in Playwright's UI mode                           |
+| Command               | What it does                                                           |
+| --------------------- | ---------------------------------------------------------------------- |
+| `bun run dev`         | dev server with hot reload                                             |
+| `bun run build`       | type-check + production build into `dist/`                             |
+| `bun run lint`        | Biome lint + format (fixes files in place)                             |
+| `bun run test`        | Playwright end-to-end tests in Chromium (starts the dev server itself) |
+| `bun run test:ui`     | the same in Playwright's UI mode                                       |
+| `bun run test:webkit` | the tests in WebKit (Safari's engine), in Docker: see below            |
 
 The tests run against the real backend, so it must be running with Mailpit
 (`docker compose up -d`) and the backend in its local environment (the tests create
 users through its dev-only `/private/users/` endpoint). They read `.env`:
 `VITE_API_URL`, `MAILPIT_HOST`, `FIRST_SUPERUSER`, `FIRST_SUPERUSER_PASSWORD`.
 First run only: `bunx playwright install chromium`.
+
+**WebKit.** iPhones (and the iOS app) run WebKit, so CI tests it too. Playwright's
+own WebKit hangs opening pages on macOS 26.0 (Nov 2026), so on a Mac
+`bun run test:webkit` runs Linux WebKit in Playwright's Docker image instead, against
+the production build (`scripts/test-webkit-docker.sh`; needs Docker and the backend
+running). Elsewhere: `PW_WEBKIT=1 bun run test`.
+
+**CI** (`.github/workflows/test-frontend.yml`, on every PR and push to main): Biome,
+build, then the end-to-end tests in Chromium and WebKit against the backend's `main`
+branch (API + Postgres + Mailpit started in the job) and the production build. A
+failed run keeps the Playwright HTML report as an artifact. A frontend PR that needs a
+backend change fails until that change is on the backend's `main`.
+
+**Feedback link.** `VITE_FEEDBACK_EMAIL` in `.env` is where Profile → "Send feedback"
+mails to (hidden when empty). Set it to the beta's inbox before deploying.

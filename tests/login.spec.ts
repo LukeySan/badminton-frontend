@@ -107,11 +107,19 @@ test("Logged-out user cannot access protected routes", async ({ page }) => {
 })
 
 test("Redirects to /login when token is wrong", async ({ page }) => {
-  await page.goto("/settings")
-  await page.evaluate(() => {
+  // Put the bad token in place before the app starts. Setting it on an open page
+  // raced with that page's own 401 redirect in WebKit. Only once per tab (an init
+  // script runs on every load), or /login would get it again and bounce back.
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("seeded-token")) return
+    sessionStorage.setItem("seeded-token", "1")
     localStorage.setItem("access_token", "invalid_token")
   })
-  await page.goto("/settings")
+  // The 401 redirect can come before the load event: only wait for the request.
+  await page.goto("/settings", { waitUntil: "commit" })
   await page.waitForURL("/login")
   await expect(page).toHaveURL("/login")
+  expect(await page.evaluate(() => localStorage.getItem("access_token"))).toBe(
+    null,
+  )
 })

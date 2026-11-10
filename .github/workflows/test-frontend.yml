@@ -1,0 +1,171 @@
+name: Test Frontend
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+permissions:
+  contents: read
+
+# A newer push to the same PR cancels the run that's still going
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  BUN_VERSION: "1.4.4"
+
+jobs:
+  # Fast feedback: formatting/lint and a production build (type check included)
+  lint-build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        timeout-minutes: 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Bun
+        timeout-minutes: 2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install dependencies
+        timeout-minutes: 3
+        run: bun install --frozen-lockfile
+      # `bun run lint` fixes files; `biome ci` only reports, and fails on problems
+      - name: Lint (Biome)
+        timeout-minutes: 2
+        run: bunx biome ci --no-errors-on-unmatched --files-ignore-unknown=true ./
+      - name: Build (tsc + vite)
+        timeout-minutes: 3
+        run: bun run build
+        env:
+          VITE_API_URL: http://localhost:8000
+
+  # End-to-end: the real backend (API + Postgres + Mailpit), the production build,
+  # Chromium and WebKit (Safari's engine)
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      UV_NO_SYNC: "1"
+    steps:
+      - name: Checkout frontend
+        timeout-minutes: 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          path: frontend
+      # The backend's main branch. A frontend PR that needs an unmerged backend
+      # change will fail here until that change is merged: merge the backend first.
+      - name: Checkout backend
+        timeout-minutes: 2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          repository: LukeySan/badminton-be
+          ref: main
+          path: backend
+
+      # --- Backend (same steps as its own CI, minus the worker's torch) ---
+      - name: Set up Python
+        timeout-minutes: 3
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version-file: backend/.python-version
+      - name: Install uv
+        timeout-minutes: 3
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          version: "latest-known"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install backend dependencies (API only)
+        timeout-minutes: 5
+        run: uv sync --locked --package app
+        working-directory: backend
+      # Uploads are probed with ffprobe
+      - name: Install ffmpeg
+        timeout-minutes: 5
+        run: |
+          APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          sudo apt-get $APT_OPTS update
+          sudo apt-get $APT_OPTS install -y --no-install-recommends ffmpeg
+      # Development defaults: admin@example.com / changethis, Mailpit, private API on
+      - timeout-minutes: 1
+        run: cp .env.example .env
+        working-directory: backend
+      - name: Start Postgres and Mailpit
+        timeout-minutes: 5
+        run: docker compose up -d --wait db mailpit
+        working-directory: backend
+      - name: Migrate DB and create the admin
+        timeout-minutes: 3
+        run: uv run bash scripts/prestart.sh
+        working-directory: backend/backend
+      - name: Start the API
+        timeout-minutes: 2
+        working-directory: backend/backend
+        run: |
+          nohup uv run fastapi run --port 8000 > "$RUNNER_TEMP/api.log" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:8000/api/v1/utils/health-check/ && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/api.log"; exit 1
+
+      # --- Frontend ---
+      - name: Set up Bun
+        timeout-minutes: 2
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+      - name: Install dependencies
+        timeout-minutes: 3
+        run: bun install --frozen-lockfile
+        working-directory: frontend
+      # The example matches the backend's development defaults
+      - timeout-minutes: 1
+        run: cp .env.example .env
+        working-directory: frontend
+      - name: Install Playwright browsers
+        timeout-minutes: 5
+        run: bunx playwright install --with-deps chromium webkit
+        working-directory: frontend
+      # Tests run against the production build (what users get), not the dev server
+      - name: Build and serve the app
+        timeout-minutes: 3
+        working-directory: frontend
+        run: |
+          bun run build
+          nohup bunx vite preview --port 5173 --strictPort > "$RUNNER_TEMP/preview.log" 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:5173/ > /dev/null && exit 0
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/preview.log"; exit 1
+      - name: Playwright (Chromium + WebKit)
+        timeout-minutes: 15
+        run: bunx playwright test
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:5173
+
+      - name: Upload Playwright report
+        if: failure()
+        timeout-minutes: 3
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 14
+      - name: Show API log
+        if: failure()
+        run: cat "$RUNNER_TEMP/api.log"
+      - timeout-minutes: 2
+        if: always()
+        run: docker compose down -v --remove-orphans
+        working-directory: backend

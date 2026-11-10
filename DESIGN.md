@@ -126,7 +126,10 @@ uses both to show the themes side by side.
 - Ready → `bg-success-soft text-success-text` "Ready · 73 rallies"
 - Analyzing → "Analyzing 42%" text + 4px progress bar (`bg-track`, fill `bg-chapter`)
 - Needs court → outline pill "Mark the court ›"
-- Failed → `bg-highlight/16 text-highlight-text-strong` "Failed · Try again"
+- Failed → `bg-highlight/16 text-highlight-text-strong` "Failed · Court not visible" (a
+  short form of the backend's `failure_reason`, `components/Videos/failure.ts`). Below it
+  the one fix that can help: an outline "Re-mark court" (court not visible) or
+  "Try again" button, 32px with a 44px touch area
 
 **Video row:** 96×54 court thumbnail (`bg-court` + simple court lines, length in a
 `bg-court-ink/85 text-court-foreground` chip bottom-right), title 14/700 (ellipsis), date 12 muted, status badge. Light theme:
@@ -180,6 +183,9 @@ never inside it) and in the player header. "Delete video" is a destructive menu 
 it opens a confirm dialog whose action is a destructive button (ink on pink) and whose
 errors (the backend's message) show in a destructive alert inside the dialog.
 
+**Beta tag:** after the app name, `bg-success-soft text-success-text`, 18px pill,
+10px/800 uppercase. Green, not pink: it's information, not something to fix.
+
 **Small pieces:** avatar = round `bg-card border text-card-foreground`, 13/800 initials
 (as in the mockups); admin status dot `bg-chapter` (active) / `bg-muted-foreground`
 (inactive); the login page's logo panel `bg-muted`.
@@ -206,6 +212,10 @@ the template's sidebar, restyled with the tokens.
 - **Player** (`/videos/$id` when done): header (back, title, "21:24 · 73 rallies", more),
   video with rally badge + skip pill, scrubber, control row, stat strip, rally list sheet.
   See `player-*.mockup.html`.
+- **How to record** (`/recording-tips`, linked from Upload and Profile): side-view and
+  camera-view drawings on `bg-court` (court lines `--court-line`, labels
+  `--court-foreground`, sight lines `--court-accent`), good/bad captions in
+  `text-success-text` / `text-highlight-text`, then the tips as numbered cards.
 - **Upload, Mark court, Processing, login/signup/password pages:** not mocked — they use
   the same tokens, type and shared components (page title 26/800, 13px muted subtitle,
   cards, 44px main buttons, progress) so they match.

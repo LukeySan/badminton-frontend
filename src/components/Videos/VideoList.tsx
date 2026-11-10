@@ -1,14 +1,18 @@
 import { Link } from "@tanstack/react-router"
-import { Upload } from "lucide-react"
+import { MapPin, RotateCw, Upload } from "lucide-react"
 
 import type { VideoPublic } from "@/client"
 import { Button } from "@/components/ui/button"
+import { LoadingButton } from "@/components/ui/loading-button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import useCustomToast from "@/hooks/useCustomToast"
 import { formatShortDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { extractErrorMessage } from "@/utils"
 import { CourtThumbnail } from "./CourtThumbnail"
 import { VideoActionsMenu } from "./DeleteVideo"
+import { failureInfo, useRetryVideo } from "./failure"
 import { VideoStatusBadge } from "./VideoStatusBadge"
 
 export type VideoFilter = "all" | "ready" | "todo"
@@ -92,35 +96,71 @@ export function VideoList({
 function VideoRow({ video }: { video: VideoPublic }) {
   // The row opens the video's next step: court marking until the court is set.
   const to = video.status === "uploaded" ? "/videos/$id/court" : "/videos/$id"
-  // The menu sits on top of the row's right edge, next to the link rather than
-  // inside it (a button inside a link is invalid and both would react to a tap).
+  // "Stretched link": the title's link covers the whole row with its ::after, and
+  // the buttons sit above it (relative z-10). Buttons can't go inside a link (invalid
+  // HTML, and both would react to a tap), and the link's name stays just the title.
   return (
-    <div className="relative">
-      <Link
-        to={to}
-        params={{ id: video.id }}
-        className={cn(
-          "grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3 rounded-2xl bg-card p-2 pr-12 transition-colors",
-          "hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none",
-          "dark:rounded-[14px] dark:bg-transparent dark:py-2.5 dark:hover:bg-card dark:focus-visible:bg-card",
-        )}
-      >
-        <CourtThumbnail duration={video.duration} />
-        <span className="flex min-w-0 flex-col gap-1">
-          <span className="truncate text-sm font-bold">
-            {video.filename.replace(/\.[^.]+$/, "")}
-          </span>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {formatShortDate(video.created_at)}
-          </span>
-          <VideoStatusBadge video={video} />
+    <div
+      className={cn(
+        "relative grid grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-3 rounded-2xl bg-card p-2 pr-1 transition-colors",
+        "hover:bg-secondary has-[a:focus-visible]:bg-secondary has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-ring",
+        "dark:rounded-[14px] dark:bg-transparent dark:py-2.5 dark:hover:bg-card dark:has-[a:focus-visible]:bg-card",
+      )}
+    >
+      <CourtThumbnail duration={video.duration} />
+      <span className="flex min-w-0 flex-col gap-1">
+        <Link
+          to={to}
+          params={{ id: video.id }}
+          className="block truncate text-sm font-bold outline-none after:absolute after:inset-0 after:rounded-[inherit] after:content-['']"
+        >
+          {video.filename.replace(/\.[^.]+$/, "")}
+        </Link>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {formatShortDate(video.created_at)}
         </span>
-      </Link>
-      <VideoActionsMenu
-        video={video}
-        className="absolute top-1/2 right-1 -translate-y-1/2"
-      />
+        <VideoStatusBadge video={video} />
+        {video.status === "failed" && <FailedRowAction video={video} />}
+      </span>
+      <VideoActionsMenu video={video} className="relative z-10" />
     </div>
+  )
+}
+
+// Small button, 44 px tall touch target (::after), above the row's stretched link.
+const rowAction =
+  "relative z-10 mt-0.5 h-8 self-start px-3 text-xs after:absolute after:inset-x-0 after:-inset-y-1.5 after:content-['']"
+
+/** Failed row: the one fix that can help (re-mark the court, or run it again). */
+function FailedRowAction({ video }: { video: VideoPublic }) {
+  const retry = useRetryVideo(video)
+  const { showErrorToast } = useCustomToast()
+  if (failureInfo(video).courtFirst) {
+    return (
+      <Button asChild size="sm" variant="outline" className={rowAction}>
+        <Link to="/videos/$id/court" params={{ id: video.id }}>
+          <MapPin />
+          Re-mark court
+        </Link>
+      </Button>
+    )
+  }
+  return (
+    <LoadingButton
+      size="sm"
+      variant="outline"
+      className={rowAction}
+      loading={retry.isPending}
+      onClick={() =>
+        retry.mutate(undefined, {
+          // e.g. 429: two videos are already in line
+          onError: (error) => showErrorToast(extractErrorMessage(error)),
+        })
+      }
+    >
+      {!retry.isPending && <RotateCw />}
+      Try again
+    </LoadingButton>
   )
 }
 

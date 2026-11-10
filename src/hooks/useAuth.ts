@@ -48,14 +48,19 @@ const useAuth = () => {
   const loginMutation = useMutation({
     mutationFn: login,
     onSuccess: () => {
+      // Nothing cached from a previous account (videos, name) may show for this one.
+      queryClient.clear()
       navigate({ to: "/" })
     },
     onError: handleError.bind(showErrorToast),
   })
 
-  const logout = () => {
+  const logout = async () => {
     localStorage.removeItem("access_token")
-    navigate({ to: "/login" })
+    await navigate({ to: "/login" })
+    // After leaving the app's pages: clearing earlier would make their queries
+    // refetch without a token (401), and a 401 reloads the page.
+    queryClient.clear()
   }
 
   return {

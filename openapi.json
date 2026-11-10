@@ -5,6 +5,36 @@
     "version": "0.1.0"
   },
   "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": ["health"],
+        "summary": "Health",
+        "description": "For monitoring, no login needed: is the database reachable, and is the queue\nmoving? Queued videos piling up with nothing processing means no worker is\nrunning; a growing oldest_queued_seconds means the workers can't keep up.",
+        "operationId": "health-health",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Database unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/login/access-token": {
       "post": {
         "tags": ["login"],
@@ -761,7 +791,7 @@
       "post": {
         "tags": ["videos"],
         "summary": "Upload Video",
-        "description": "Upload a video (multipart, field `file`). Status starts as `uploaded`.",
+        "description": "Upload a video (multipart, field `file`). Status starts as `uploaded`.\nLimits: MAX_UPLOAD_BYTES (413) and MAX_VIDEO_MINUTES (422).",
         "operationId": "videos-upload_video",
         "security": [
           {
@@ -789,15 +819,17 @@
               }
             }
           },
+          "411": {
+            "description": "No Content-Length header"
+          },
+          "413": {
+            "description": "File larger than MAX_UPLOAD_BYTES (2 GB)"
+          },
+          "415": {
+            "description": "Not a video file type"
+          },
           "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
+            "description": "Video longer than MAX_VIDEO_MINUTES (60), or invalid form"
           }
         }
       }
@@ -1014,7 +1046,7 @@
       "post": {
         "tags": ["videos"],
         "summary": "Process Video",
-        "description": "Queue the video for rally detection.",
+        "description": "Queue the video for rally detection. At most MAX_ACTIVE_VIDEOS_PER_USER of a\nuser's videos can be queued or processing at once (429 beyond that).",
         "operationId": "videos-process_video",
         "security": [
           {
@@ -1043,6 +1075,12 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "No court yet, or already queued/processing"
+          },
+          "429": {
+            "description": "Too many of your videos queued or processing"
           },
           "422": {
             "description": "Validation Error",
@@ -1342,6 +1380,17 @@
         "required": ["corners"],
         "title": "CourtUpdate"
       },
+      "FailureReason": {
+        "type": "string",
+        "enum": [
+          "Couldn't read this video",
+          "Court not visible",
+          "Processing kept stopping on this video",
+          "Something went wrong while processing this video"
+        ],
+        "title": "FailureReason",
+        "description": "Why a video failed, in words for the user (Video.failure_reason). The technical\ndetails go to Video.error, which stays internal (it can contain server paths).\nAn enum so the frontend's generated types list every possible value."
+      },
       "FileUrl": {
         "properties": {
           "url": {
@@ -1370,6 +1419,59 @@
         },
         "type": "object",
         "title": "HTTPValidationError"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["ok", "error"],
+            "title": "Status"
+          },
+          "database": {
+            "type": "string",
+            "enum": ["ok", "unreachable"],
+            "title": "Database"
+          },
+          "queued": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queued",
+            "description": "Videos waiting for a worker"
+          },
+          "processing": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Processing",
+            "description": "Videos being processed"
+          },
+          "oldest_queued_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Queued Seconds",
+            "description": "How long the oldest queued video has waited (since it was queued or re-queued); null when nothing is queued"
+          }
+        },
+        "type": "object",
+        "required": ["status", "database"],
+        "title": "Health"
       },
       "Message": {
         "properties": {
@@ -1800,16 +1902,16 @@
             "type": "number",
             "title": "Progress"
           },
-          "error": {
+          "failure_reason": {
             "anyOf": [
               {
-                "type": "string"
+                "$ref": "#/components/schemas/FailureReason"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Error"
+            "description": "Why it failed, for the user (only when status is 'failed')"
           },
           "duration": {
             "anyOf": [
@@ -1917,7 +2019,7 @@
           "filename",
           "status",
           "progress",
-          "error",
+          "failure_reason",
           "duration",
           "fps",
           "width",

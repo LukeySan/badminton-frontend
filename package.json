@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "generate-client": "openapi-ts",
     "test": "bunx playwright test",
-    "test:ui": "bunx playwright test --ui"
+    "test:ui": "bunx playwright test --ui",
+    "test:webkit": "bash scripts/test-webkit-docker.sh"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",

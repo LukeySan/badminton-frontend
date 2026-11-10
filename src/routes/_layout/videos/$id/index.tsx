@@ -1,9 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link } from "@tanstack/react-router"
 import { ChevronLeft, MapPin, RotateCw } from "lucide-react"
 
 import type { VideoPublic } from "@/client"
-import { VideosService } from "@/client"
 import { Player } from "@/components/Player/Player"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
@@ -18,10 +17,8 @@ import {
 import { LoadingButton } from "@/components/ui/loading-button"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
-import {
-  invalidateVideoLists,
-  videoQueryOptions,
-} from "@/components/Videos/queries"
+import { failureInfo, useRetryVideo } from "@/components/Videos/failure"
+import { videoQueryOptions } from "@/components/Videos/queries"
 import { VideoStatusBadge } from "@/components/Videos/VideoStatusBadge"
 import { formatDate, formatDuration, formatMinutes } from "@/lib/format"
 import { extractErrorMessage } from "@/utils"
@@ -188,65 +185,57 @@ function Processing({ video }: { video: VideoPublic }) {
 }
 
 function Failed({ video }: { video: VideoPublic }) {
-  const queryClient = useQueryClient()
-  const retry = useMutation({
-    mutationFn: async () =>
-      (await VideosService.processVideo({ path: { id: video.id } })).data,
-    onSuccess: (updated) => {
-      // The response is the queued video: put it in the cache so the page switches
-      // to the progress view (and starts polling) without waiting for a refetch.
-      queryClient.setQueryData(videoQueryOptions(video.id).queryKey, updated)
-      invalidateVideoLists(queryClient)
-    },
-  })
+  const retry = useRetryVideo(video)
+  const { reason, help, courtFirst } = failureInfo(video)
+
+  // When the court is the likely cause, re-marking it is the main (filled) action.
+  const remark = (
+    <Button
+      key="remark"
+      variant={courtFirst ? "default" : "outline"}
+      asChild
+      size="lg"
+      className="w-full sm:w-auto"
+    >
+      <Link to="/videos/$id/court" params={{ id: video.id }}>
+        <MapPin />
+        Re-mark court
+      </Link>
+    </Button>
+  )
+  const tryAgain = (
+    <LoadingButton
+      key="retry"
+      variant={courtFirst ? "outline" : "default"}
+      size="lg"
+      className="w-full sm:w-auto"
+      loading={retry.isPending}
+      onClick={() => retry.mutate()}
+    >
+      {!retry.isPending && <RotateCw />}
+      Try again
+    </LoadingButton>
+  )
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Analysis failed</CardTitle>
-        <CardDescription>
-          Try again, or re-mark the court if the corners might be off.
-        </CardDescription>
+        <CardTitle>Analysis failed: {reason}</CardTitle>
+        <CardDescription>{help}</CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {video.error && (
+      {retry.isError && (
+        <CardContent>
           <Alert variant="destructive">
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription className="max-h-40 overflow-y-auto wrap-break-word">
-              {video.error}
-            </AlertDescription>
-          </Alert>
-        )}
-        {retry.isError && (
-          <Alert variant="destructive">
-            <AlertTitle>Couldn't restart</AlertTitle>
+            <AlertTitle>Couldn't start it again</AlertTitle>
             <AlertDescription>
               {extractErrorMessage(retry.error)}
             </AlertDescription>
           </Alert>
-        )}
-      </CardContent>
+        </CardContent>
+      )}
+      {/* Main action last in the DOM: it ends up on the right on desktop, on top on phones */}
       <CardFooter className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button
-          variant="outline"
-          asChild
-          size="lg"
-          className="w-full sm:w-auto"
-        >
-          <Link to="/videos/$id/court" params={{ id: video.id }}>
-            <MapPin />
-            Re-mark court
-          </Link>
-        </Button>
-        <LoadingButton
-          size="lg"
-          className="w-full sm:w-auto"
-          loading={retry.isPending}
-          onClick={() => retry.mutate()}
-        >
-          {!retry.isPending && <RotateCw />}
-          Try again
-        </LoadingButton>
+        {courtFirst ? [tryAgain, remark] : [remark, tryAgain]}
       </CardFooter>
     </Card>
   )
