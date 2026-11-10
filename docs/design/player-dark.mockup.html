@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Player · Your palette, dark</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#101017}
+a{color:#7FD69B}a:hover{color:#DEFFF2}
+button{font-family:inherit;cursor:pointer}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #191923; color: #DEFFF2; font-family: Manrope, system-ui, sans-serif; overflow: hidden">
+
+  <header style="display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 4px; height: 56px; box-sizing: border-box">
+    <button aria-label="Back to videos" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; color: #DEFFF2; border-radius: 12px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+      <span style="font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Saturday doubles · Court 3</span>
+      <span style="font-size: 12px; color: #9DB8AC">21:24 · 73 rallies</span>
+    </div>
+    <button aria-label="More options" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; color: #9DB8AC; border-radius: 12px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+    </button>
+  </header>
+
+  <div style="position: relative; width: 390px; height: 219px; background: #03440C; flex-shrink: 0">
+    <svg width="390" height="219" viewBox="0 0 390 219" fill="none" stroke="#399E5A" stroke-width="2" aria-hidden="true">
+      <path d="M128 52 L262 52 L366 206 L24 206 Z"></path>
+      <path d="M100 110 L290 110"></path>
+      <path d="M195 52 L195 206"></path>
+      <path d="M86 120 L304 120" stroke="#DEFFF2" stroke-width="3"></path>
+    </svg>
+    <div style="position: absolute; left: 12px; top: 12px; padding: 4px 10px; border-radius: 8px; background: #FF3366; color: #191923; font-size: 13px; font-weight: 800">{{nowLabel}}</div>
+    <button role="switch" aria-checked="{{skipAria}}" aria-label="Skip breaks" onClick="{{toggleSkip}}" style="position: absolute; right: 6px; bottom: 4px; height: 44px; padding: 0 6px; border: none; background: transparent; display: flex; align-items: center">
+      <sc-if value="{{skip}}" hint-placeholder-val="{{ true }}">
+        <span style="height: 30px; padding: 0 12px; border-radius: 999px; background: #399E5A; color: #191923; display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; white-space: nowrap">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l4 4L19 7"></path></svg>
+          Skipping breaks
+        </span>
+      </sc-if>
+      <sc-if value="{{noSkip}}" hint-placeholder-val="{{ false }}">
+        <span style="height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(222,255,242,0.35); background: rgba(25,25,35,0.8); color: #DEFFF2; display: flex; align-items: center; font-size: 12px; font-weight: 700; white-space: nowrap">Skip breaks</span>
+      </sc-if>
+    </button>
+  </div>
+
+  <div style="padding: 14px 16px 6px">
+    <div role="slider" aria-label="Video position" aria-valuemin="0" aria-valuemax="1284" aria-valuenow="{{nowSec}}" tabindex="0" style="position: relative; height: 26px; display: flex; align-items: center">
+      <div style="position: relative; width: 100%; height: 12px; border-radius: 6px; background: #2A2A36">
+        <sc-for list="{{chapters}}" as="c" hint-placeholder-count="12">
+          <div style="{{c.style}}"></div>
+        </sc-for>
+        <div style="position: absolute; top: -7px; bottom: -7px; width: 4px; margin-left: -2px; border-radius: 2px; background: #DEFFF2; box-shadow: 0 0 0 2px #191923; {{playhead}}"></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding: 4px 16px 12px">
+    <div style="padding: 8px 10px; border-radius: 12px; background: #23232F; display: flex; flex-direction: column">
+      <span style="font-size: 11px; font-weight: 700; color: #9DB8AC">This rally</span>
+      <span style="font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums">{{rallyLen}}</span>
+    </div>
+    <div style="padding: 8px 10px; border-radius: 12px; background: #23232F; display: flex; flex-direction: column">
+      <span style="font-size: 11px; font-weight: 700; color: #9DB8AC">Actual play</span>
+      <span style="font-size: 20px; font-weight: 800; color: #7FD69B; font-variant-numeric: tabular-nums">{{playTotal}}</span>
+    </div>
+    <div style="padding: 8px 10px; border-radius: 12px; background: #23232F; display: flex; flex-direction: column">
+      <span style="font-size: 11px; font-weight: 700; color: #9DB8AC">Breaks cut</span>
+      <span style="font-size: 20px; font-weight: 800; font-variant-numeric: tabular-nums">{{saved}}</span>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; padding: 0 6px 8px 16px">
+    <span style="font-size: 13px; font-variant-numeric: tabular-nums; color: #DEFFF2; white-space: nowrap">{{nowAt}}<span style="color: #9DB8AC"> / 21:24</span></span>
+    <div style="display: flex; align-items: center">
+      <button aria-label="Previous rally" onClick="{{prev}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: #DEFFF2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18 19L8.5 12 18 5v14z"></path><rect x="5" y="5" width="2.2" height="14" rx="1"></rect></svg>
+      </button>
+      <button aria-label="{{playLabel}}" onClick="{{togglePlay}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: #DEFFF2">
+        <sc-if value="{{playing}}" hint-placeholder-val="{{ true }}">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"></rect><rect x="14" y="5" width="4" height="14" rx="1"></rect></svg>
+        </sc-if>
+        <sc-if value="{{paused}}" hint-placeholder-val="{{ false }}">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+        </sc-if>
+      </button>
+      <button aria-label="Next rally" onClick="{{next}}" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: #DEFFF2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 5l9.5 7L6 19V5z"></path><rect x="16.8" y="5" width="2.2" height="14" rx="1"></rect></svg>
+      </button>
+    </div>
+    <div style="display: flex; align-items: center; justify-content: flex-end">
+      <button aria-label="Full screen" style="width: 40px; height: 44px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: #DEFFF2">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5"></path><path d="M20 9V4h-5"></path><path d="M4 15v5h5"></path><path d="M20 15v5h-5"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <div style="flex: 1; min-height: 0; display: flex; flex-direction: column; background: #20202B; border-radius: 22px 22px 0 0">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 14px 16px 8px">
+      <div role="group" aria-label="Sort rallies" style="display: flex; gap: 4px">
+        <sc-for list="{{sorts}}" as="s" hint-placeholder-count="2">
+          <sc-if value="{{s.on}}" hint-placeholder-val="{{ false }}">
+            <button aria-pressed="true" onClick="{{s.pick}}" style="height: 32px; padding: 0 12px; border: none; border-radius: 10px; background: #DEFFF2; color: #191923; font-size: 13px; font-weight: 800">{{s.label}}</button>
+          </sc-if>
+          <sc-if value="{{s.off}}" hint-placeholder-val="{{ true }}">
+            <button aria-pressed="false" onClick="{{s.pick}}" style="height: 32px; padding: 0 12px; border: none; border-radius: 10px; background: #2E2E3B; color: #B9D1C6; font-size: 13px; font-weight: 600">{{s.label}}</button>
+          </sc-if>
+        </sc-for>
+      </div>
+      <div role="group" aria-label="Minimum length" style="display: flex; gap: 4px">
+        <sc-for list="{{mins}}" as="m" hint-placeholder-count="3">
+          <sc-if value="{{m.on}}" hint-placeholder-val="{{ false }}">
+            <button aria-pressed="true" onClick="{{m.pick}}" style="height: 32px; padding: 0 10px; border-radius: 10px; border: 1.5px solid #399E5A; background: rgba(57,158,90,0.18); color: #7FD69B; font-size: 12px; font-weight: 800">{{m.label}}</button>
+          </sc-if>
+          <sc-if value="{{m.off}}" hint-placeholder-val="{{ true }}">
+            <button aria-pressed="false" onClick="{{m.pick}}" style="height: 32px; padding: 0 10px; border-radius: 10px; border: 1.5px solid #34343F; background: transparent; color: #9DB8AC; font-size: 12px; font-weight: 600">{{m.label}}</button>
+          </sc-if>
+        </sc-for>
+      </div>
+    </div>
+    <div style="padding: 0 16px 6px; font-size: 12px; font-weight: 700; color: #9DB8AC">{{countLabel}}</div>
+    <div style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 16px">
+      <sc-for list="{{rows}}" as="row" hint-placeholder-count="8">
+        <sc-if value="{{row.on}}" hint-placeholder-val="{{ false }}">
+          <button aria-current="true" onClick="{{row.pick}}" style="width: 100%; height: 50px; display: grid; grid-template-columns: 44px 52px minmax(0, 1fr) 52px; align-items: center; gap: 8px; padding: 0 10px; border: 1.5px solid #FF3366; border-radius: 12px; background: rgba(255,51,102,0.12); color: #DEFFF2; text-align: left; font-size: 14px">
+            <span style="font-weight: 800; color: #FF6B8E">#{{row.n}}</span>
+            <span style="font-variant-numeric: tabular-nums; font-weight: 700">{{row.time}}</span>
+            <span style="height: 8px; border-radius: 4px; background: #3A2632; position: relative; overflow: hidden"><span style="{{row.barOn}}"></span></span>
+            <span style="text-align: right; font-variant-numeric: tabular-nums; font-weight: 800">{{row.len}}</span>
+          </button>
+        </sc-if>
+        <sc-if value="{{row.off}}" hint-placeholder-val="{{ true }}">
+          <button onClick="{{row.pick}}" style="width: 100%; height: 50px; display: grid; grid-template-columns: 44px 52px minmax(0, 1fr) 52px; align-items: center; gap: 8px; padding: 0 10px; border: 1.5px solid transparent; border-radius: 12px; background: transparent; color: #DEFFF2; text-align: left; font-size: 14px">
+            <span style="font-weight: 700; color: #9DB8AC">#{{row.n}}</span>
+            <span style="font-variant-numeric: tabular-nums">{{row.time}}</span>
+            <span style="height: 8px; border-radius: 4px; background: #2E2E3B; position: relative; overflow: hidden"><span style="{{row.barOff}}"></span></span>
+            <span style="text-align: right; font-variant-numeric: tabular-nums; color: #B9D1C6; font-weight: 600">{{row.len}}</span>
+          </button>
+        </sc-if>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { current: 12, sort: 'time', min: 0, skip: true, playing: true };
+  }
+  fmt(s) {
+    var m = Math.floor(s / 60), sec = Math.floor(s % 60);
+    return m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+  rallies() {
+    if (this._r) return this._r;
+    var seed = 11;
+    function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
+    var n = 73, total = 1284, play = 309, lead = 14, ds = [], gs = [], sd = 0, sg = 0, i;
+    for (i = 0; i < n; i++) {
+      var d = 0.3 + Math.pow(rnd(), 3) * 5; ds.push(d); sd += d;
+      var g = 0.4 + rnd(); gs.push(g); sg += g;
+    }
+    var gapTotal = total - play - lead - 6, t = lead, out = [];
+    for (i = 0; i < n; i++) {
+      var dur = ds[i] / sd * play;
+      out.push({ n: i + 1, start: t, end: t + dur, dur: dur });
+      t += dur + gs[i] / sg * gapTotal;
+    }
+    this._r = out;
+    return out;
+  }
+  renderVals() {
+    var self = this, st = this.state, rs = this.rallies(), total = 1284;
+    var cur = rs[st.current - 1];
+    var at = cur.start + cur.dur * 0.45;
+    var maxDur = 0; rs.forEach(function (r) { if (r.dur > maxDur) maxDur = r.dur; });
+    var list = rs.filter(function (r) { return r.dur >= st.min; });
+    if (st.sort === 'long') list = list.slice().sort(function (a, b) { return b.dur - a.dur; });
+    var rows = list.map(function (r) {
+      var on = r.n === st.current, pct = (r.dur / maxDur * 100).toFixed(1);
+      return { n: r.n, time: self.fmt(r.start), len: r.dur.toFixed(1) + 's', on: on, off: !on,
+        barOn: 'position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:#FF3366;width:' + pct + '%;',
+        barOff: 'position:absolute;left:0;top:0;bottom:0;border-radius:4px;background:#399E5A;width:' + pct + '%;',
+        pick: function () { self.setState({ current: r.n }); } };
+    });
+    var chapters = rs.map(function (r) {
+      var left = r.start / total * 100, w = r.dur / total * 100, on = r.n === st.current;
+      var color = on ? '#FF3366' : (r.dur < st.min ? '#34343F' : '#399E5A');
+      var vert = on ? 'top:-3px;bottom:-3px;' : 'top:0;bottom:0;';
+      return { style: 'position:absolute;' + vert + 'left:' + left.toFixed(3) + '%;width:max(' + (on ? 4 : 2) + 'px,' + w.toFixed(3) + '%);border-radius:3px;background:' + color + ';' };
+    });
+    var sum = 0; rs.forEach(function (r) { sum += r.dur; });
+    var sorts = [{ v: 'time', label: 'Time' }, { v: 'long', label: 'Longest' }].map(function (s) {
+      var on = st.sort === s.v;
+      return { label: s.label, on: on, off: !on, pick: function () { self.setState({ sort: s.v }); } };
+    });
+    var mins = [{ v: 0, label: 'All' }, { v: 5, label: '5s+' }, { v: 10, label: '10s+' }].map(function (m) {
+      var on = st.min === m.v;
+      return { label: m.label, on: on, off: !on, pick: function () { self.setState({ min: m.v }); } };
+    });
+    return {
+      chapters: chapters,
+      rows: rows,
+      sorts: sorts,
+      mins: mins,
+      playhead: 'left:' + (at / total * 100).toFixed(3) + '%;',
+      nowSec: Math.round(at),
+      nowLabel: 'Rally ' + st.current + ' of 73',
+      nowTime: this.fmt(at) + ' / 21:24',
+      nowAt: this.fmt(at),
+      rallyLen: cur.dur.toFixed(1) + 's',
+      playTotal: this.fmt(sum),
+      saved: this.fmt(total - sum),
+      countLabel: list.length === 73 ? '73 rallies' : list.length + ' of 73 rallies',
+      skip: st.skip, noSkip: !st.skip, skipAria: st.skip ? 'true' : 'false',
+      playing: st.playing, paused: !st.playing, playLabel: st.playing ? 'Pause' : 'Play',
+      togglePlay: function () { self.setState({ playing: !st.playing }); },
+      toggleSkip: function () { self.setState({ skip: !st.skip }); },
+      prev: function () { self.setState({ current: Math.max(1, st.current - 1) }); },
+      next: function () { self.setState({ current: Math.min(73, st.current + 1) }); }
+    };
+  }
+}
+</script>
+</body>
+</html>

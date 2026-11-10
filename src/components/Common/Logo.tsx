@@ -1,60 +1,41 @@
 import { Link } from "@tanstack/react-router"
 
-import { useTheme } from "@/components/theme-provider"
 import { cn } from "@/lib/utils"
-import icon from "/assets/images/fastapi-icon.svg"
-import iconLight from "/assets/images/fastapi-icon-light.svg"
-import logo from "/assets/images/fastapi-logo.svg"
-import logoLight from "/assets/images/fastapi-logo-light.svg"
+import { AppMark } from "./AppIcons"
 
 interface LogoProps {
+  /** responsive = full, but only the mark when the desktop sidebar is collapsed */
   variant?: "full" | "icon" | "responsive"
   className?: string
   asLink?: boolean
 }
 
+/** App mark + "Rally Analyzer" (DESIGN.md: app name 18/800). */
 export function Logo({
   variant = "full",
   className,
   asLink = true,
 }: LogoProps) {
-  const { resolvedTheme } = useTheme()
-  const isDark = resolvedTheme === "dark"
-
-  const fullLogo = isDark ? logoLight : logo
-  const iconLogo = isDark ? iconLight : icon
-
-  const content =
-    variant === "responsive" ? (
-      <>
-        <img
-          src={fullLogo}
-          alt="FastAPI"
+  const content = (
+    <span className={cn("flex items-center gap-2.5", className)}>
+      <AppMark />
+      {variant !== "icon" && (
+        <span
           className={cn(
-            "h-6 w-auto group-data-[collapsible=icon]:hidden",
-            className,
+            "truncate text-[18px] font-extrabold",
+            variant === "responsive" && "group-data-[collapsible=icon]:hidden",
           )}
-        />
-        <img
-          src={iconLogo}
-          alt="FastAPI"
-          className={cn(
-            "size-5 hidden group-data-[collapsible=icon]:block",
-            className,
-          )}
-        />
-      </>
-    ) : (
-      <img
-        src={variant === "full" ? fullLogo : iconLogo}
-        alt="FastAPI"
-        className={cn(variant === "full" ? "h-6 w-auto" : "size-5", className)}
-      />
-    )
+        >
+          Rally Analyzer
+        </span>
+      )}
+    </span>
+  )
 
-  if (!asLink) {
-    return content
-  }
-
-  return <Link to="/">{content}</Link>
+  if (!asLink) return content
+  return (
+    <Link to="/" aria-label="Rally Analyzer, home">
+      {content}
+    </Link>
+  )
 }

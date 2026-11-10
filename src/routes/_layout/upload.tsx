@@ -105,8 +105,10 @@ function UploadPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Upload a match</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-[26px] font-extrabold tracking-[-0.01em]">
+          Upload a match
+        </h1>
+        <p className="mt-1 text-[13px] text-muted-foreground">
           Next you'll mark the court, then we find the rallies.
         </p>
       </div>
@@ -121,9 +123,9 @@ function UploadPage() {
             onDragLeave={() => setDragging(false)}
             onDrop={onDrop}
             className={cn(
-              "flex cursor-pointer flex-col items-center gap-3 rounded-lg border-2 border-dashed px-4 py-10 text-center transition-colors hover:bg-muted/50",
+              "flex cursor-pointer flex-col items-center gap-3 rounded-xl border-2 border-dashed bg-card px-4 py-10 text-center transition-colors hover:bg-secondary dark:bg-transparent dark:hover:bg-card",
               "has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring",
-              dragging && "border-primary bg-muted/50",
+              dragging && "border-primary bg-success-soft dark:bg-success-soft",
               upload.isPending && "pointer-events-none opacity-50",
             )}
           >
@@ -138,14 +140,14 @@ function UploadPage() {
                 event.target.value = "" // so choosing the same file again still fires
               }}
             />
-            <div className="flex size-12 items-center justify-center rounded-full bg-muted">
-              <Film className="size-6 text-muted-foreground" />
+            <div className="flex size-12 items-center justify-center rounded-[14px] bg-success-soft text-success-text">
+              <Film className="size-6" />
             </div>
             <div>
-              <p className="font-medium">
+              <p className="text-[15px] font-extrabold">
                 {file ? "Choose a different video" : "Choose a video"}
               </p>
-              <p className="text-sm text-muted-foreground">
+              <p className="mt-0.5 text-[13px] text-muted-foreground">
                 <span className="hidden sm:inline">or drop it here · </span>
                 MP4, MOV, M4V, MKV or WebM
               </p>
@@ -153,12 +155,12 @@ function UploadPage() {
           </label>
 
           {file && (
-            <div className="flex flex-col gap-4 rounded-lg border p-4">
+            <div className="flex flex-col gap-4 rounded-xl bg-card p-4">
               <div className="flex items-center gap-3">
                 <Film className="size-5 shrink-0 text-muted-foreground" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate font-medium">{file.name}</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="truncate text-sm font-bold">{file.name}</p>
+                  <p className="text-xs text-muted-foreground tabular-nums">
                     {formatBytes(file.size)}
                   </p>
                 </div>
@@ -170,7 +172,7 @@ function UploadPage() {
                     value={progress * 100}
                     aria-label="Upload progress"
                   />
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-[13px] text-muted-foreground tabular-nums">
                     {checking
                       ? "Checking the video…"
                       : `${Math.round(progress * 100)}% · ${formatBytes(progress * file.size)} of ${formatBytes(file.size)}`}
@@ -187,7 +189,7 @@ function UploadPage() {
                 </Alert>
               )}
               {canceled && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-[13px] text-muted-foreground">
                   Upload canceled.
                 </p>
               )}
@@ -196,13 +198,14 @@ function UploadPage() {
                 {upload.isPending ? (
                   <Button
                     variant="outline"
+                    size="lg"
                     onClick={() => abortRef.current?.abort()}
                     disabled={checking}
                   >
                     Cancel
                   </Button>
                 ) : (
-                  <Button onClick={() => upload.mutate(file)}>
+                  <Button size="lg" onClick={() => upload.mutate(file)}>
                     <Upload />
                     {upload.isError && !canceled ? "Try again" : "Upload"}
                   </Button>

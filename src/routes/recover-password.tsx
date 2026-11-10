@@ -85,7 +85,9 @@ function RecoverPassword() {
           className="flex flex-col gap-6"
         >
           <div className="flex flex-col items-center gap-2 text-center">
-            <h1 className="text-2xl font-bold">Password Recovery</h1>
+            <h1 className="text-[26px] font-extrabold tracking-[-0.01em]">
+              Password Recovery
+            </h1>
           </div>
 
           <div className="grid gap-4">
@@ -110,6 +112,7 @@ function RecoverPassword() {
 
             <LoadingButton
               type="submit"
+              size="lg"
               className="w-full"
               loading={mutation.isPending}
             >
@@ -117,9 +120,12 @@ function RecoverPassword() {
             </LoadingButton>
           </div>
 
-          <div className="text-center text-sm">
+          <div className="text-center text-[13px] text-muted-foreground">
             Remember your password?{" "}
-            <RouterLink to="/login" className="underline underline-offset-4">
+            <RouterLink
+              to="/login"
+              className="font-bold text-success-text underline underline-offset-4"
+            >
               Log in
             </RouterLink>
           </div>

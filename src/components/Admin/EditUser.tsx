@@ -121,7 +121,7 @@ const EditUser = ({ user, onSuccess }: EditUserProps) => {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Email <span className="text-destructive">*</span>
+                      Email <span className="text-highlight-text">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
