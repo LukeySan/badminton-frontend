@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   EllipsisVertical,
   MapPin,
+  Trash2,
   TriangleExclamationPoint,
 } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
@@ -27,6 +28,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Skeleton } from "@/components/ui/skeleton"
+import { DeleteVideoDialog } from "@/components/Videos/DeleteVideo"
 import {
   fileUrlQueryOptions,
   ralliesQueryOptions,
@@ -251,7 +253,7 @@ export function Player({ video }: { video: VideoPublic }) {
         "max-md:portrait:-m-4 max-md:portrait:h-dvh",
       )}
     >
-      <PlayerHeader video={video} rallyCount={rallies.data?.count} />
+      <PlayerHeader video={video} />
 
       <div className="flex min-h-0 flex-1 flex-col md:gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start lg:gap-6">
         <div className="flex shrink-0 flex-col">
@@ -505,13 +507,8 @@ export function Player({ video }: { video: VideoPublic }) {
 }
 
 /** Back, title + "21:24 · 73 rallies", and a menu (DESIGN.md player header). */
-function PlayerHeader({
-  video,
-  rallyCount,
-}: {
-  video: VideoPublic
-  rallyCount: number | undefined
-}) {
+function PlayerHeader({ video }: { video: VideoPublic }) {
+  const [deleting, setDeleting] = useState(false)
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 py-2 pr-2 pl-1 md:mb-4 md:h-auto md:p-0">
       <Button
@@ -529,8 +526,8 @@ function PlayerHeader({
           {video.filename.replace(/\.[^.]+$/, "")}
         </h1>
         <p className="text-xs text-muted-foreground tabular-nums md:text-[13px]">
-          {formatDuration(video.duration)}
-          {rallyCount !== undefined && ` · ${rallyCount} rallies`}
+          {formatDuration(video.duration)} · {video.rally_count}{" "}
+          {video.rally_count === 1 ? "rally" : "rallies"}
         </p>
       </div>
       <DropdownMenu modal={false}>
@@ -551,8 +548,20 @@ function PlayerHeader({
               Re-mark court
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => setDeleting(true)}
+          >
+            <Trash2 />
+            Delete video
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <DeleteVideoDialog
+        video={video}
+        open={deleting}
+        onOpenChange={setDeleting}
+      />
     </header>
   )
 }

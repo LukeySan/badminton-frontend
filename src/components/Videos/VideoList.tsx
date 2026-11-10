@@ -8,6 +8,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { formatShortDate } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { CourtThumbnail } from "./CourtThumbnail"
+import { VideoActionsMenu } from "./DeleteVideo"
 import { VideoStatusBadge } from "./VideoStatusBadge"
 
 export type VideoFilter = "all" | "ready" | "todo"
@@ -63,11 +64,9 @@ export function VideoFilterChips({
 /** Light theme: each row is a white card; dark: flat rows (DESIGN.md "Video row"). */
 export function VideoList({
   videos,
-  rallyCounts,
   filter,
 }: {
   videos: VideoPublic[]
-  rallyCounts: Record<string, number | undefined>
   filter: VideoFilter
 }) {
   if (videos.length === 0) {
@@ -83,43 +82,45 @@ export function VideoList({
     <ul className="-mx-1 flex flex-col gap-1.5 lg:grid lg:grid-cols-2 dark:-mx-2 dark:gap-0">
       {videos.map((video) => (
         <li key={video.id}>
-          <VideoRow video={video} rallyCount={rallyCounts[video.id]} />
+          <VideoRow video={video} />
         </li>
       ))}
     </ul>
   )
 }
 
-function VideoRow({
-  video,
-  rallyCount,
-}: {
-  video: VideoPublic
-  rallyCount: number | undefined
-}) {
+function VideoRow({ video }: { video: VideoPublic }) {
   // The row opens the video's next step: court marking until the court is set.
   const to = video.status === "uploaded" ? "/videos/$id/court" : "/videos/$id"
+  // The menu sits on top of the row's right edge, next to the link rather than
+  // inside it (a button inside a link is invalid and both would react to a tap).
   return (
-    <Link
-      to={to}
-      params={{ id: video.id }}
-      className={cn(
-        "grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3 rounded-2xl bg-card p-2 transition-colors",
-        "hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none",
-        "dark:rounded-[14px] dark:bg-transparent dark:py-2.5 dark:hover:bg-card dark:focus-visible:bg-card",
-      )}
-    >
-      <CourtThumbnail duration={video.duration} />
-      <span className="flex min-w-0 flex-col gap-1">
-        <span className="truncate text-sm font-bold">
-          {video.filename.replace(/\.[^.]+$/, "")}
+    <div className="relative">
+      <Link
+        to={to}
+        params={{ id: video.id }}
+        className={cn(
+          "grid grid-cols-[96px_minmax(0,1fr)] items-center gap-3 rounded-2xl bg-card p-2 pr-12 transition-colors",
+          "hover:bg-secondary focus-visible:bg-secondary focus-visible:outline-none",
+          "dark:rounded-[14px] dark:bg-transparent dark:py-2.5 dark:hover:bg-card dark:focus-visible:bg-card",
+        )}
+      >
+        <CourtThumbnail duration={video.duration} />
+        <span className="flex min-w-0 flex-col gap-1">
+          <span className="truncate text-sm font-bold">
+            {video.filename.replace(/\.[^.]+$/, "")}
+          </span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {formatShortDate(video.created_at)}
+          </span>
+          <VideoStatusBadge video={video} />
         </span>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {formatShortDate(video.created_at)}
-        </span>
-        <VideoStatusBadge video={video} rallyCount={rallyCount} />
-      </span>
-    </Link>
+      </Link>
+      <VideoActionsMenu
+        video={video}
+        className="absolute top-1/2 right-1 -translate-y-1/2"
+      />
+    </div>
   )
 }
 

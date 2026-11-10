@@ -1,4 +1,4 @@
-import { useQueries, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { Upload } from "lucide-react"
 import { useMemo } from "react"
@@ -8,10 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { LastMatchCard } from "@/components/Videos/LastMatchCard"
-import {
-  ralliesQueryOptions,
-  videosQueryOptions,
-} from "@/components/Videos/queries"
+import { videosQueryOptions } from "@/components/Videos/queries"
 import {
   matchesFilter,
   NoVideosYet,
@@ -20,6 +17,7 @@ import {
   VideoList,
   VideoListSkeleton,
 } from "@/components/Videos/VideoList"
+import useShowAllVideos from "@/hooks/useShowAllVideos"
 import { extractErrorMessage } from "@/utils"
 
 export const Route = createFileRoute("/_layout/")({
@@ -46,7 +44,12 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`
 function Home() {
   const { filter = "all" } = Route.useSearch()
   const navigate = useNavigate({ from: Route.fullPath })
-  const videosQuery = useQuery(videosQueryOptions())
+  // Superusers can switch to everyone's videos on Profile.
+  const { all } = useShowAllVideos()
+  const videosQuery = useQuery({
+    ...videosQueryOptions({ all: all ?? false }),
+    enabled: all !== undefined, // wait until we know whether all=true is allowed
+  })
   const videos = videosQuery.data?.data ?? []
 
   // Newest first (API order), so the first done video is the latest match.
@@ -54,16 +57,6 @@ function Home() {
     () => videos.filter((v) => v.status === "done"),
     [videos],
   )
-  // Rally counts for the "Ready · 73 rallies" badges. One request per analyzed
-  // video, shared with the player through the cache.
-  // TODO(backend): a rally_count / play_time field on VideoPublic would avoid these.
-  const rallyResults = useQueries({
-    queries: done.map((video) => ralliesQueryOptions(video.id)),
-  })
-  const rallyCounts = Object.fromEntries(
-    done.map((video, i) => [video.id, rallyResults[i]?.data?.count]),
-  )
-
   const setFilter = (next: VideoFilter) =>
     navigate({ search: next === "all" ? {} : { filter: next }, replace: true })
 
@@ -80,6 +73,7 @@ function Home() {
             <p className="mt-1 text-[13px] text-muted-foreground">
               {plural(videosQuery.data.count, "video")} · {done.length} ready to
               watch
+              {all && " · all users"}
             </p>
           ) : (
             <Skeleton className="mt-1.5 h-4 w-40" />
@@ -129,7 +123,6 @@ function Home() {
             </div>
             <VideoList
               videos={videos.filter((video) => matchesFilter(video, filter))}
-              rallyCounts={rallyCounts}
               filter={filter}
             />
             {videosQuery.data.count > videos.length && (

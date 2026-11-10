@@ -30,9 +30,9 @@ import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 import {
   frameQueryOptions,
+  invalidateVideoLists,
   ralliesQueryOptions,
   videoQueryOptions,
-  videosQueryOptions,
 } from "./queries"
 
 // --- Geometry ---------------------------------------------------------------
@@ -132,10 +132,7 @@ export function CourtEditor({ video }: { video: VideoPublic }) {
       ).data,
     onSuccess: (updated) => {
       queryClient.setQueryData(videoQueryOptions(video.id).queryKey, updated)
-      queryClient.invalidateQueries({
-        queryKey: videosQueryOptions().queryKey,
-        exact: true,
-      })
+      invalidateVideoLists(queryClient)
     },
   })
 
@@ -144,10 +141,7 @@ export function CourtEditor({ video }: { video: VideoPublic }) {
       (await VideosService.processVideo({ path: { id: video.id } })).data,
     onSuccess: (updated) => {
       queryClient.setQueryData(videoQueryOptions(video.id).queryKey, updated)
-      queryClient.invalidateQueries({
-        queryKey: videosQueryOptions().queryKey,
-        exact: true,
-      })
+      invalidateVideoLists(queryClient)
       // Reprocessing replaces the rallies; drop the old ones from the cache.
       queryClient.removeQueries({
         queryKey: ralliesQueryOptions(video.id).queryKey,

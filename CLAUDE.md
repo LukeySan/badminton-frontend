@@ -70,16 +70,17 @@ works inside Capacitor.
 All times are **seconds** (float). Court corners are **fractions** of the video's
 width/height, order **far-left, far-right, near-right, near-left**.
 
-| Endpoint                                        | Use                                                                                                                                                                                                             |
-| ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `GET /videos/?skip&limit`                       | video list                                                                                                                                                                                                      |
-| `POST /videos/` multipart field `file`          | upload → `VideoPublic` (status `uploaded`); 415 for unsupported file types                                                                                                                                      |
-| `GET /videos/{id}`                              | `VideoPublic`: `status` (`uploaded`→`queued`→`processing`→`done`/`failed`), `progress` (0–1), `error`, `duration`, `fps`, `width`, `height`, `court_corners`, `court_out_of_frame`, timestamps                  |
-| `GET /videos/{id}/frame?t=1.0`                  | JPEG for court tapping. Needs the login header, so fetch it with the client (as a blob) and show it via `URL.createObjectURL` — not as a plain `<img src>`                                                      |
-| `PUT /videos/{id}/court` `{corners: [[x,y]×4]}` | save corners. 422 with a readable message for wrong tap order or a corner too far outside                                                                                                                       |
-| `POST /videos/{id}/process`                     | queue (also reprocess)                                                                                                                                                                                          |
-| `GET /videos/{id}/rallies`                      | `{data: [{id, start, end, duration}], count}`                                                                                                                                                                   |
-| `GET /videos/{id}/file-url`                     | `{url, expires_at}`: a signed, expiring URL for this one video. Use `<video src={VITE_API_URL + url}>`. Refetch a new one when it expires (the video tag can't send the login header, which is why this exists) |
+| Endpoint                                        | Use                                                                                                                                                                                                                                                                                    |
+| ----------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /videos/?skip&limit&all`                   | your videos, newest first, `{data, count}`. Superusers: `all=true` = everyone's (403 for others, and the app logs out on 403, so only send it for a confirmed superuser)                                                                                                               |
+| `POST /videos/` multipart field `file`          | upload → `VideoPublic` (status `uploaded`); 415 for unsupported file types                                                                                                                                                                                                             |
+| `GET /videos/{id}`                              | `VideoPublic`: `status` (`uploaded`→`queued`→`processing`→`done`/`failed`), `progress` (0–1), `error`, `duration`, `fps`, `width`, `height`, `court_corners`, `court_out_of_frame`, `rally_count`, `play_seconds` (sum of rally lengths), timestamps. The list returns the same fields |
+| `DELETE /videos/{id}`                           | delete a video with its rallies and files (yours, or any as a superuser). 409 with a readable `detail` while it's processing                                                                                                                                                           |
+| `GET /videos/{id}/frame?t=1.0`                  | JPEG for court tapping. Needs the login header, so fetch it with the client (as a blob) and show it via `URL.createObjectURL` — not as a plain `<img src>`                                                                                                                             |
+| `PUT /videos/{id}/court` `{corners: [[x,y]×4]}` | save corners. 422 with a readable message for wrong tap order or a corner too far outside                                                                                                                                                                                              |
+| `POST /videos/{id}/process`                     | queue (also reprocess)                                                                                                                                                                                                                                                                 |
+| `GET /videos/{id}/rallies`                      | `{data: [{id, start, end, duration}], count}`                                                                                                                                                                                                                                          |
+| `GET /videos/{id}/file-url`                     | `{url, expires_at}`: a signed, expiring URL for this one video. Use `<video src={VITE_API_URL + url}>`. Refetch a new one when it expires (the video tag can't send the login header, which is why this exists)                                                                        |
 
 Off-screen corners (decided in the backend — the app only displays the result):
 
@@ -162,9 +163,11 @@ rally boundaries, delete fakes — needs backend endpoints); Capacitor.
   like `bg-background`, `bg-highlight`, never hard-coded values); a missing color gets a
   token in `DESIGN.md` and `src/index.css` first. Check changes on `/styleguide` in both
   themes and at phone width (390 px).
-- All API calls go through the generated client + TanStack Query. Query keys like
-  `["videos"]`, `["videos", id]`, `["videos", id, "rallies"]`; invalidate them after
-  mutations (save court, process, upload).
+- All API calls go through the generated client + TanStack Query. Query keys:
+  lists `["videos", { all }]`, `["videos", id]`, `["videos", id, "rallies"]`. Refresh
+  every list with `invalidateVideoLists()` (it matches `["videos", {}]`: partial object
+  match, never a video id) and remove a single video with its prefix; invalidate after
+  mutations (save court, process, upload, delete).
 - Times in seconds and corners in fractions everywhere; convert to pixels only for drawing.
 - Business rules (court limits, status transitions) live in the backend. The frontend
   shows what the API returns.

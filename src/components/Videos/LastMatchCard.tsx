@@ -1,17 +1,14 @@
-import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { Play } from "lucide-react"
 
 import type { VideoPublic } from "@/client"
 import { Button } from "@/components/ui/button"
-import { Skeleton } from "@/components/ui/skeleton"
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { ralliesQueryOptions } from "./queries"
 
 /**
  * Featured card for the most recent analyzed video: how much actual play it had
- * (sum of the rally lengths) versus how long the recording is.
+ * (`play_seconds`, the sum of the rally lengths) versus how long the recording is.
  */
 export function LastMatchCard({
   video,
@@ -20,9 +17,6 @@ export function LastMatchCard({
   video: VideoPublic
   className?: string
 }) {
-  const rallies = useQuery(ralliesQueryOptions(video.id))
-  const playTime = rallies.data?.data.reduce((sum, r) => sum + r.duration, 0)
-
   return (
     <section
       aria-label="Last match"
@@ -33,13 +27,9 @@ export function LastMatchCard({
     >
       <div className="flex min-w-0 flex-1 flex-col gap-1">
         <span className="text-xs font-bold text-court-accent">Last match</span>
-        {playTime !== undefined ? (
-          <span className="text-[22px] font-extrabold leading-[1.15] tabular-nums">
-            {formatDuration(playTime)} of play
-          </span>
-        ) : (
-          <Skeleton className="my-1 h-6 w-36 bg-court-foreground/15" />
-        )}
+        <span className="text-[22px] font-extrabold leading-[1.15] tabular-nums">
+          {formatDuration(video.play_seconds)} of play
+        </span>
         <span className="text-sm font-semibold text-court-muted tabular-nums">
           out of {formatDuration(video.duration)} recorded
         </span>

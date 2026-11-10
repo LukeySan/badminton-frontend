@@ -13,8 +13,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import {
+  invalidateVideoLists,
   videoQueryOptions,
-  videosQueryOptions,
 } from "@/components/Videos/queries"
 import { RecordingTips } from "@/components/Videos/RecordingTips"
 import { formatBytes } from "@/lib/format"
@@ -63,10 +63,7 @@ function UploadPage() {
       // Seed the cache so the next page shows the video without another request,
       // and mark the list stale so it includes the new video.
       queryClient.setQueryData(videoQueryOptions(video.id).queryKey, video)
-      queryClient.invalidateQueries({
-        queryKey: videosQueryOptions().queryKey,
-        exact: true,
-      })
+      invalidateVideoLists(queryClient)
       navigate({
         to: "/videos/$id/court",
         params: { id: video.id },

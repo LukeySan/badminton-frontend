@@ -19,8 +19,8 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import {
+  invalidateVideoLists,
   videoQueryOptions,
-  videosQueryOptions,
 } from "@/components/Videos/queries"
 import { VideoStatusBadge } from "@/components/Videos/VideoStatusBadge"
 import { formatDate, formatDuration, formatMinutes } from "@/lib/format"
@@ -196,10 +196,7 @@ function Failed({ video }: { video: VideoPublic }) {
       // The response is the queued video: put it in the cache so the page switches
       // to the progress view (and starts polling) without waiting for a refetch.
       queryClient.setQueryData(videoQueryOptions(video.id).queryKey, updated)
-      queryClient.invalidateQueries({
-        queryKey: videosQueryOptions().queryKey,
-        exact: true,
-      })
+      invalidateVideoLists(queryClient)
     },
   })
 

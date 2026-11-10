@@ -12,11 +12,8 @@ const pill =
  */
 export function VideoStatusBadge({
   video,
-  rallyCount,
 }: {
-  video: Pick<VideoPublic, "status" | "progress">
-  /** Shown on ready videos when known ("Ready · 73 rallies"). */
-  rallyCount?: number
+  video: Pick<VideoPublic, "status" | "progress" | "rally_count">
 }) {
   switch (video.status) {
     case "done":
@@ -25,7 +22,8 @@ export function VideoStatusBadge({
           data-testid="video-status"
           className={cn(pill, "bg-success-soft text-success-text")}
         >
-          Ready{rallyCount !== undefined && ` · ${rallyCount} rallies`}
+          Ready · {video.rally_count}{" "}
+          {video.rally_count === 1 ? "rally" : "rallies"}
         </span>
       )
     case "queued":

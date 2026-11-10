@@ -423,6 +423,18 @@ export type VideoPublic = {
      */
     updated_at: string;
     /**
+     * Rally Count
+     *
+     * Number of detected rallies
+     */
+    rally_count: number;
+    /**
+     * Play Seconds
+     *
+     * Total rally time in seconds (sum of rally durations): the match without the breaks
+     */
+    play_seconds: number;
+    /**
      * Court Out Of Frame
      *
      * Warning, not an error: part of the court is well outside the video, so
@@ -537,6 +549,18 @@ export type VideoPublicWritable = {
      * Updated At
      */
     updated_at: string;
+    /**
+     * Rally Count
+     *
+     * Number of detected rallies
+     */
+    rally_count: number;
+    /**
+     * Play Seconds
+     *
+     * Total rally time in seconds (sum of rally durations): the match without the breaks
+     */
+    play_seconds: number;
 };
 
 /**
@@ -995,11 +1019,21 @@ export type videosReadVideosData = {
          * Limit
          */
         limit?: number;
+        /**
+         * All
+         *
+         * Superusers only: everyone's videos
+         */
+        all?: boolean;
     };
     url: '/api/v1/videos/';
 };
 
 export type videosReadVideosErrors = {
+    /**
+     * all=true without superuser rights
+     */
+    403: unknown;
     /**
      * Validation Error
      */
@@ -1041,6 +1075,40 @@ export type videosUploadVideoResponses = {
 };
 
 export type videosUploadVideoResponse = videosUploadVideoResponses[keyof videosUploadVideoResponses];
+
+export type videosDeleteVideoData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}';
+};
+
+export type videosDeleteVideoErrors = {
+    /**
+     * The video is being processed
+     */
+    409: unknown;
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type videosDeleteVideoError = videosDeleteVideoErrors[keyof videosDeleteVideoErrors];
+
+export type videosDeleteVideoResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type videosDeleteVideoResponse = videosDeleteVideoResponses[keyof videosDeleteVideoResponses];
 
 export type videosReadVideoData = {
     body?: never;
