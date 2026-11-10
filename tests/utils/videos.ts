@@ -6,10 +6,15 @@ import { fileURLToPath } from "node:url"
 // steadier than uploading through the UI, which upload tests would cover).
 
 const API = `${process.env.VITE_API_URL}/api/v1`
-const FIXTURE = path.join(
+const FIXTURES = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
-  "../fixtures/short-clip.mp4", // 2 s, 320×180, 9 KB
+  "../fixtures",
 )
+/** 2 s, 320×180, H.264, 9 KB: for uploads that are never played. */
+export const SHORT_CLIP = path.join(FIXTURES, "short-clip.mp4")
+/** 12 s, 320×180, VP8 WebM: plays in every test browser (Playwright's own Chromium
+ *  has no H.264). For tests that need playback. */
+export const PLAYABLE_CLIP = path.join(FIXTURES, "rally-clip.webm")
 
 export async function apiToken(email: string, password: string) {
   const response = await fetch(`${API}/login/access-token`, {
@@ -21,13 +26,14 @@ export async function apiToken(email: string, password: string) {
 }
 
 /** Uploads the fixture clip under `filename`; returns the new video's id. */
-export async function uploadVideo(token: string, filename: string) {
+export async function uploadVideo(
+  token: string,
+  filename: string,
+  fixture = SHORT_CLIP,
+) {
   const body = new FormData()
-  body.append(
-    "file",
-    new Blob([fs.readFileSync(FIXTURE)], { type: "video/mp4" }),
-    filename,
-  )
+  const type = fixture.endsWith(".webm") ? "video/webm" : "video/mp4"
+  body.append("file", new Blob([fs.readFileSync(fixture)], { type }), filename)
   const response = await fetch(`${API}/videos/`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },

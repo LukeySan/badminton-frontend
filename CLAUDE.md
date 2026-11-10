@@ -63,7 +63,9 @@ must allow `http://localhost:5173`.
 
 `VITE_FEEDBACK_EMAIL`: Profile's "Send feedback" mailto address (hidden when empty).
 
-Tests: `bun run test` (Chromium), `bun run test:webkit` (Linux WebKit in Docker: the
+Tests: `bun run test` (Chromium), `bun run test:webkit` (Linux WebKit in Docker, desktop
+Safari + an `iphone` project that runs only `tests/player*.spec.ts`, with the element
+Fullscreen API removed like iPhone Safari; the
 macOS WebKit build hangs on macOS 26.0). CI (`.github/workflows/test-frontend.yml`)
 runs Biome, the build, and both browsers against the backend's `main` and the
 production build. In tests, wait for the app's own navigations (`waitForURL`) instead
@@ -134,11 +136,23 @@ Protected pages go under `src/routes/_layout/` (requires login, has the sidebar)
 Keep from the template: login, signup, recover/reset password, user settings, admin
 (user management), theme toggle, sidebar. Remove: everything **Items** (see M4.0).
 
+**Never use native video full screen for previews (decided).** No
+`video.requestFullscreen()`, no `webkitEnterFullscreen()`, no `controls` on the
+player's `<video>` (it has `playsinline` + `webkit-playsinline`). On iPhone native full
+screen hands playback to Apple's player, which hides our overlays (rally badge, skip
+pill, chapter bar, future trail/caption overlays) and shows the raw file's timeline.
+The player has its own full screen (`components/Player/useFullscreenPlayer.ts`): a
+fixed layer with our controls, plus the Fullscreen API _on that layer_ where it works
+(desktop, iPad, Android). The one `<video>` is moved between the inline and
+full-screen slots, never remounted (no reload, no new signed URL). Exported clips
+(later) are real video files: native full screen is fine for those.
+
 **Phones are portrait-only (decided).** Only a full-screen video may turn sideways. The
 web can't lock rotation outside full screen, so a phone held sideways sees
 `RotateToPortrait` (the `phone-landscape` variant in index.css: touch, landscape,
-under 480 px tall); full screen asks for the video's own orientation with
-`screen.orientation.lock` (Android only; iPhone Safari can't). In Capacitor: lock
+under 480 px tall); the player's full screen asks for landscape with
+`screen.orientation.lock` (Android only; iPhone Safari can't, so the phone is turned
+by hand). In Capacitor: lock
 portrait in Info.plist / AndroidManifest and unlock only for full-screen video
 (`@capacitor/screen-orientation`).
 

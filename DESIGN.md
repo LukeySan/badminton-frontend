@@ -91,6 +91,7 @@ Custom tokens (add with `@theme inline` mappings so `bg-*` / `text-*` classes wo
 | `--success-soft`          | `rgba(57,158,90,0.18)`  | `#C6F0D6`             | "Ready" badge background                                               |
 | `--sheet`                 | `#20202B`               | `#FFFFFF`             | bottom sheet behind the rally list                                     |
 | `--overlay`               | `rgba(25,25,35,0.75)`   | `rgba(25,25,35,0.45)` | dimmed page behind dialogs and sheets (ink)                            |
+| `--letterbox`             | `#000000`               | `#000000`             | full-screen player background and its control gradients                |
 
 `--subtle-foreground` is the softer text between foreground and muted: unselected sort
 buttons, rally lengths in the list. `shadow-sheet` (utility in `index.css`) is the light
@@ -145,11 +146,23 @@ Play time = sum of the most recent done video's rally durations.
 3px taller above and below, min 4px wide. Playhead 4px bar in foreground color with a
 2px background-colored ring, 7px taller than the track.
 
-**Full screen:** the video box goes full screen with its own controls (the page's are
-out of view): a round exit button top-right (`bg-court-ink/70`, 44px) and a bottom bar
-(`bg-court-ink/80`) with the scrubber, time, previous/play/next and the skip pill. Always
-the dark theme (`dark` class on the controls). They fade out after 3 s of playback
-(cursor hidden too) and come back on a mouse move or tap; the first tap only shows them.
+**Full screen (our own, never the browser's video player):** a layer over the whole
+viewport (`fixed inset-0`, `bg-letterbox` black), portaled to `<body>`, with OUR player:
+
+- the video centered and as big as fits, keeping its shape (black bars around it);
+  overlays that must line up with the picture live in the video frame
+- top: gradient (`from-letterbox/75`), the rally badge top-left (stays while playing:
+  it says what you're watching), the skip-breaks pill top-right
+- bottom: gradient (`from-letterbox/90`), the chapter bar, then the same control row as
+  inline (time · previous / play / next) ending in **Exit full screen** where the
+  Full screen button was
+- always the dark theme (`dark` class on the layer re-points the tokens)
+- every bar keeps clear of the notch and home indicator in both orientations:
+  `env(safe-area-inset-*)` paddings (`viewport-fit=cover` in index.html)
+- controls fade out after 3 s of playback (cursor too) and come back on a tap or mouse
+  move; the first tap on the video only shows them; tapping the black bars toggles them
+- exit: the button, Escape, or Back (a history entry is pushed on entering); the page
+  behind is scroll-locked and `inert`; focus returns to the Full screen button
 
 **Portrait only on phones:** a phone held sideways gets a full-page "Turn your phone
 upright" message (phone icon in a `bg-success-soft` tile, 15/800 title, 13px muted

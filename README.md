@@ -61,7 +61,8 @@ First run only: `bunx playwright install chromium`.
 
 **WebKit.** iPhones (and the iOS app) run WebKit, so CI tests it too. Playwright's
 own WebKit hangs opening pages on macOS 26.0 (Nov 2026), so on a Mac
-`bun run test:webkit` runs Linux WebKit in Playwright's Docker image instead, against
+`bun run test:webkit` runs Linux WebKit in Playwright's Docker image instead (desktop
+Safari, plus an `iphone` project for the player specs), against
 the production build (`scripts/test-webkit-docker.sh`; needs Docker and the backend
 running). Elsewhere: `PW_WEBKIT=1 bun run test`.
 

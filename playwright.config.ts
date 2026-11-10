@@ -70,6 +70,18 @@ export default defineConfig({
             },
             dependencies: ['setup'],
           },
+          // iPhone: WebKit, touch, phone screen. Only the player specs: the rest of
+          // the suite drives the desktop layout. These specs remove the element
+          // Fullscreen API here, like iPhone Safari, so the fallback is what's tested.
+          {
+            name: 'iphone',
+            use: {
+              ...devices['iPhone 15'],
+              storageState: 'playwright/.auth/user.json',
+            },
+            testMatch: /player.*\.spec\.ts/,
+            dependencies: ['setup'],
+          },
         ]
       : []),
 
