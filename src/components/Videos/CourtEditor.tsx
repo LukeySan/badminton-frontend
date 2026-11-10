@@ -230,9 +230,6 @@ export function CourtEditor({ video }: { video: VideoPublic }) {
           disabled={busy}
         />
       )}
-      <p className="text-[13px] text-muted-foreground sm:hidden">
-        Tip: turn your phone sideways for a bigger picture.
-      </p>
 
       <div className="flex flex-wrap gap-2">
         <Button

@@ -134,6 +134,14 @@ Protected pages go under `src/routes/_layout/` (requires login, has the sidebar)
 Keep from the template: login, signup, recover/reset password, user settings, admin
 (user management), theme toggle, sidebar. Remove: everything **Items** (see M4.0).
 
+**Phones are portrait-only (decided).** Only a full-screen video may turn sideways. The
+web can't lock rotation outside full screen, so a phone held sideways sees
+`RotateToPortrait` (the `phone-landscape` variant in index.css: touch, landscape,
+under 480 px tall); full screen asks for the video's own orientation with
+`screen.orientation.lock` (Android only; iPhone Safari can't). In Capacitor: lock
+portrait in Info.plist / AndroidManifest and unlock only for full-screen video
+(`@capacitor/screen-orientation`).
+
 Mobile later (not now, but don't block it): Capacitor build, photo-library picker,
 push notifications, downscaling the video on the phone before upload (native encoder
 plugin) and playing the local original. Design screens to work at phone width now.

@@ -145,6 +145,16 @@ Play time = sum of the most recent done video's rally durations.
 3px taller above and below, min 4px wide. Playhead 4px bar in foreground color with a
 2px background-colored ring, 7px taller than the track.
 
+**Full screen:** the video box goes full screen with its own controls (the page's are
+out of view): a round exit button top-right (`bg-court-ink/70`, 44px) and a bottom bar
+(`bg-court-ink/80`) with the scrubber, time, previous/play/next and the skip pill. Always
+the dark theme (`dark` class on the controls). They fade out after 3 s of playback
+(cursor hidden too) and come back on a mouse move or tap; the first tap only shows them.
+
+**Portrait only on phones:** a phone held sideways gets a full-page "Turn your phone
+upright" message (phone icon in a `bg-success-soft` tile, 15/800 title, 13px muted
+text), not a landscape layout. Full-screen video is the exception.
+
 **Control row (TikTok style):** one slim row, no button backgrounds: current time
 left ("4:12 / 21:24", 13px tabular, total muted), centered previous / play-pause /
 next as plain filled icons (20px, play 26px) in 44×44 targets, full-screen icon right.
@@ -201,8 +211,10 @@ selected = green outline + soft fill), a count line, then rows 50px:
 `text-highlight-text`, bar in `bg-highlight`.
 
 **Navigation:** phones get a **bottom tab bar** (76px, top border): Matches, a raised
-52px rounded-square **Upload** button in `bg-primary`, Profile. Desktop (≥ md) keeps
-the template's sidebar, restyled with the tokens.
+52px rounded-square **Upload** button in `bg-primary`, Profile. Desktop (`md`) keeps
+the template's sidebar, restyled with the tokens. `md` means **at least 768px wide AND
+480px tall** (overridden in `index.css`, same query in `useMobile.ts`): a phone held
+sideways is wide but short, so it keeps the phone layout.
 
 ## Screens
 
