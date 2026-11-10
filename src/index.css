@@ -9,6 +9,21 @@
    show both themes side by side), so `dark:` styles must not apply inside it. */
 @custom-variant dark (&:is(.dark *):not(.light *));
 
+/* The desktop layout (sidebar, top bar) needs a screen that is wide AND tall. A phone
+   held sideways is wide (~850 px) but short (at most ~430 px), so it keeps the phone
+   layout: tab bar, no sidebar. Overriding `md` / `max-md` makes every md: class follow
+   this rule; src/hooks/useMobile.ts uses the same query for the sidebar's JS side. */
+@custom-variant md (@media (width >= 48rem) and (height >= 30rem));
+@custom-variant max-md (
+  @media not all and (width >= 48rem) and (height >= 30rem)
+);
+
+/* A phone held sideways (touch, landscape, too short for the desktop layout): the app
+   is portrait-only, so it shows RotateToPortrait instead of the page. */
+@custom-variant phone-landscape (
+  @media (orientation: landscape) and (height < 30rem) and (pointer: coarse)
+);
+
 @theme inline {
   --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
 

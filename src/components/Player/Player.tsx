@@ -8,7 +8,14 @@ import {
   Trash2,
   TriangleExclamationPoint,
 } from "lucide-react"
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 
 import type { VideoPublic } from "@/client"
 import {
@@ -206,17 +213,40 @@ export function Player({ video }: { video: VideoPublic }) {
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
 
+  const aspect =
+    video.width && video.height ? video.width / video.height : 16 / 9
+
   // --- Full screen ---------------------------------------------------------------
   // The video box (with the rally badge and skip pill) goes full screen. iPhone
   // Safari only allows the bare <video>, so fall back to that.
   const videoBoxRef = useRef<HTMLDivElement>(null)
   const [fullscreen, setFullscreen] = useState(false)
+  // In full screen the page's controls are out of view, so the box gets its own,
+  // which fade out after a few seconds of playback (a tap or mouse move brings them
+  // back) and stay while paused or scrubbing.
+  const [controlsAwake, setControlsAwake] = useState(true)
+  const hideControlsTimer = useRef<number | undefined>(undefined)
+  // Stable (only a ref and a setter), so the fullscreenchange listener can use it.
+  const showControlsForAWhile = useCallback(() => {
+    setControlsAwake(true)
+    window.clearTimeout(hideControlsTimer.current)
+    hideControlsTimer.current = window.setTimeout(
+      () => setControlsAwake(false),
+      3000,
+    )
+  }, [])
+  useEffect(() => () => window.clearTimeout(hideControlsTimer.current), [])
+  const showControls = controlsAwake || paused || scrubbing
   useEffect(() => {
-    const onChange = () =>
-      setFullscreen(document.fullscreenElement === videoBoxRef.current)
+    const onChange = () => {
+      const on = document.fullscreenElement === videoBoxRef.current
+      setFullscreen(on)
+      if (on) showControlsForAWhile()
+      else screen.orientation?.unlock?.()
+    }
     document.addEventListener("fullscreenchange", onChange)
     return () => document.removeEventListener("fullscreenchange", onChange)
-  }, [])
+  }, [showControlsForAWhile])
   const toggleFullscreen = () => {
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {})
@@ -224,7 +254,20 @@ export function Player({ video }: { video: VideoPublic }) {
     }
     const box = videoBoxRef.current
     if (box?.requestFullscreen) {
-      box.requestFullscreen().catch(() => {})
+      box
+        .requestFullscreen()
+        // The app itself is portrait-only; a full-screen video turns to its own
+        // shape where the browser allows it (Android; iPhone Safari can't lock).
+        .then(() =>
+          (
+            screen.orientation as ScreenOrientation & {
+              lock?: (orientation: string) => Promise<void>
+            }
+          )
+            .lock?.(aspect >= 1 ? "landscape" : "portrait")
+            .catch(() => {}),
+        )
+        .catch(() => {})
     } else {
       const element = videoRef.current as
         | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
@@ -233,8 +276,6 @@ export function Player({ video }: { video: VideoPublic }) {
     }
   }
 
-  const aspect =
-    video.width && video.height ? video.width / video.height : 16 / 9
   // Stats over all rallies (not the filter): what the recording contains.
   const playTime = rallyTime(allSegments)
   const visibleNumbers = useMemo(
@@ -261,7 +302,11 @@ export function Player({ video }: { video: VideoPublic }) {
           <div className="max-md:px-3 max-md:dark:px-0">
             <div
               ref={videoBoxRef}
-              className="relative mx-auto overflow-hidden rounded-xl bg-court max-md:dark:rounded-none [&:fullscreen]:rounded-none"
+              className={cn(
+                "relative mx-auto overflow-hidden rounded-xl bg-court max-md:dark:rounded-none [&:fullscreen]:rounded-none",
+                fullscreen && !showControls && "cursor-none",
+              )}
+              onPointerMove={fullscreen ? showControlsForAWhile : undefined}
               // Never taller than 70% of the screen (phones held sideways)
               style={{
                 aspectRatio: aspect,
@@ -277,7 +322,12 @@ export function Player({ video }: { video: VideoPublic }) {
                   preload="metadata"
                   className="size-full"
                   data-testid="video"
-                  onClick={togglePlay}
+                  // Full screen with the controls hidden: the first tap only shows them.
+                  onClick={() =>
+                    fullscreen && !showControls
+                      ? showControlsForAWhile()
+                      : togglePlay()
+                  }
                   onLoadedMetadata={onLoadedMetadata}
                   onLoadedData={() => {
                     retriedError.current = false
@@ -321,28 +371,46 @@ export function Player({ video }: { video: VideoPublic }) {
                 </div>
               )}
 
-              {/* Skip-breaks pill (bottom-right): a playback setting, like "Skip intro" */}
-              <button
-                type="button"
-                role="switch"
-                aria-checked={skipBreaks}
-                aria-label="Skip breaks"
-                title="Play only the rallies"
-                onClick={() => setSkipBreaks((on) => !on)}
-                className="group absolute right-1.5 bottom-1 flex h-11 items-center px-1.5 outline-none"
-              >
-                <span
-                  className={cn(
-                    "flex h-[30px] items-center gap-[5px] whitespace-nowrap rounded-full px-3 text-xs group-focus-visible:ring-2 group-focus-visible:ring-ring",
-                    skipBreaks
-                      ? "bg-chapter font-extrabold text-chapter-foreground"
-                      : "border border-court-foreground/35 bg-court-ink/80 font-bold text-court-foreground",
-                  )}
-                >
-                  {skipBreaks && <Check className="size-3.5" strokeWidth={3} />}
-                  {skipBreaks ? "Skipping breaks" : "Skip breaks"}
-                </span>
-              </button>
+              {/* Skip-breaks pill (bottom-right): a playback setting, like "Skip intro".
+                  In full screen it moves into the control bar. */}
+              {!fullscreen && (
+                <SkipBreaksPill
+                  on={skipBreaks}
+                  onToggle={() => setSkipBreaks((on) => !on)}
+                  className="absolute right-1.5 bottom-1"
+                />
+              )}
+
+              {fullscreen && (
+                <FullscreenControls
+                  visible={showControls}
+                  time={time}
+                  duration={duration}
+                  paused={paused}
+                  canNavigate={segments.length > 0}
+                  onPrevious={goPrevious}
+                  onTogglePlay={togglePlay}
+                  onNext={goNext}
+                  onExit={toggleFullscreen}
+                  scrubber={
+                    <RallyScrubber
+                      duration={duration}
+                      time={time}
+                      segments={allSegments}
+                      visibleNumbers={visibleNumbers}
+                      currentNumber={current?.number}
+                      onSeek={seek}
+                      onScrubbingChange={setScrubbing}
+                    />
+                  }
+                  skipPill={
+                    <SkipBreaksPill
+                      on={skipBreaks}
+                      onToggle={() => setSkipBreaks((on) => !on)}
+                    />
+                  }
+                />
+              )}
 
               {playbackError && (
                 <PlayerMessage
@@ -631,6 +699,139 @@ function PlayerMessage({
       <Button variant="secondary" size="sm" onClick={onRetry}>
         Try again
       </Button>
+    </div>
+  )
+}
+
+function SkipBreaksPill({
+  on,
+  onToggle,
+  className,
+}: {
+  on: boolean
+  onToggle: () => void
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label="Skip breaks"
+      title="Play only the rallies"
+      onClick={onToggle}
+      // 44 px tall target around the 30 px pill
+      className={cn(
+        "group flex h-11 items-center px-1.5 outline-none",
+        className,
+      )}
+    >
+      <span
+        className={cn(
+          "flex h-[30px] items-center gap-[5px] whitespace-nowrap rounded-full px-3 text-xs group-focus-visible:ring-2 group-focus-visible:ring-ring",
+          on
+            ? "bg-chapter font-extrabold text-chapter-foreground"
+            : "border border-court-foreground/35 bg-court-ink/80 font-bold text-court-foreground",
+        )}
+      >
+        {on && <Check className="size-3.5" strokeWidth={3} />}
+        {on ? "Skipping breaks" : "Skip breaks"}
+      </span>
+    </button>
+  )
+}
+
+/**
+ * Controls drawn on the video in full screen: exit (top-right) and a bottom bar with
+ * the scrubber, time, rally controls and the skip pill. Always the dark theme (the
+ * `dark` class re-points the tokens), like any video player. Hidden = faded out and
+ * `inert`, so invisible buttons can't be tabbed to or tapped.
+ */
+function FullscreenControls({
+  visible,
+  time,
+  duration,
+  paused,
+  canNavigate,
+  onPrevious,
+  onTogglePlay,
+  onNext,
+  onExit,
+  scrubber,
+  skipPill,
+}: {
+  visible: boolean
+  time: number
+  duration: number
+  paused: boolean
+  canNavigate: boolean
+  onPrevious: () => void
+  onTogglePlay: () => void
+  onNext: () => void
+  onExit: () => void
+  scrubber: ReactNode
+  skipPill: ReactNode
+}) {
+  return (
+    <div
+      data-testid="fullscreen-controls"
+      inert={!visible}
+      className={cn(
+        "dark pointer-events-none absolute inset-0 text-foreground transition-opacity duration-300",
+        visible ? "opacity-100" : "opacity-0",
+      )}
+    >
+      <div className="pointer-events-auto absolute top-[max(0.5rem,env(safe-area-inset-top))] right-[max(0.5rem,env(safe-area-inset-right))]">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-11 rounded-full bg-court-ink/70 text-court-foreground hover:bg-court-ink/90 hover:text-court-foreground"
+          aria-label="Exit full screen"
+          title="Exit full screen (Esc)"
+          onClick={onExit}
+        >
+          <ExitFullscreenIcon className="size-5" />
+        </Button>
+      </div>
+      <div className="pointer-events-auto absolute inset-x-0 bottom-0 bg-court-ink/80 px-[max(1rem,env(safe-area-inset-left))] pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+        {scrubber}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center">
+          <span className="whitespace-nowrap text-[13px] tabular-nums">
+            {formatDuration(time)}
+            <span className="text-muted-foreground">
+              {" "}
+              / {formatDuration(duration)}
+            </span>
+          </span>
+          <div className="flex items-center">
+            <ControlButton
+              label="Previous rally"
+              onClick={onPrevious}
+              disabled={!canNavigate}
+            >
+              <PreviousRallyIcon className="size-5" />
+            </ControlButton>
+            <ControlButton
+              label={paused ? "Play" : "Pause"}
+              onClick={onTogglePlay}
+            >
+              {paused ? (
+                <PlayIcon className="size-[26px]" />
+              ) : (
+                <PauseIcon className="size-[26px]" />
+              )}
+            </ControlButton>
+            <ControlButton
+              label="Next rally"
+              onClick={onNext}
+              disabled={!canNavigate}
+            >
+              <NextRallyIcon className="size-5" />
+            </ControlButton>
+          </div>
+          <div className="flex justify-end">{skipPill}</div>
+        </div>
+      </div>
     </div>
   )
 }
