@@ -1,4 +1,4 @@
-import { queryOptions } from "@tanstack/react-query"
+import { type QueryClient, queryOptions } from "@tanstack/react-query"
 
 import { type VideoPublic, VideosService } from "@/client"
 import { parseApiDate } from "@/lib/format"
@@ -13,21 +13,52 @@ export function isInProgress(status: VideoStatus | undefined): boolean {
   return status === "queued" || status === "processing"
 }
 
-// Query keys follow CLAUDE.md: ["videos"], ["videos", id], ["videos", id, "rallies"].
-// Because keys are prefixes of each other, invalidating ["videos"] refreshes all of
-// them; pass `exact: true` to refresh only the list.
+// Query keys (CLAUDE.md): lists ["videos", { all }], one video ["videos", id], its
+// rallies ["videos", id, "rallies"]. Keys are prefixes of each other, so removing
+// ["videos", id] drops everything cached for that video.
 
-export function videosQueryOptions() {
+/**
+ * Matches every video list (yours and everyone's) but no single video: TanStack
+ * Query compares objects in a key partially, so `{}` matches `{ all: true }` and
+ * `{ all: false }`, while a video id (a string) never matches an object.
+ */
+const VIDEO_LISTS_KEY = ["videos", {}] as const
+
+type VideoList = { data: VideoPublic[]; count: number }
+
+/** Your videos, or everyone's with `all` (superusers only; others get a 403). */
+export function videosQueryOptions({ all = false }: { all?: boolean } = {}) {
   return queryOptions({
-    queryKey: ["videos"],
+    queryKey: ["videos", { all }],
     queryFn: async () =>
-      (await VideosService.readVideos({ query: { skip: 0, limit: 100 } })).data,
+      (
+        await VideosService.readVideos({
+          query: { skip: 0, limit: 100, ...(all && { all: true }) },
+        })
+      ).data,
     // Poll only while some video is being worked on, so idle lists cost nothing.
     refetchInterval: (query) =>
       query.state.data?.data.some((video) => isInProgress(video.status))
         ? POLL_INTERVAL_MS
         : false,
   })
+}
+
+/** After an upload, court save, (re)process or delete: refresh every list. */
+export function invalidateVideoLists(queryClient: QueryClient) {
+  return queryClient.invalidateQueries({ queryKey: VIDEO_LISTS_KEY })
+}
+
+/** Take a deleted video out of every cached list right away (no flash of a stale row). */
+export function removeFromVideoLists(queryClient: QueryClient, id: string) {
+  queryClient.setQueriesData<VideoList>({ queryKey: VIDEO_LISTS_KEY }, (old) =>
+    old?.data.some((video) => video.id === id)
+      ? {
+          data: old.data.filter((video) => video.id !== id),
+          count: old.count - 1,
+        }
+      : old,
+  )
 }
 
 export function videoQueryOptions(id: string) {
@@ -91,7 +122,7 @@ export function ralliesQueryOptions(id: string) {
     queryFn: async () =>
       (await VideosService.readVideoRallies({ path: { id } })).data,
     // Rallies only change when a video is analyzed again, which removes them from
-    // the cache (CourtEditor). The list and the player share them without refetching.
+    // the cache (CourtEditor), so the player can reuse them without refetching.
     staleTime: 5 * 60_000,
   })
 }

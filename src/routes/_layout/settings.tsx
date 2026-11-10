@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router"
 
+import { AdminSection } from "@/components/UserSettings/AdminSection"
 import ChangePassword from "@/components/UserSettings/ChangePassword"
 import DeleteAccount from "@/components/UserSettings/DeleteAccount"
 import UserInformation from "@/components/UserSettings/UserInformation"
@@ -36,11 +37,15 @@ function UserSettings() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">User Settings</h1>
-        <p className="text-muted-foreground">
+        <h1 className="text-[26px] font-extrabold tracking-[-0.01em]">
+          User Settings
+        </h1>
+        <p className="mt-1 text-[13px] text-muted-foreground">
           Manage your account settings and preferences
         </p>
       </div>
+
+      {currentUser.is_superuser && <AdminSection />}
 
       <Tabs defaultValue="my-profile">
         <TabsList>

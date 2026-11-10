@@ -171,7 +171,14 @@ page in light mode); `Card` is a plain `bg-card` surface with 18px radius, no bo
 shadow, `CardTitle` 15/800, `CardDescription` 13px muted; labels and alert titles 700;
 `Progress` = `bg-track` with a `bg-chapter` fill. Icon tiles next to text (upload, recording
 tips) are `bg-success-soft text-success-text`. Text links: 700 `text-success-text`,
-underlined.
+underlined. `Switch`: 24×40px, off = `bg-muted-foreground` track with a `bg-background`
+thumb, on = `bg-primary` with a `bg-primary-foreground` thumb (the pale `--input` track
+was invisible on white cards); put it in a row-sized `<label>` for a big tap target.
+
+**Video menu (⋮):** 44px ghost icon button, on each video row (beside the row's link,
+never inside it) and in the player header. "Delete video" is a destructive menu item;
+it opens a confirm dialog whose action is a destructive button (ink on pink) and whose
+errors (the backend's message) show in a destructive alert inside the dialog.
 
 **Small pieces:** avatar = round `bg-card border text-card-foreground`, 13/800 initials
 (as in the mockups); admin status dot `bg-chapter` (active) / `bg-muted-foreground`

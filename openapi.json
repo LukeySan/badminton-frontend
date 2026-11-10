@@ -1,6 +1,9 @@
 {
   "openapi": "3.1.0",
-  "info": { "title": "Badminton Rally Analyzer", "version": "0.1.0" },
+  "info": {
+    "title": "Badminton Rally Analyzer",
+    "version": "0.1.0"
+  },
   "paths": {
     "/api/v1/login/access-token": {
       "post": {
@@ -23,7 +26,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Token" }
+                "schema": {
+                  "$ref": "#/components/schemas/Token"
+                }
               }
             }
           },
@@ -31,7 +36,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -49,12 +56,18 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UserPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
               }
             }
           }
         },
-        "security": [{ "OAuth2PasswordBearer": [] }]
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       }
     },
     "/api/v1/password-recovery/{email}": {
@@ -68,7 +81,10 @@
             "name": "email",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "title": "Email" }
+            "schema": {
+              "type": "string",
+              "title": "Email"
+            }
           }
         ],
         "responses": {
@@ -76,7 +92,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Message" }
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
               }
             }
           },
@@ -84,7 +102,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -100,7 +120,9 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/NewPassword" }
+              "schema": {
+                "$ref": "#/components/schemas/NewPassword"
+              }
             }
           },
           "required": true
@@ -110,7 +132,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Message" }
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
               }
             }
           },
@@ -118,7 +142,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -131,25 +157,40 @@
         "summary": "Recover Password Html Content",
         "description": "HTML Content for Password Recovery",
         "operationId": "login-recover_password_html_content",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "email",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "title": "Email" }
+            "schema": {
+              "type": "string",
+              "title": "Email"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "Successful Response",
-            "content": { "text/html": { "schema": { "type": "string" } } }
+            "content": {
+              "text/html": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -162,19 +203,31 @@
         "summary": "Read Users",
         "description": "Retrieve users.",
         "operationId": "users-read_users",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "skip",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "default": 0, "title": "Skip" }
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Skip"
+            }
           },
           {
             "name": "limit",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "default": 100, "title": "Limit" }
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
           }
         ],
         "responses": {
@@ -182,7 +235,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UsersPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/UsersPublic"
+                }
               }
             }
           },
@@ -190,7 +245,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -201,12 +258,18 @@
         "summary": "Create User",
         "description": "Create new user.",
         "operationId": "users-create_user",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UserCreate" }
+              "schema": {
+                "$ref": "#/components/schemas/UserCreate"
+              }
             }
           }
         },
@@ -215,7 +278,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UserPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
               }
             }
           },
@@ -223,7 +288,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -241,12 +308,18 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UserPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
               }
             }
           }
         },
-        "security": [{ "OAuth2PasswordBearer": [] }]
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       },
       "delete": {
         "tags": ["users"],
@@ -258,12 +331,18 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Message" }
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
               }
             }
           }
         },
-        "security": [{ "OAuth2PasswordBearer": [] }]
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       },
       "patch": {
         "tags": ["users"],
@@ -273,7 +352,9 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UserUpdateMe" }
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdateMe"
+              }
             }
           },
           "required": true
@@ -283,7 +364,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UserPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
               }
             }
           },
@@ -291,12 +374,18 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
         },
-        "security": [{ "OAuth2PasswordBearer": [] }]
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       }
     },
     "/api/v1/users/me/password": {
@@ -308,7 +397,9 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UpdatePassword" }
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePassword"
+              }
             }
           },
           "required": true
@@ -318,7 +409,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Message" }
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
               }
             }
           },
@@ -326,12 +419,18 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
         },
-        "security": [{ "OAuth2PasswordBearer": [] }]
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ]
       }
     },
     "/api/v1/users/signup": {
@@ -343,7 +442,9 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UserRegister" }
+              "schema": {
+                "$ref": "#/components/schemas/UserRegister"
+              }
             }
           },
           "required": true
@@ -353,7 +454,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UserPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
               }
             }
           },
@@ -361,7 +464,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -374,13 +479,21 @@
         "summary": "Read User By Id",
         "description": "Get a specific user by id.",
         "operationId": "users-read_user_by_id",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "user_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid", "title": "User Id" }
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
           }
         ],
         "responses": {
@@ -388,7 +501,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UserPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
               }
             }
           },
@@ -396,7 +511,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -407,20 +524,30 @@
         "summary": "Update User",
         "description": "Update a user.",
         "operationId": "users-update_user",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "user_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid", "title": "User Id" }
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/UserUpdate" }
+              "schema": {
+                "$ref": "#/components/schemas/UserUpdate"
+              }
             }
           }
         },
@@ -429,7 +556,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UserPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
               }
             }
           },
@@ -437,7 +566,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -448,13 +579,21 @@
         "summary": "Delete User",
         "description": "Delete a user.",
         "operationId": "users-delete_user",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "user_id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid", "title": "User Id" }
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
           }
         ],
         "responses": {
@@ -462,7 +601,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Message" }
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
               }
             }
           },
@@ -470,7 +611,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -483,7 +626,11 @@
         "summary": "Test Email",
         "description": "Test emails.",
         "operationId": "utils-test_email",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "email_to",
@@ -501,7 +648,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/Message" }
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
               }
             }
           },
@@ -509,7 +658,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -540,21 +691,45 @@
       "get": {
         "tags": ["videos"],
         "summary": "Read Videos",
-        "description": "Retrieve videos, newest first (all videos for superusers, otherwise your own).",
+        "description": "Your videos, newest first, each with its rally count and total rally time.",
         "operationId": "videos-read_videos",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "skip",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "default": 0, "title": "Skip" }
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Skip"
+            }
           },
           {
             "name": "limit",
             "in": "query",
             "required": false,
-            "schema": { "type": "integer", "default": 100, "title": "Limit" }
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "all",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Superusers only: everyone's videos",
+              "default": false,
+              "title": "All"
+            },
+            "description": "Superusers only: everyone's videos"
           }
         ],
         "responses": {
@@ -562,15 +737,22 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/VideosPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/VideosPublic"
+                }
               }
             }
+          },
+          "403": {
+            "description": "all=true without superuser rights"
           },
           "422": {
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -581,7 +763,11 @@
         "summary": "Upload Video",
         "description": "Upload a video (multipart, field `file`). Status starts as `uploaded`.",
         "operationId": "videos-upload_video",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -597,7 +783,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/VideoPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/VideoPublic"
+                }
               }
             }
           },
@@ -605,7 +793,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -616,15 +806,23 @@
       "get": {
         "tags": ["videos"],
         "summary": "Read Video",
-        "description": "Get a video: status (uploaded → queued → processing → done | failed), progress,\nsize, court.",
+        "description": "Get a video: status (uploaded \u2192 queued \u2192 processing \u2192 done | failed), progress,\nsize, court, rally count and total rally time.",
         "operationId": "videos-read_video",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid", "title": "Id" }
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
           }
         ],
         "responses": {
@@ -632,7 +830,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/VideoPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/VideoPublic"
+                }
               }
             }
           },
@@ -640,7 +840,57 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["videos"],
+        "summary": "Delete Video",
+        "description": "Delete a video with its rallies and files (yours, or any as a superuser).\nNot allowed while it's being processed.",
+        "operationId": "videos-delete_video",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The video is being processed"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -653,13 +903,21 @@
         "summary": "Read Video Frame",
         "description": "One frame as JPEG, for marking the court corners.",
         "operationId": "videos-read_video_frame",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid", "title": "Id" }
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
           },
           {
             "name": "t",
@@ -678,13 +936,17 @@
         "responses": {
           "200": {
             "description": "Successful Response",
-            "content": { "image/jpeg": {} }
+            "content": {
+              "image/jpeg": {}
+            }
           },
           "422": {
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -697,20 +959,30 @@
         "summary": "Update Video Court",
         "description": "Save the 4 court corners (fractions 0-1). Not allowed while queued/processing.",
         "operationId": "videos-update_video_court",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid", "title": "Id" }
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/CourtUpdate" }
+              "schema": {
+                "$ref": "#/components/schemas/CourtUpdate"
+              }
             }
           }
         },
@@ -719,7 +991,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/VideoPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/VideoPublic"
+                }
               }
             }
           },
@@ -727,7 +1001,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -740,13 +1016,21 @@
         "summary": "Process Video",
         "description": "Queue the video for rally detection.",
         "operationId": "videos-process_video",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid", "title": "Id" }
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
           }
         ],
         "responses": {
@@ -754,7 +1038,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/VideoPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/VideoPublic"
+                }
               }
             }
           },
@@ -762,7 +1048,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -775,13 +1063,21 @@
         "summary": "Read Video Rallies",
         "description": "Detected rallies, in seconds, ordered by start time.",
         "operationId": "videos-read_video_rallies",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid", "title": "Id" }
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
           }
         ],
         "responses": {
@@ -789,7 +1085,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/RalliesPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/RalliesPublic"
+                }
               }
             }
           },
@@ -797,7 +1095,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -810,13 +1110,21 @@
         "summary": "Read Video File Url",
         "description": "A temporary link for playing the video in the browser.\n\n`<video src>` can't send the login header, so use this URL (it carries a\nsigned token for this one video) instead of putting the login token in a URL.",
         "operationId": "videos-read_video_file_url",
-        "security": [{ "OAuth2PasswordBearer": [] }],
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
         "parameters": [
           {
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid", "title": "Id" }
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
           }
         ],
         "responses": {
@@ -824,7 +1132,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/FileUrl" }
+                "schema": {
+                  "$ref": "#/components/schemas/FileUrl"
+                }
               }
             }
           },
@@ -832,7 +1142,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -850,7 +1162,11 @@
             "name": "id",
             "in": "path",
             "required": true,
-            "schema": { "type": "string", "format": "uuid", "title": "Id" }
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
           },
           {
             "name": "token",
@@ -865,12 +1181,16 @@
           }
         ],
         "responses": {
-          "200": { "description": "Successful Response" },
+          "200": {
+            "description": "Successful Response"
+          },
           "422": {
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -886,7 +1206,9 @@
         "requestBody": {
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/PrivateUserCreate" }
+              "schema": {
+                "$ref": "#/components/schemas/PrivateUserCreate"
+              }
             }
           },
           "required": true
@@ -896,7 +1218,9 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/UserPublic" }
+                "schema": {
+                  "$ref": "#/components/schemas/UserPublic"
+                }
               }
             }
           },
@@ -904,7 +1228,9 @@
             "description": "Validation Error",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/HTTPValidationError" }
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -918,24 +1244,50 @@
         "properties": {
           "grant_type": {
             "anyOf": [
-              { "type": "string", "pattern": "^password$" },
-              { "type": "null" }
+              {
+                "type": "string",
+                "pattern": "^password$"
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Grant Type"
           },
-          "username": { "type": "string", "title": "Username" },
+          "username": {
+            "type": "string",
+            "title": "Username"
+          },
           "password": {
             "type": "string",
             "format": "password",
             "title": "Password"
           },
-          "scope": { "type": "string", "title": "Scope", "default": "" },
+          "scope": {
+            "type": "string",
+            "title": "Scope",
+            "default": ""
+          },
           "client_id": {
-            "anyOf": [{ "type": "string" }, { "type": "null" }],
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Client Id"
           },
           "client_secret": {
-            "anyOf": [{ "type": "string" }, { "type": "null" }],
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "format": "password",
             "title": "Client Secret"
           }
@@ -961,8 +1313,16 @@
           "corners": {
             "items": {
               "prefixItems": [
-                { "type": "number", "maximum": 1.3, "minimum": -0.3 },
-                { "type": "number", "maximum": 1.3, "minimum": -0.3 }
+                {
+                  "type": "number",
+                  "maximum": 1.3,
+                  "minimum": -0.3
+                },
+                {
+                  "type": "number",
+                  "maximum": 1.3,
+                  "minimum": -0.3
+                }
               ],
               "type": "array",
               "maxItems": 2,
@@ -984,7 +1344,10 @@
       },
       "FileUrl": {
         "properties": {
-          "url": { "type": "string", "title": "Url" },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
           "expires_at": {
             "type": "string",
             "format": "date-time",
@@ -998,7 +1361,9 @@
       "HTTPValidationError": {
         "properties": {
           "detail": {
-            "items": { "$ref": "#/components/schemas/ValidationError" },
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
             "type": "array",
             "title": "Detail"
           }
@@ -1007,14 +1372,22 @@
         "title": "HTTPValidationError"
       },
       "Message": {
-        "properties": { "message": { "type": "string", "title": "Message" } },
+        "properties": {
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
         "type": "object",
         "required": ["message"],
         "title": "Message"
       },
       "NewPassword": {
         "properties": {
-          "token": { "type": "string", "title": "Token" },
+          "token": {
+            "type": "string",
+            "title": "Token"
+          },
           "new_password": {
             "type": "string",
             "maxLength": 128,
@@ -1028,9 +1401,18 @@
       },
       "PrivateUserCreate": {
         "properties": {
-          "email": { "type": "string", "title": "Email" },
-          "password": { "type": "string", "title": "Password" },
-          "full_name": { "type": "string", "title": "Full Name" },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "title": "Password"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
           "is_verified": {
             "type": "boolean",
             "title": "Is Verified",
@@ -1044,11 +1426,16 @@
       "RalliesPublic": {
         "properties": {
           "data": {
-            "items": { "$ref": "#/components/schemas/RallyPublic" },
+            "items": {
+              "$ref": "#/components/schemas/RallyPublic"
+            },
             "type": "array",
             "title": "Data"
           },
-          "count": { "type": "integer", "title": "Count" }
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
         },
         "type": "object",
         "required": ["data", "count"],
@@ -1056,9 +1443,18 @@
       },
       "RallyPublic": {
         "properties": {
-          "id": { "type": "integer", "title": "Id" },
-          "start": { "type": "number", "title": "Start" },
-          "end": { "type": "number", "title": "End" },
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          },
           "duration": {
             "type": "number",
             "title": "Duration",
@@ -1071,7 +1467,10 @@
       },
       "Token": {
         "properties": {
-          "access_token": { "type": "string", "title": "Access Token" },
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
           "token_type": {
             "type": "string",
             "title": "Token Type",
@@ -1121,8 +1520,13 @@
           },
           "full_name": {
             "anyOf": [
-              { "type": "string", "maxLength": 255 },
-              { "type": "null" }
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Full Name"
           },
@@ -1157,16 +1561,30 @@
           },
           "full_name": {
             "anyOf": [
-              { "type": "string", "maxLength": 255 },
-              { "type": "null" }
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Full Name"
           },
-          "id": { "type": "string", "format": "uuid", "title": "Id" },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
           "created_at": {
             "anyOf": [
-              { "type": "string", "format": "date-time" },
-              { "type": "null" }
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Created At"
           }
@@ -1191,8 +1609,13 @@
           },
           "full_name": {
             "anyOf": [
-              { "type": "string", "maxLength": 255 },
-              { "type": "null" }
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Full Name"
           }
@@ -1205,30 +1628,61 @@
         "properties": {
           "email": {
             "anyOf": [
-              { "type": "string", "maxLength": 255, "format": "email" },
-              { "type": "null" }
+              {
+                "type": "string",
+                "maxLength": 255,
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Email"
           },
           "is_active": {
-            "anyOf": [{ "type": "boolean" }, { "type": "null" }],
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Is Active"
           },
           "is_superuser": {
-            "anyOf": [{ "type": "boolean" }, { "type": "null" }],
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Is Superuser"
           },
           "full_name": {
             "anyOf": [
-              { "type": "string", "maxLength": 255 },
-              { "type": "null" }
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Full Name"
           },
           "password": {
             "anyOf": [
-              { "type": "string", "maxLength": 128, "minLength": 8 },
-              { "type": "null" }
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 8
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Password"
           }
@@ -1240,15 +1694,26 @@
         "properties": {
           "full_name": {
             "anyOf": [
-              { "type": "string", "maxLength": 255 },
-              { "type": "null" }
+              {
+                "type": "string",
+                "maxLength": 255
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Full Name"
           },
           "email": {
             "anyOf": [
-              { "type": "string", "maxLength": 255, "format": "email" },
-              { "type": "null" }
+              {
+                "type": "string",
+                "maxLength": 255,
+                "format": "email"
+              },
+              {
+                "type": "null"
+              }
             ],
             "title": "Email"
           }
@@ -1259,11 +1724,16 @@
       "UsersPublic": {
         "properties": {
           "data": {
-            "items": { "$ref": "#/components/schemas/UserPublic" },
+            "items": {
+              "$ref": "#/components/schemas/UserPublic"
+            },
             "type": "array",
             "title": "Data"
           },
-          "count": { "type": "integer", "title": "Count" }
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
         },
         "type": "object",
         "required": ["data", "count"],
@@ -1272,14 +1742,34 @@
       "ValidationError": {
         "properties": {
           "loc": {
-            "items": { "anyOf": [{ "type": "string" }, { "type": "integer" }] },
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
             "type": "array",
             "title": "Location"
           },
-          "msg": { "type": "string", "title": "Message" },
-          "type": { "type": "string", "title": "Error Type" },
-          "input": { "title": "Input" },
-          "ctx": { "type": "object", "title": "Context" }
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
         },
         "type": "object",
         "required": ["loc", "msg", "type"],
@@ -1287,37 +1777,82 @@
       },
       "VideoPublic": {
         "properties": {
-          "id": { "type": "string", "format": "uuid", "title": "Id" },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
           "owner_id": {
             "type": "string",
             "format": "uuid",
             "title": "Owner Id"
           },
-          "filename": { "type": "string", "title": "Filename" },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
           "status": {
             "type": "string",
             "enum": ["uploaded", "queued", "processing", "done", "failed"],
             "title": "Status"
           },
-          "progress": { "type": "number", "title": "Progress" },
+          "progress": {
+            "type": "number",
+            "title": "Progress"
+          },
           "error": {
-            "anyOf": [{ "type": "string" }, { "type": "null" }],
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Error"
           },
           "duration": {
-            "anyOf": [{ "type": "number" }, { "type": "null" }],
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Duration"
           },
           "fps": {
-            "anyOf": [{ "type": "number" }, { "type": "null" }],
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Fps"
           },
           "width": {
-            "anyOf": [{ "type": "integer" }, { "type": "null" }],
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Width"
           },
           "height": {
-            "anyOf": [{ "type": "integer" }, { "type": "null" }],
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Height"
           },
           "court_corners": {
@@ -1325,8 +1860,16 @@
               {
                 "items": {
                   "prefixItems": [
-                    { "type": "number", "maximum": 1.3, "minimum": -0.3 },
-                    { "type": "number", "maximum": 1.3, "minimum": -0.3 }
+                    {
+                      "type": "number",
+                      "maximum": 1.3,
+                      "minimum": -0.3
+                    },
+                    {
+                      "type": "number",
+                      "maximum": 1.3,
+                      "minimum": -0.3
+                    }
                   ],
                   "type": "array",
                   "maxItems": 2,
@@ -1334,7 +1877,9 @@
                 },
                 "type": "array"
               },
-              { "type": "null" }
+              {
+                "type": "null"
+              }
             ],
             "title": "Court Corners"
           },
@@ -1347,6 +1892,16 @@
             "type": "string",
             "format": "date-time",
             "title": "Updated At"
+          },
+          "rally_count": {
+            "type": "integer",
+            "title": "Rally Count",
+            "description": "Number of detected rallies"
+          },
+          "play_seconds": {
+            "type": "number",
+            "title": "Play Seconds",
+            "description": "Total rally time in seconds (sum of rally durations): the match without the breaks"
           },
           "court_out_of_frame": {
             "type": "boolean",
@@ -1370,6 +1925,8 @@
           "court_corners",
           "created_at",
           "updated_at",
+          "rally_count",
+          "play_seconds",
           "court_out_of_frame"
         ],
         "title": "VideoPublic"
@@ -1377,11 +1934,16 @@
       "VideosPublic": {
         "properties": {
           "data": {
-            "items": { "$ref": "#/components/schemas/VideoPublic" },
+            "items": {
+              "$ref": "#/components/schemas/VideoPublic"
+            },
             "type": "array",
             "title": "Data"
           },
-          "count": { "type": "integer", "title": "Count" }
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
         },
         "type": "object",
         "required": ["data", "count"],
@@ -1392,7 +1954,10 @@
       "OAuth2PasswordBearer": {
         "type": "oauth2",
         "flows": {
-          "password": { "scopes": {}, "tokenUrl": "/api/v1/login/access-token" }
+          "password": {
+            "scopes": {},
+            "tokenUrl": "/api/v1/login/access-token"
+          }
         }
       }
     }
