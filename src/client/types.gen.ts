@@ -74,6 +74,15 @@ export type CourtUpdate = {
 };
 
 /**
+ * FailureReason
+ *
+ * Why a video failed, in words for the user (Video.failure_reason). The technical
+ * details go to Video.error, which stays internal (it can contain server paths).
+ * An enum so the frontend's generated types list every possible value.
+ */
+export type FailureReason = 'Couldn\'t read this video' | 'Court not visible' | 'Processing kept stopping on this video' | 'Something went wrong while processing this video';
+
+/**
  * FileUrl
  */
 export type FileUrl = {
@@ -95,6 +104,38 @@ export type HTTPValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
+};
+
+/**
+ * Health
+ */
+export type Health = {
+    /**
+     * Status
+     */
+    status: 'ok' | 'error';
+    /**
+     * Database
+     */
+    database: 'ok' | 'unreachable';
+    /**
+     * Queued
+     *
+     * Videos waiting for a worker
+     */
+    queued?: number | null;
+    /**
+     * Processing
+     *
+     * Videos being processed
+     */
+    processing?: number | null;
+    /**
+     * Oldest Queued Seconds
+     *
+     * How long the oldest queued video has waited (since it was queued or re-queued); null when nothing is queued
+     */
+    oldest_queued_seconds?: number | null;
 };
 
 /**
@@ -388,9 +429,9 @@ export type VideoPublic = {
      */
     progress: number;
     /**
-     * Error
+     * Why it failed, for the user (only when status is 'failed')
      */
-    error: string | null;
+    failure_reason: FailureReason | null;
     /**
      * Duration
      */
@@ -515,9 +556,9 @@ export type VideoPublicWritable = {
      */
     progress: number;
     /**
-     * Error
+     * Why it failed, for the user (only when status is 'failed')
      */
-    error: string | null;
+    failure_reason: FailureReason | null;
     /**
      * Duration
      */
@@ -576,6 +617,31 @@ export type VideosPublicWritable = {
      */
     count: number;
 };
+
+export type healthHealthData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/health';
+};
+
+export type healthHealthErrors = {
+    /**
+     * Database unreachable
+     */
+    503: Health;
+};
+
+export type healthHealthError = healthHealthErrors[keyof healthHealthErrors];
+
+export type healthHealthResponses = {
+    /**
+     * Successful Response
+     */
+    200: Health;
+};
+
+export type healthHealthResponse = healthHealthResponses[keyof healthHealthResponses];
 
 export type loginLoginAccessTokenData = {
     body: Body_login_login_access_token;
@@ -1060,12 +1126,22 @@ export type videosUploadVideoData = {
 
 export type videosUploadVideoErrors = {
     /**
-     * Validation Error
+     * No Content-Length header
      */
-    422: HTTPValidationError;
+    411: unknown;
+    /**
+     * File larger than MAX_UPLOAD_BYTES (2 GB)
+     */
+    413: unknown;
+    /**
+     * Not a video file type
+     */
+    415: unknown;
+    /**
+     * Video longer than MAX_VIDEO_MINUTES (60), or invalid form
+     */
+    422: unknown;
 };
-
-export type videosUploadVideoError = videosUploadVideoErrors[keyof videosUploadVideoErrors];
 
 export type videosUploadVideoResponses = {
     /**
@@ -1219,9 +1295,17 @@ export type videosProcessVideoData = {
 
 export type videosProcessVideoErrors = {
     /**
+     * No court yet, or already queued/processing
+     */
+    409: unknown;
+    /**
      * Validation Error
      */
     422: HTTPValidationError;
+    /**
+     * Too many of your videos queued or processing
+     */
+    429: unknown;
 };
 
 export type videosProcessVideoError = videosProcessVideoErrors[keyof videosProcessVideoErrors];

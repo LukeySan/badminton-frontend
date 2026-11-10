@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { AdminSection } from "@/components/UserSettings/AdminSection"
 import ChangePassword from "@/components/UserSettings/ChangePassword"
 import DeleteAccount from "@/components/UserSettings/DeleteAccount"
+import { HelpSection } from "@/components/UserSettings/HelpSection"
 import UserInformation from "@/components/UserSettings/UserInformation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import useAuth from "@/hooks/useAuth"
@@ -46,6 +47,7 @@ function UserSettings() {
       </div>
 
       {currentUser.is_superuser && <AdminSection />}
+      <HelpSection />
 
       <Tabs defaultValue="my-profile">
         <TabsList>

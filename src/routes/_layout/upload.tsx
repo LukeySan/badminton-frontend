@@ -4,22 +4,28 @@ import {
   useBlocker,
   useNavigate,
 } from "@tanstack/react-router"
-import { isCancel } from "axios"
+import { AxiosError, isCancel } from "axios"
 import { Film, Upload } from "lucide-react"
 import { type DragEvent, useEffect, useRef, useState } from "react"
 
 import { VideosService } from "@/client"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import { LoadingButton } from "@/components/ui/loading-button"
 import { Progress } from "@/components/ui/progress"
 import {
   invalidateVideoLists,
   videoQueryOptions,
 } from "@/components/Videos/queries"
 import { RecordingTips } from "@/components/Videos/RecordingTips"
+import {
+  checkVideoFile,
+  LIMITS_TEXT,
+  type UploadProblem,
+  uploadErrorProblem,
+} from "@/components/Videos/uploadLimits"
 import { formatBytes } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { extractErrorMessage } from "@/utils"
 
 export const Route = createFileRoute("/_layout/upload")({
   component: UploadPage,
@@ -83,10 +89,22 @@ function UploadPage() {
   // Abort the request if the page goes away mid-upload.
   useEffect(() => () => abortRef.current?.abort(), [])
 
-  const chooseFile = (chosen: File | undefined) => {
+  // Size and length are checked in the browser first, so a too-big video is refused
+  // in a moment instead of after a long upload.
+  const [precheck, setPrecheck] = useState<
+    { checking: true } | { checking: false; problem: UploadProblem | null }
+  >({ checking: false, problem: null })
+  const latestFile = useRef<File | null>(null)
+
+  const chooseFile = async (chosen: File | undefined) => {
     if (!chosen || upload.isPending) return
     setFile(chosen)
     upload.reset()
+    latestFile.current = chosen
+    setPrecheck({ checking: true })
+    const problem = await checkVideoFile(chosen)
+    // Ignore the answer if another file was chosen meanwhile.
+    if (latestFile.current === chosen) setPrecheck({ checking: false, problem })
   }
 
   const onDrop = (event: DragEvent<HTMLLabelElement>) => {
@@ -96,6 +114,15 @@ function UploadPage() {
   }
 
   const canceled = upload.isError && isCancel(upload.error)
+  const serverProblem =
+    upload.isError && !canceled ? uploadErrorProblem(upload.error) : null
+  const problem = (!precheck.checking && precheck.problem) || serverProblem
+  // A refused file fails the same way again; network and server errors may not.
+  const status =
+    upload.error instanceof AxiosError
+      ? upload.error.response?.status
+      : undefined
+  const canRetry = status === undefined || status >= 500
   // All bytes sent, but the server is still saving and checking the file.
   const checking = upload.isPending && progress >= 1
 
@@ -146,7 +173,7 @@ function UploadPage() {
               </p>
               <p className="mt-0.5 text-[13px] text-muted-foreground">
                 <span className="hidden sm:inline">or drop it here · </span>
-                MP4, MOV, M4V, MKV or WebM
+                MP4, MOV, M4V, MKV or WebM · {LIMITS_TEXT}
               </p>
             </div>
           </label>
@@ -177,11 +204,14 @@ function UploadPage() {
                 </div>
               )}
 
-              {upload.isError && !canceled && (
+              {problem && (
                 <Alert variant="destructive">
-                  <AlertTitle>Upload failed</AlertTitle>
+                  <AlertTitle>{problem.title}</AlertTitle>
                   <AlertDescription>
-                    {extractErrorMessage(upload.error)}
+                    <p>{problem.message}</p>
+                    {problem.tip && (
+                      <p className="text-foreground">{problem.tip}</p>
+                    )}
                   </AlertDescription>
                 </Alert>
               )}
@@ -202,10 +232,17 @@ function UploadPage() {
                     Cancel
                   </Button>
                 ) : (
-                  <Button size="lg" onClick={() => upload.mutate(file)}>
-                    <Upload />
-                    {upload.isError && !canceled ? "Try again" : "Upload"}
-                  </Button>
+                  !(precheck.checking === false && precheck.problem) &&
+                  (canRetry || !upload.isError) && (
+                    <LoadingButton
+                      size="lg"
+                      loading={precheck.checking}
+                      onClick={() => upload.mutate(file)}
+                    >
+                      {!precheck.checking && <Upload />}
+                      {upload.isError && !canceled ? "Try again" : "Upload"}
+                    </LoadingButton>
+                  )
                 )}
               </div>
             </div>

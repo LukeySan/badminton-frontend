@@ -19,10 +19,12 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
-  /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 1 : undefined,
-  /* Reporter to use. See https://playwright.dev/docs/test-reporters */
-  reporter: process.env.CI ? 'blob' : 'html',
+  /* The tests make their own users and videos, so they can run in parallel on CI too */
+  workers: process.env.CI ? 2 : undefined,
+  /* CI: failures as annotations on the PR, plus an HTML report kept as an artifact */
+  reporter: process.env.CI
+    ? [['github'], ['list'], ['html', { open: 'never' }]]
+    : 'html',
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
@@ -54,14 +56,22 @@ export default defineConfig({
     //   dependencies: ['setup'],
     // },
 
-    // {
-    //   name: 'webkit',
-    //   use: {
-    //     ...devices['Desktop Safari'],
-    //     storageState: 'playwright/.auth/user.json',
-    //   },
-    //   dependencies: ['setup'],
-    // },
+    // Safari's engine: iPhones (and the Capacitor iOS app) run WebKit. On in CI.
+    // Locally only with PW_WEBKIT=1: Playwright's WebKit hangs opening a page on
+    // macOS 26.0 (Nov 2026), so on a Mac use `bun run test:webkit` (Linux WebKit
+    // in Docker, like CI).
+    ...(process.env.CI || process.env.PW_WEBKIT
+      ? [
+          {
+            name: 'webkit',
+            use: {
+              ...devices['Desktop Safari'],
+              storageState: 'playwright/.auth/user.json',
+            },
+            dependencies: ['setup'],
+          },
+        ]
+      : []),
 
     /* Test against mobile viewports. */
     // {

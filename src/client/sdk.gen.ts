@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
+import type { healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -17,6 +17,23 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
      */
     meta?: Record<string, unknown>;
 };
+
+export class HealthService {
+    /**
+     * Health
+     *
+     * For monitoring, no login needed: is the database reachable, and is the queue
+     * moving? Queued videos piling up with nothing processing means no worker is
+     * running; a growing oldest_queued_seconds means the workers can't keep up.
+     */
+    public static health<ThrowOnError extends boolean = true>(options?: Options<healthHealthData, ThrowOnError>) {
+        return (options?.client ?? client).get<healthHealthResponses, healthHealthErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/health',
+            ...options
+        });
+    }
+}
 
 export class LoginService {
     /**
@@ -303,6 +320,7 @@ export class VideosService {
      * Upload Video
      *
      * Upload a video (multipart, field `file`). Status starts as `uploaded`.
+     * Limits: MAX_UPLOAD_BYTES (413) and MAX_VIDEO_MINUTES (422).
      */
     public static uploadVideo<ThrowOnError extends boolean = true>(options: Options<videosUploadVideoData, ThrowOnError>) {
         return (options.client ?? client).post<videosUploadVideoResponses, videosUploadVideoErrors, ThrowOnError>({
@@ -383,7 +401,8 @@ export class VideosService {
     /**
      * Process Video
      *
-     * Queue the video for rally detection.
+     * Queue the video for rally detection. At most MAX_ACTIVE_VIDEOS_PER_USER of a
+     * user's videos can be queued or processing at once (429 beyond that).
      */
     public static processVideo<ThrowOnError extends boolean = true>(options: Options<videosProcessVideoData, ThrowOnError>) {
         return (options.client ?? client).post<videosProcessVideoResponses, videosProcessVideoErrors, ThrowOnError>({

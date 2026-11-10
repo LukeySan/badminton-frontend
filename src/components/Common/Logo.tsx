@@ -22,11 +22,14 @@ export function Logo({
       {variant !== "icon" && (
         <span
           className={cn(
-            "truncate text-[18px] font-extrabold",
+            "flex min-w-0 items-center gap-1.5",
             variant === "responsive" && "group-data-[collapsible=icon]:hidden",
           )}
         >
-          Rally Analyzer
+          <span className="truncate text-[18px] font-extrabold">
+            Rally Analyzer
+          </span>
+          <BetaTag />
         </span>
       )}
     </span>
@@ -37,5 +40,19 @@ export function Logo({
     <Link to="/" aria-label="Rally Analyzer, home">
       {content}
     </Link>
+  )
+}
+
+/** "Beta" next to the app name: green, since pink means "look here" (DESIGN.md). */
+export function BetaTag({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex h-[18px] shrink-0 items-center rounded-full bg-success-soft px-1.5 text-[10px] font-extrabold tracking-[0.04em] text-success-text uppercase",
+        className,
+      )}
+    >
+      Beta
+    </span>
   )
 }

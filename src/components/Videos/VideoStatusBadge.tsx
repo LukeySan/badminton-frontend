@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react"
 
 import type { VideoPublic } from "@/client"
 import { cn } from "@/lib/utils"
+import { failureInfo } from "./failure"
 
 const pill =
   "inline-flex h-[22px] shrink-0 items-center gap-1 self-start whitespace-nowrap rounded-full px-2 text-[11px] font-extrabold"
@@ -13,7 +14,10 @@ const pill =
 export function VideoStatusBadge({
   video,
 }: {
-  video: Pick<VideoPublic, "status" | "progress" | "rally_count">
+  video: Pick<
+    VideoPublic,
+    "status" | "progress" | "rally_count" | "failure_reason"
+  >
 }) {
   switch (video.status) {
     case "done":
@@ -62,7 +66,7 @@ export function VideoStatusBadge({
           data-testid="video-status"
           className={cn(pill, "bg-highlight/16 text-highlight-text-strong")}
         >
-          Failed · Try again
+          Failed · {failureInfo(video).short}
         </span>
       )
   }

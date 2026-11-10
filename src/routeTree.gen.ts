@@ -17,6 +17,7 @@ import { Route as SignupRouteImport } from './routes/signup'
 import { Route as StyleguideRouteImport } from './routes/styleguide'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
 import { Route as LayoutAdminRouteImport } from './routes/_layout/admin'
+import { Route as LayoutRecordingTipsRouteImport } from './routes/_layout/recording-tips'
 import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutUploadRouteImport } from './routes/_layout/upload'
 import { Route as LayoutVideosIdIndexRouteImport } from './routes/_layout/videos/$id/index'
@@ -61,6 +62,11 @@ const LayoutAdminRoute = LayoutAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutRecordingTipsRoute = LayoutRecordingTipsRouteImport.update({
+  id: '/recording-tips',
+  path: '/recording-tips',
+  getParentRoute: () => LayoutRoute,
+} as any)
 const LayoutSettingsRoute = LayoutSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/styleguide': typeof StyleguideRoute
   '/admin': typeof LayoutAdminRoute
+  '/recording-tips': typeof LayoutRecordingTipsRoute
   '/settings': typeof LayoutSettingsRoute
   '/upload': typeof LayoutUploadRoute
   '/videos/$id/court': typeof LayoutVideosIdCourtRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/styleguide': typeof StyleguideRoute
   '/admin': typeof LayoutAdminRoute
+  '/recording-tips': typeof LayoutRecordingTipsRoute
   '/settings': typeof LayoutSettingsRoute
   '/upload': typeof LayoutUploadRoute
   '/': typeof LayoutIndexRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/styleguide': typeof StyleguideRoute
   '/_layout/admin': typeof LayoutAdminRoute
+  '/_layout/recording-tips': typeof LayoutRecordingTipsRoute
   '/_layout/settings': typeof LayoutSettingsRoute
   '/_layout/upload': typeof LayoutUploadRoute
   '/_layout/': typeof LayoutIndexRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/styleguide'
     | '/admin'
+    | '/recording-tips'
     | '/settings'
     | '/upload'
     | '/videos/$id/court'
@@ -145,6 +155,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/styleguide'
     | '/admin'
+    | '/recording-tips'
     | '/settings'
     | '/upload'
     | '/'
@@ -159,6 +170,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/styleguide'
     | '/_layout/admin'
+    | '/_layout/recording-tips'
     | '/_layout/settings'
     | '/_layout/upload'
     | '/_layout/'
@@ -233,6 +245,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutAdminRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/recording-tips': {
+      id: '/_layout/recording-tips'
+      path: '/recording-tips'
+      fullPath: '/recording-tips'
+      preLoaderRoute: typeof LayoutRecordingTipsRouteImport
+      parentRoute: typeof LayoutRoute
+    }
     '/_layout/settings': {
       id: '/_layout/settings'
       path: '/settings'
@@ -266,6 +285,7 @@ declare module '@tanstack/react-router' {
 
 interface LayoutRouteChildren {
   LayoutAdminRoute: typeof LayoutAdminRoute
+  LayoutRecordingTipsRoute: typeof LayoutRecordingTipsRoute
   LayoutSettingsRoute: typeof LayoutSettingsRoute
   LayoutUploadRoute: typeof LayoutUploadRoute
   LayoutIndexRoute: typeof LayoutIndexRoute
@@ -275,6 +295,7 @@ interface LayoutRouteChildren {
 
 const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutAdminRoute: LayoutAdminRoute,
+  LayoutRecordingTipsRoute: LayoutRecordingTipsRoute,
   LayoutSettingsRoute: LayoutSettingsRoute,
   LayoutUploadRoute: LayoutUploadRoute,
   LayoutIndexRoute: LayoutIndexRoute,
