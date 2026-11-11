@@ -59,7 +59,7 @@ export function Player({ video }: { video: VideoPublic }) {
     video.width && video.height ? video.width / video.height : 16 / 9
   const player = useVideoPlayer(video, {
     landscape: aspect >= 1,
-    skipBreaks: () => ({ enabled: skipBreaks, segments }),
+    playback: () => ({ spans: skipBreaks ? segments : null }),
   })
   const { time, duration, paused, src } = player
 

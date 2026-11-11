@@ -546,3 +546,145 @@ test.describe("Trimming and tools", () => {
       .toBe(1)
   })
 })
+
+// --- Preview playback ------------------------------------------------------------------
+
+/** Opens the two-clip reel in Edit mode with the video ready to play. */
+async function openForPlayback(page: Page) {
+  const { token, videoId } = await setUp(page)
+  const reelId = await reelWithTwoClips(token, videoId)
+  await page.goto(`/videos/${videoId}/reels/${reelId}?mode=edit`)
+  await page.waitForFunction(
+    () => (document.querySelector("video")?.readyState ?? 0) >= 2,
+  )
+  return { token, reelId }
+}
+
+/** Puts the video at `t` (paused) and starts recording its time on every frame. */
+async function startAt(page: Page, t: number) {
+  await page.evaluate((seconds) => {
+    const video = document.querySelector("video")!
+    video.pause()
+    video.currentTime = seconds
+    const w = window as unknown as { seen: number[]; recording: boolean }
+    w.seen = []
+    w.recording = true
+    const tick = () => {
+      w.seen.push(video.currentTime)
+      if (w.recording) requestAnimationFrame(tick)
+    }
+    requestAnimationFrame(tick)
+  }, t)
+  await page.waitForTimeout(200) // seeked
+}
+const seenBetween = (page: Page, from: number, to: number) =>
+  page.evaluate(
+    ([a, b]) =>
+      (window as unknown as { seen: number[] }).seen.filter(
+        (t) => t > a && t < b,
+      ),
+    [from, to],
+  )
+const play = (page: Page) =>
+  page.getByRole("button", { name: "Play", exact: true }).first().click()
+
+test.describe("Preview playback", () => {
+  test("Rallies only: clips back to back, stops at the end, Play restarts", async ({
+    page,
+  }) => {
+    await openForPlayback(page)
+    await startAt(page, 1.8) // in clip 1 (0-2.3 s)
+    await play(page)
+    // Jumps over the cut 2.3-5.8 s: plain playback would need 4 s to get there
+    await expect
+      .poll(() => videoTimeOf(page), { timeout: 2500 })
+      .toBeGreaterThanOrEqual(5.8)
+    expect(await seenBetween(page, 2.45, 5.75)).toEqual([])
+
+    // The reel ends with clip 5 (9.6 s): playback stops there
+    await expect
+      .poll(
+        () => page.evaluate(() => document.querySelector("video")!.paused),
+        { timeout: 8000 },
+      )
+      .toBe(true)
+    expect(await videoTimeOf(page)).toBeGreaterThan(9.4)
+    expect(await videoTimeOf(page)).toBeLessThan(9.9)
+
+    // Play again: from the top of the reel
+    await play(page)
+    await expect
+      .poll(() => videoTimeOf(page), { timeout: 2000 })
+      .toBeLessThan(2.3)
+  })
+
+  test("a restored stretch plays through", async ({ page }) => {
+    await openForPlayback(page)
+    await page
+      .getByRole("button", { name: /^Show 0:0\d of cut footage$/ })
+      .first()
+      .click()
+    await startAt(page, 1.8)
+    await play(page)
+    await expect
+      .poll(() => videoTimeOf(page), { timeout: 4000 })
+      .toBeGreaterThan(3.2)
+    expect((await seenBetween(page, 2.5, 3.2)).length).toBeGreaterThan(0)
+  })
+
+  test("Full video: skip breaks jumps the breaks, not the unpicked rallies", async ({
+    page,
+  }) => {
+    await openForPlayback(page)
+    await page.getByRole("radio", { name: "Full video" }).click()
+    const skip = page.getByRole("switch", { name: "Skip breaks" })
+    await skip.click()
+    await expect(skip).toHaveAttribute("aria-checked", "true")
+
+    // Rally 2 (2.3-2.6 s, not picked) plays; the break after it (2.6-3.4 s) doesn't
+    await startAt(page, 2.35)
+    await play(page)
+    await expect
+      .poll(() => videoTimeOf(page), { timeout: 2000 })
+      .toBeGreaterThanOrEqual(3.4)
+    expect((await seenBetween(page, 2.36, 2.6)).length).toBeGreaterThan(0)
+    expect(await seenBetween(page, 2.75, 3.35)).toEqual([])
+
+    // Skip breaks off: the break plays
+    await page
+      .getByRole("button", { name: "Pause", exact: true })
+      .first()
+      .click()
+    await skip.click()
+    await startAt(page, 2.5)
+    await play(page)
+    await expect
+      .poll(() => videoTimeOf(page), { timeout: 3000 })
+      .toBeGreaterThan(3.1)
+    expect((await seenBetween(page, 2.75, 3.1)).length).toBeGreaterThan(0)
+  })
+
+  test("slow-mo plays its clip at half speed", async ({ page }) => {
+    await openForPlayback(page)
+    await page.getByRole("button", { name: /^Rally 5, / }).click()
+    await page
+      .getByRole("toolbar", { name: "Edit tools" })
+      .getByRole("button", { name: "Slow-mo" })
+      .click()
+
+    const rate = () =>
+      page.evaluate(() => document.querySelector("video")!.playbackRate)
+    await startAt(page, 6.0) // in clip 5
+    await play(page)
+    await expect.poll(rate).toBe(0.5)
+    await expect(page.getByTestId("slow-mo-tag")).toBeVisible()
+
+    await page
+      .getByRole("button", { name: "Pause", exact: true })
+      .first()
+      .click()
+    await startAt(page, 1.0) // in clip 1
+    await play(page)
+    await expect.poll(rate).toBe(1)
+  })
+})

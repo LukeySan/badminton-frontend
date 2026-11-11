@@ -20,11 +20,15 @@ import { RallyScrubber } from "@/components/Player/RallyScrubber"
 import {
   nextSegment,
   previousSegment,
+  type Segment,
   segmentAt,
   toSegments,
 } from "@/components/Player/rallies"
 import { usePlayerKeys } from "@/components/Player/usePlayerKeys"
-import { useVideoPlayer } from "@/components/Player/useVideoPlayer"
+import {
+  type PlaybackRule,
+  useVideoPlayer,
+} from "@/components/Player/useVideoPlayer"
 import { VideoStage } from "@/components/Player/VideoStage"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -91,7 +95,7 @@ export function ReelEditor({
   const [skipBreaks, setSkipBreaks] = useState(false)
   const player = useVideoPlayer(video, {
     landscape: frameAspect >= 1,
-    skipBreaks: () => ({ enabled: skipBreaks, segments }),
+    playback: () => playbackRule(),
   })
   const { time, duration, paused, src } = player
 
@@ -105,9 +109,15 @@ export function ReelEditor({
     player.seek(segment.start)
     player.play()
   }
-  const goNext = () => playSegment(nextSegment(segments, player.currentTime()))
+  // Highlights: ← / → go through the match's rallies. Edit: through the reel's clips.
+  const goNext = () =>
+    mode === "edit"
+      ? playSegment(nextSegment(reelClips, player.currentTime()))
+      : playSegment(nextSegment(segments, player.currentTime()))
   const goPrevious = () =>
-    playSegment(previousSegment(segments, player.currentTime()))
+    mode === "edit"
+      ? playSegment(previousSegment(reelClips, player.currentTime()))
+      : playSegment(previousSegment(segments, player.currentTime()))
 
   usePlayerKeys({
     " ": player.togglePlay,
@@ -180,6 +190,70 @@ export function ReelEditor({
       player.seek(edge === "start" ? next.trim_start : next.trim_end - 0.05)
     },
   }
+
+  // --- Preview playback --------------------------------------------------------------
+  // Edit mode plays the reel as edited: its clips in order, the footage kept around
+  // them ("Rallies only": restored stretches; "Full video": everything, without the
+  // breaks when skip-breaks is on), slow-mo clips at half speed. Highlights mode plays
+  // the match freely (tap any rally to watch it), skipping breaks if asked.
+  const playbackRule = (): PlaybackRule => {
+    if (mode !== "edit") return { spans: skipBreaks ? segments : null }
+    const plays = items.filter(
+      (item) =>
+        item.kind !== "gap" &&
+        !(edit.view === "full" && skipBreaks && item.kind === "break"),
+    )
+    return {
+      spans: mergeSpans(plays.map((item) => item.src)),
+      rateAt: (t) =>
+        plays.some(
+          (item) =>
+            item.kind === "clip" &&
+            item.clip.slow_mo &&
+            t >= item.src.start &&
+            t < item.src.end,
+        )
+          ? 0.5
+          : 1,
+    }
+  }
+  // The reel's clips as segments (source times), for ← / → in Edit mode
+  const reelClips: Segment[] = items.flatMap((item, i) =>
+    item.kind === "clip"
+      ? [
+          {
+            number: item.segment?.number ?? i + 1,
+            rally: item.segment?.rally ?? {
+              id: -1 - i,
+              start: item.src.start,
+              end: item.src.end,
+              duration: item.src.end - item.src.start,
+            },
+            start: item.src.start,
+            end: item.src.end,
+          },
+        ]
+      : [],
+  )
+  // ... and in reel time, for the full-screen chapter bar (the scrubber draws each
+  // chapter from its rally's times, so those are reel times too)
+  const reelChapters: Segment[] = items.flatMap((item, i) =>
+    item.kind === "clip"
+      ? [
+          {
+            number: item.segment?.number ?? i + 1,
+            rally: {
+              id: item.segment?.rally.id ?? -1 - i,
+              start: item.reel.start,
+              end: item.reel.end,
+              duration: item.reel.end - item.reel.start,
+            },
+            start: item.reel.start,
+            end: item.reel.end,
+          },
+        ]
+      : [],
+  )
 
   // What's on screen now: the clip playing (slow-mo tag) and its caption.
   const playingClip = clipIndexAtSource(items, time)
@@ -270,22 +344,47 @@ export function ReelEditor({
           fullscreenBottom={
             <>
               <div className="pr-2.5">
-                <RallyScrubber
-                  duration={duration}
-                  time={time}
-                  segments={segments}
-                  visibleNumbers={new Set(segments.map((s) => s.number))}
-                  currentNumber={current?.number}
-                  onSeek={player.seek}
-                  onScrubbingChange={player.setScrubbing}
-                />
+                {mode === "edit" ? (
+                  // The reel's chapters, in reel time (as in the prototype)
+                  <RallyScrubber
+                    duration={reelSeconds}
+                    time={reelTime}
+                    segments={reelChapters}
+                    visibleNumbers={
+                      new Set(reelChapters.map((chapter) => chapter.number))
+                    }
+                    currentNumber={
+                      reelChapters.find(
+                        (c) => reelTime >= c.start && reelTime < c.end,
+                      )?.number
+                    }
+                    onSeek={(t) => {
+                      const source = sourceAtReelTime(items, t)
+                      if (source !== undefined) player.seek(source)
+                    }}
+                    onScrubbingChange={player.setScrubbing}
+                  />
+                ) : (
+                  <RallyScrubber
+                    duration={duration}
+                    time={time}
+                    segments={segments}
+                    visibleNumbers={new Set(segments.map((s) => s.number))}
+                    currentNumber={current?.number}
+                    onSeek={player.seek}
+                    onScrubbingChange={player.setScrubbing}
+                  />
+                )}
               </div>
               <ControlRow
-                time={time}
-                duration={duration}
+                time={mode === "edit" ? reelTime : time}
+                duration={mode === "edit" ? reelSeconds : duration}
                 paused={paused}
                 canPlay={Boolean(src)}
-                canNavigate={Boolean(src) && segments.length > 0}
+                canNavigate={
+                  Boolean(src) &&
+                  (mode === "edit" ? reelClips : segments).length > 0
+                }
                 onPrevious={goPrevious}
                 onTogglePlay={player.togglePlay}
                 onNext={goNext}
@@ -614,4 +713,16 @@ function BreaksCutPill({ className }: { className?: string }) {
       </span>
     </span>
   )
+}
+
+/** Stretches that touch (one ends where the next starts) play as one. */
+function mergeSpans(spans: { start: number; end: number }[]) {
+  const merged: { start: number; end: number }[] = []
+  for (const span of spans) {
+    const last = merged[merged.length - 1]
+    if (last && span.start - last.end < 0.05)
+      last.end = Math.max(last.end, span.end)
+    else merged.push({ ...span })
+  }
+  return merged
 }

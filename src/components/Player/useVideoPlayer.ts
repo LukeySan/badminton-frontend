@@ -3,13 +3,21 @@ import { type SyntheticEvent, useEffect, useRef, useState } from "react"
 
 import type { VideoPublic } from "@/client"
 import { fileUrlQueryOptions } from "@/components/Videos/queries"
-import { type Segment, skipTarget } from "./rallies"
+import { skipTarget } from "./rallies"
 import { useFullscreenPlayer } from "./useFullscreenPlayer"
 
 // Same base as the API client (src/main.tsx); file-url returns a path.
 const API_URL = import.meta.env.VITE_API_URL ?? ""
 
-export type SkipBreaks = { enabled: boolean; segments: Segment[] }
+/**
+ * What plays: only these stretches of the video, in order (null: all of it), and
+ * how fast at each moment (slow-mo). The player's skip-breaks is spans = rallies; the
+ * highlight editor's preview is spans = the reel's clips (and kept footage).
+ */
+export type PlaybackRule = {
+  spans: { start: number; end: number }[] | null
+  rateAt?: (t: number) => number
+}
 
 /**
  * Everything about playing one video, shared by the player and the highlight
@@ -21,12 +29,12 @@ export function useVideoPlayer(
   video: VideoPublic,
   {
     landscape,
-    skipBreaks,
+    playback,
   }: {
     /** Full screen asks for landscape (the frame is wider than tall). */
     landscape: boolean
-    /** Read when playback moves, so it can use values computed after this hook. */
-    skipBreaks: () => SkipBreaks
+    /** Read on every frame while playing, so it can use values computed after this hook. */
+    playback: () => PlaybackRule
   },
 ) {
   const fileUrl = useQuery(fileUrlQueryOptions(video.id))
@@ -41,8 +49,10 @@ export function useVideoPlayer(
   // Rally times come from the API's timeline, so its duration is the reference.
   const duration = video.duration || mediaDuration
 
-  const skipConfig = useRef(skipBreaks)
-  skipConfig.current = skipBreaks
+  const rule = useRef(playback)
+  rule.current = playback
+  const scrubbingRef = useRef(scrubbing)
+  scrubbingRef.current = scrubbing
 
   // --- Signed video URL -------------------------------------------------------
   // When the link is renewed (expiry, or after a playback error) the <video> loads
@@ -76,7 +86,16 @@ export function useVideoPlayer(
     lastTime.current = clamped
     setTime(clamped)
   }
-  const play = () => videoRef.current?.play().catch(() => {})
+  const play = () => {
+    const element = videoRef.current
+    if (!element) return
+    // Past the last stretch that plays (end of the reel): start again from the top.
+    const { spans } = rule.current()
+    if (spans?.length && skipTarget(spans, element.currentTime) === null) {
+      seek(spans[0].start)
+    }
+    element.play().catch(() => {})
+  }
   const pause = () => videoRef.current?.pause()
   const togglePlay = () => {
     const element = videoRef.current
@@ -87,16 +106,53 @@ export function useVideoPlayer(
   /** The element's time: state lags up to one timeupdate behind. */
   const currentTime = () => videoRef.current?.currentTime ?? time
 
-  /** Skip-breaks: when playback is outside every rally, jump to the next one. */
-  const enforceSkipBreaks = (t: number) => {
+  /**
+   * The playback rule: outside the stretches that play, jump to the next one (or stop
+   * after the last); inside, play at the rule's speed.
+   */
+  const enforcePlayback = (t: number) => {
     const element = videoRef.current
-    const { enabled, segments } = skipConfig.current()
-    if (!enabled || scrubbing || !element || element.paused) return
-    const target = skipTarget(segments, t)
+    if (!element || element.paused) return
+    const { spans, rateAt } = rule.current()
+    const rate = rateAt?.(t) ?? 1
+    if (element.playbackRate !== rate) element.playbackRate = rate
+    if (!spans || scrubbingRef.current) return
+    const target = skipTarget(spans, t)
     if (target === undefined) return
     if (target === null) element.pause()
     else seek(target)
   }
+  const enforceRef = useRef(enforcePlayback)
+  enforceRef.current = enforcePlayback
+
+  // While playing, check every frame (requestVideoFrameCallback; rAF where it's
+  // missing): timeupdate alone fires ~4 times a second, so up to ¼ s of a cut break
+  // would show before the jump.
+  useEffect(() => {
+    const element = videoRef.current as
+      | (HTMLVideoElement & {
+          requestVideoFrameCallback?: (cb: () => void) => number
+          cancelVideoFrameCallback?: (handle: number) => void
+        })
+      | null
+    if (!element || paused) return
+    const perFrame = typeof element.requestVideoFrameCallback === "function"
+    let handle = 0
+    let stopped = false
+    const tick = () => {
+      if (stopped) return
+      enforceRef.current(element.currentTime)
+      handle = perFrame
+        ? element.requestVideoFrameCallback!(tick)
+        : requestAnimationFrame(tick)
+    }
+    tick()
+    return () => {
+      stopped = true
+      if (perFrame) element.cancelVideoFrameCallback?.(handle)
+      else cancelAnimationFrame(handle)
+    }
+  }, [paused])
 
   // --- <video> event handlers -------------------------------------------------
   type VideoEvent = SyntheticEvent<HTMLVideoElement>
@@ -118,13 +174,13 @@ export function useVideoPlayer(
       const t = event.currentTarget.currentTime
       lastTime.current = t
       setTime(t)
-      enforceSkipBreaks(t)
+      enforcePlayback(t)
     },
     onSeeked: (event: VideoEvent) => setTime(event.currentTarget.currentTime),
     onPlay: (event: VideoEvent) => {
       wasPlaying.current = true
       setPaused(false)
-      enforceSkipBreaks(event.currentTarget.currentTime)
+      enforcePlayback(event.currentTarget.currentTime)
     },
     onPause: () => {
       wasPlaying.current = false
