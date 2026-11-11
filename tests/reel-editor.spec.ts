@@ -325,8 +325,9 @@ test.describe("Edit mode timeline", () => {
       .poll(async () => (await readReel(token, reelId)).edit.restored_gaps)
       .toEqual([{ start: 2.3, end: 5.8 }])
 
-    // Tap a restored break: hidden again
-    await page.getByTestId("break").first().click()
+    // Tap a restored break (one that isn't next to the selected clip's handles):
+    // hidden again
+    await page.getByTestId("break").nth(1).click()
     await expect(page.getByTestId("gap")).toHaveCount(2)
     await expect(page.getByTestId("unpicked")).toHaveCount(0)
     await expect
@@ -358,6 +359,8 @@ test.describe("Edit mode timeline", () => {
       .poll(async () => (await readReel(token, reelId)).edit.view)
       .toBe("full")
 
+    // Select clip 5 so clip 1's trim handles don't sit next to rally 3
+    await page.getByRole("button", { name: /^Rally 5, / }).click()
     await page
       .getByRole("button", { name: "Rally 3, not in the reel. Tap to add" })
       .click()
@@ -402,5 +405,144 @@ test.describe("Edit mode timeline", () => {
     await page.mouse.up()
     // 12 px more = 2 s more of clip 5
     await expect.poll(() => videoTimeOf(page)).toBeCloseTo(8.5, 1)
+  })
+})
+
+// --- Edit mode: trimming and tools ------------------------------------------------------
+
+const clipTrims = async (token: string, reelId: string) =>
+  (
+    (await readReel(token, reelId)).edit.clips as {
+      trim_start: number
+      trim_end: number
+      slow_mo?: boolean
+    }[]
+  ).map((c) => [c.trim_start, c.trim_end])
+
+test.describe("Trimming and tools", () => {
+  test("drag the pink edges: 0.1 s steps, stops at neighbors and the video's end", async ({
+    page,
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name === "iphone",
+      "mouse drag; the keyboard test covers touch-free trimming",
+    )
+    const { token, videoId } = await setUp(page)
+    const reelId = await reelWithTwoClips(token, videoId)
+    await page.goto(`/videos/${videoId}/reels/${reelId}?mode=edit`)
+    await page.getByRole("button", { name: /^Rally 5, / }).click()
+    await expect(page.getByText("Rally 5 selected")).toBeVisible()
+
+    const drag = async (edge: "start" | "end", dx: number) => {
+      const box = (await page.getByTestId(`trim-${edge}`).boundingBox())!
+      const x = box.x + box.width / 2
+      const y = box.y + box.height / 2
+      await page.mouse.move(x, y)
+      await page.mouse.down()
+      await page.mouse.move(x + dx, y, { steps: 6 })
+      await page.mouse.up()
+    }
+    const end = page.getByRole("slider", { name: "End of rally 5" })
+    const start = page.getByRole("slider", { name: "Start of rally 5" })
+
+    // Clip 5 is 3.8 s over 22.8 px: 6 px = 1 s
+    await drag("end", -6)
+    await expect(end).toHaveAttribute("aria-valuenow", "8.6")
+    // Far left: stops at the end of clip 1 (2.3 s)
+    await drag("start", -150)
+    await expect(start).toHaveAttribute("aria-valuenow", "2.3")
+    // Far right: stops at the end of the video (12 s)
+    await drag("end", 150)
+    await expect(end).toHaveAttribute("aria-valuenow", "12")
+    await expect
+      .poll(() => clipTrims(token, reelId))
+      .toEqual([
+        [0, 2.3],
+        [2.3, 12],
+      ])
+
+    // One drag = one undo step
+    await page.getByRole("button", { name: "Undo" }).click()
+    await expect(end).toHaveAttribute("aria-valuenow", "8.6")
+    await expect(start).toHaveAttribute("aria-valuenow", "2.3")
+  })
+
+  test("keyboard and the Trim tool: 0.1 s steps, never shorter than 0.5 s", async ({
+    page,
+  }) => {
+    const { token, videoId } = await setUp(page)
+    const reelId = await reelWithTwoClips(token, videoId)
+    await page.goto(`/videos/${videoId}/reels/${reelId}?mode=edit`)
+    // Clip 1 (0-2.3 s) is selected first
+    const end = page.getByRole("slider", { name: "End of rally 1" })
+    await end.focus()
+    await page.keyboard.press("ArrowLeft")
+    await expect(end).toHaveAttribute("aria-valuenow", "2.2")
+    for (let i = 0; i < 4; i++) await page.keyboard.press("Shift+ArrowLeft")
+    await expect(end).toHaveAttribute("aria-valuenow", "0.5") // 0.5 s minimum
+
+    await page.getByRole("button", { name: "Trim", exact: true }).click()
+    await page.getByRole("button", { name: "End 0.1 s later" }).click()
+    await expect(end).toHaveAttribute("aria-valuenow", "0.6")
+    await page.getByRole("button", { name: "Start 0.1 s earlier" }).click()
+    await expect(
+      page.getByRole("slider", { name: "Start of rally 1" }),
+    ).toHaveAttribute("aria-valuenow", "0") // the video's start
+    await expect
+      .poll(async () => (await clipTrims(token, reelId))[0])
+      .toEqual([0, 0.6])
+  })
+
+  test("Slow-mo, Trail, Text, Format and Remove", async ({ page }) => {
+    const { token, videoId } = await setUp(page)
+    const reelId = await reelWithTwoClips(token, videoId)
+    await page.goto(`/videos/${videoId}/reels/${reelId}?mode=edit`)
+    // The timeline settles once the video's length is known
+    await page.waitForFunction(
+      () => (document.querySelector("video")?.readyState ?? 0) >= 1,
+    )
+    await page.getByRole("button", { name: /^Rally 5, / }).click()
+    const tools = page.getByRole("toolbar", { name: "Edit tools" })
+
+    // Slow-mo: clip 5 (3.8 s) plays twice as long: 2.3 + 7.6 = 9.9 s
+    await tools.getByRole("button", { name: "Slow-mo" }).click()
+    await expect(
+      tools.getByRole("button", { name: "Slow-mo" }),
+    ).toHaveAttribute("aria-pressed", "true")
+    await expect(page.getByTestId("reel-time")).toContainText("/ 0:10")
+
+    await tools.getByRole("button", { name: "Trail" }).click()
+    await expect(page.getByTestId("trail-track")).toBeVisible()
+
+    await tools.getByRole("button", { name: "Text" }).click()
+    await page.getByLabel("Caption").fill("What a rally")
+    await page.getByRole("button", { name: "Save" }).click()
+    await expect(page.getByTestId("caption-track")).toContainText(
+      "What a rally",
+    )
+
+    await tools.getByRole("button", { name: "Format 16:9" }).click()
+    await expect(
+      page.getByRole("button", { name: /^Format 9:16/ }).first(),
+    ).toBeVisible()
+
+    await expect
+      .poll(async () => (await readReel(token, reelId)).edit)
+      .toMatchObject({
+        format: "9:16",
+        overlays: {
+          trail: true,
+          captions: [{ start: 5.8, end: 9.6, text: "What a rally" }],
+        },
+        clips: [{ slow_mo: false }, { slow_mo: true }],
+      })
+
+    await tools
+      .getByRole("button", { name: "Remove Rally 5 from the reel" })
+      .click()
+    await expect(page.getByTestId("clip")).toHaveCount(1)
+    await expect
+      .poll(async () => (await readReel(token, reelId)).edit.clips.length)
+      .toBe(1)
   })
 })

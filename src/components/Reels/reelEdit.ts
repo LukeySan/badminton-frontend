@@ -161,6 +161,97 @@ export function hideRegion(
   }
 }
 
+// --- Trimming and the tools ---------------------------------------------------------
+
+/** Trim handles snap to this (seconds). */
+export const TRIM_SNAP = 0.1
+/** A clip can't be trimmed shorter than this. */
+export const MIN_CLIP = 0.5
+/** Longest caption (the backend's CAPTION_MAX_LENGTH). */
+export const CAPTION_MAX = 80
+
+/**
+ * Where a clip's edges may go: snapped to 0.1 s, never over the neighboring clips or
+ * past the video's ends, and at least MIN_CLIP long. `edge` says which end moved, so
+ * the other one stays put.
+ */
+export function constrainTrim(
+  edit: Edit,
+  clipIndex: number,
+  edge: "start" | "end",
+  value: number,
+  duration: number,
+): { trim_start: number; trim_end: number } {
+  const clip = edit.clips[clipIndex]
+  const previous = edit.clips[clipIndex - 1]
+  const next = edit.clips[clipIndex + 1]
+  const floor = previous ? previous.trim_end : 0
+  const ceiling = next
+    ? next.trim_start
+    : duration > 0
+      ? duration
+      : Number.POSITIVE_INFINITY
+  const snap = (t: number) => round3(Math.round(t / TRIM_SNAP) * TRIM_SNAP)
+  if (edge === "start") {
+    const start = Math.min(
+      Math.max(snap(value), floor),
+      clip.trim_end - MIN_CLIP,
+    )
+    return {
+      trim_start: round3(Math.max(start, floor)),
+      trim_end: clip.trim_end,
+    }
+  }
+  const end = Math.max(
+    Math.min(snap(value), ceiling),
+    clip.trim_start + MIN_CLIP,
+  )
+  return {
+    trim_start: clip.trim_start,
+    trim_end: round3(Math.min(end, ceiling)),
+  }
+}
+
+const replaceClip = (
+  edit: Edit,
+  clipIndex: number,
+  clip: Partial<ReelClip>,
+) => ({
+  ...edit,
+  clips: edit.clips.map((c, i) => (i === clipIndex ? { ...c, ...clip } : c)),
+})
+
+/** The caption shown over a clip (the first one overlapping it). */
+export function captionOfClip(edit: Edit, clip: ReelClip) {
+  return edit.overlays.captions.find(
+    (c) =>
+      Math.min(c.end, clip.trim_end) - Math.max(c.start, clip.trim_start) >=
+      MIN_SPAN,
+  )
+}
+
+/** Set (or with an empty text, remove) the caption over a clip's time range. */
+export function setClipCaption(edit: Edit, clip: ReelClip, text: string): Edit {
+  const others = edit.overlays.captions.filter(
+    (c) =>
+      Math.min(c.end, clip.trim_end) - Math.max(c.start, clip.trim_start) <
+      MIN_SPAN,
+  )
+  const trimmed = text.trim().slice(0, CAPTION_MAX)
+  return {
+    ...edit,
+    overlays: {
+      ...edit.overlays,
+      captions: trimmed
+        ? [
+            ...others,
+            { start: clip.trim_start, end: clip.trim_end, text: trimmed },
+          ]
+        : others,
+    },
+  }
+}
+
 /** Take a rally out of the reel (its footage becomes part of the gap around it). */
 export function unpickRally(edit: Edit, rallyId: number): Edit {
   return {
@@ -204,6 +295,16 @@ export type EditAction =
   | { type: "set-view"; view: Edit["view"] }
   | { type: "restore-region"; region: { start: number; end: number } }
   | { type: "hide-region"; region: { start: number; end: number } }
+  | {
+      type: "trim-clip"
+      clipIndex: number
+      trim_start: number
+      trim_end: number
+    }
+  | { type: "toggle-slow-mo"; clipIndex: number }
+  | { type: "set-trail"; on: boolean }
+  | { type: "set-caption"; clipIndex: number; text: string }
+  | { type: "remove-clip"; clipIndex: number }
   | { type: "undo" }
   | { type: "redo" }
 
@@ -264,5 +365,38 @@ export function editReducer(
       return commit(history, restoreRegion(history.present, action.region))
     case "hide-region":
       return commit(history, hideRegion(history.present, action.region))
+    case "trim-clip":
+      return commit(
+        history,
+        replaceClip(history.present, action.clipIndex, {
+          trim_start: action.trim_start,
+          trim_end: action.trim_end,
+        }),
+      )
+    case "toggle-slow-mo": {
+      const clip = history.present.clips[action.clipIndex]
+      if (!clip) return history
+      return commit(
+        history,
+        replaceClip(history.present, action.clipIndex, {
+          slow_mo: !clip.slow_mo,
+        }),
+      )
+    }
+    case "set-trail":
+      return commit(history, {
+        ...history.present,
+        overlays: { ...history.present.overlays, trail: action.on },
+      })
+    case "set-caption": {
+      const clip = history.present.clips[action.clipIndex]
+      if (!clip) return history
+      return commit(history, setClipCaption(history.present, clip, action.text))
+    }
+    case "remove-clip":
+      return commit(history, {
+        ...history.present,
+        clips: history.present.clips.filter((_, i) => i !== action.clipIndex),
+      })
   }
 }

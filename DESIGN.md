@@ -266,6 +266,17 @@ sideways is wide but short, so it keeps the phone layout.
     `--chapter` ring, "R7" and "+ add". In Edit + Rallies only the video's pill is a
     static "✓ Breaks cut" (`text-court-accent`, `--chapter` border), elsewhere the skip
     toggle. The time row shows reel time ("0:12 / 1:24").
+  - Selected clip: pink trim handles (12px `bg-highlight`, ink grip) on its edges,
+    inside the clip when it's at least 40px wide, outside it (like brackets) when it's
+    narrower. Drag (snaps to 0.1 s, stops at the neighbors and the video's ends, 0.5 s
+    minimum) or ←/→ when focused. Below the timeline: "**Rally 19** selected · drag the
+    pink edges to trim" (12px muted, the rally in `text-highlight-text`), then the tool
+    row (72×64 tiles, 14px radius, `bg-card`; active = `bg-success-soft
+    text-success-text` with a 1.5px `--chapter` ring): Trim (opens Start/End −/+ rows),
+    Slow-mo, Trail, Text (caption dialog, 80 characters), Format, Remove. Overlay
+    tracks under the clip track: "Shuttle trail" (`bg-success-soft`) across the reel,
+    caption bars "Aa …" (`bg-secondary`) under their clips. On the video: "Slow-mo" tag
+    top-right and the caption bottom center (`bg-court-ink/75`).
   - "Make a highlight" sits in the player header (clapperboard icon; "Highlight" on
     phones).
 - **How to record** (`/recording-tips`, linked from Upload and Profile): side-view and

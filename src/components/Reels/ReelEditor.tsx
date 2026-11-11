@@ -31,9 +31,12 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ralliesQueryOptions } from "@/components/Videos/queries"
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { EditPanel } from "./EditPanel"
+import { EditPanel, type TrimCallbacks } from "./EditPanel"
+import { EditTools } from "./EditTools"
 import { HighlightsPanel } from "./HighlightsPanel"
 import {
+  captionOfClip,
+  constrainTrim,
   type Edit,
   editReducer,
   initialHistory,
@@ -41,7 +44,12 @@ import {
   type ReelFormat,
   reelLength,
 } from "./reelEdit"
-import { buildTimeline, reelTimeAtSource, sourceAtReelTime } from "./timeline"
+import {
+  buildTimeline,
+  clipIndexAtSource,
+  reelTimeAtSource,
+  sourceAtReelTime,
+} from "./timeline"
 import { type SaveStatus, useReelAutosave } from "./useReelAutosave"
 
 export type EditorMode = "highlights" | "edit"
@@ -112,11 +120,30 @@ export function ReelEditor({
   const toggleSkipBreaks = () => setSkipBreaks((on) => !on)
   const rallyBadge = current && <RallyBadge number={current.number} />
   const inFullscreen = player.fullscreen.active
-  const reelSeconds = reelLength(edit, duration)
+  // While a trim handle is dragged, the timeline shows the new edges; the edit list
+  // only changes on release (one undo step, one save).
+  const [trimPreview, setTrimPreview] = useState<{
+    clipIndex: number
+    trim_start: number
+    trim_end: number
+  } | null>(null)
+  const shown: Edit = useMemo(
+    () =>
+      trimPreview
+        ? {
+            ...edit,
+            clips: edit.clips.map((clip, i) =>
+              i === trimPreview.clipIndex ? { ...clip, ...trimPreview } : clip,
+            ),
+          }
+        : edit,
+    [edit, trimPreview],
+  )
+  const reelSeconds = reelLength(shown, duration)
   // The reel as items in reel order: the timeline and the time row read from it.
   const items = useMemo(
-    () => buildTimeline(edit, segments, duration),
-    [edit, segments, duration],
+    () => buildTimeline(shown, segments, duration),
+    [shown, segments, duration],
   )
   const reelTime = reelTimeAtSource(items, time)
   const [selected, setSelected] = useState<number | undefined>(0)
@@ -126,6 +153,41 @@ export function ReelEditor({
       : edit.clips.length > 0
         ? 0
         : undefined
+  const clip = selectedClip !== undefined ? edit.clips[selectedClip] : undefined
+  const clipNumber = segments.find((s) => s.rally.id === clip?.rally_id)?.number
+  const clipLabel = clipNumber ? `Rally ${clipNumber}` : "Clip"
+
+  const trim: TrimCallbacks = {
+    active: trimPreview !== null,
+    onDrag: (clipIndex, edge, value) => {
+      const next = constrainTrim(edit, clipIndex, edge, value, duration)
+      setTrimPreview({ clipIndex, ...next })
+      // Show the frame at the edge being moved.
+      player.pause()
+      player.seek(edge === "start" ? next.trim_start : next.trim_end - 0.05)
+    },
+    onEnd: () => {
+      if (trimPreview) dispatch({ type: "trim-clip", ...trimPreview })
+      setTrimPreview(null)
+    },
+    onNudge: (clipIndex, edge, delta) => {
+      const current = edit.clips[clipIndex]
+      if (!current) return
+      const from = edge === "start" ? current.trim_start : current.trim_end
+      const next = constrainTrim(edit, clipIndex, edge, from + delta, duration)
+      dispatch({ type: "trim-clip", clipIndex, ...next })
+      player.pause()
+      player.seek(edge === "start" ? next.trim_start : next.trim_end - 0.05)
+    },
+  }
+
+  // What's on screen now: the clip playing (slow-mo tag) and its caption.
+  const playingClip = clipIndexAtSource(items, time)
+  const playing =
+    playingClip !== undefined ? shown.clips[playingClip] : undefined
+  const caption = shown.overlays.captions.find(
+    (c) => time >= c.start && time < c.end,
+  )
   // Edit + "Rallies only": the breaks are cut by the edit itself, so the pill says so
   // instead of offering to skip them.
   const breaksCut = mode === "edit" && edit.view === "cut"
@@ -170,6 +232,28 @@ export function ReelEditor({
           // The bottom half needs room: the video takes at most ~40% of a phone.
           maxInlineHeight="40dvh"
           cropToFrame={frameAspect < videoAspect}
+          frameOverlays={
+            <>
+              {playing?.slow_mo && (
+                <span
+                  data-testid="slow-mo-tag"
+                  className="pointer-events-none absolute top-3 right-3 rounded-[8px] bg-court-ink/85 px-2.5 py-1 text-xs font-extrabold text-court-foreground"
+                >
+                  Slow-mo
+                </span>
+              )}
+              {caption && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-[46px] flex justify-center px-4">
+                  <span
+                    data-testid="caption"
+                    className="rounded-[8px] bg-court-ink/75 px-2.5 py-1 text-center text-sm font-extrabold text-court-foreground"
+                  >
+                    {caption.text}
+                  </span>
+                </div>
+              )}
+            </>
+          }
           className="rounded-xl max-md:dark:rounded-none"
           inlineOverlays={
             <>
@@ -330,6 +414,7 @@ export function ReelEditor({
         />
       ) : (
         <EditPanel
+          edit={shown}
           view={edit.view}
           items={items}
           reelTime={reelTime}
@@ -347,11 +432,41 @@ export function ReelEditor({
             dispatch({ type: "pick-rally", rally, duration })
             // Select the new clip: it lands after the clips that start before it.
             setSelected(
-              edit.clips.filter((clip) => clip.trim_start <= rally.start)
-                .length,
+              edit.clips.filter((c) => c.trim_start <= rally.start).length,
             )
           }}
-        />
+          trim={trim}
+        >
+          <EditTools
+            edit={edit}
+            clip={clip}
+            clipLabel={clipLabel}
+            caption={clip ? captionOfClip(edit, clip)?.text : undefined}
+            onNudge={(edge, delta) =>
+              selectedClip !== undefined &&
+              trim.onNudge(selectedClip, edge, delta)
+            }
+            onToggleSlowMo={() =>
+              selectedClip !== undefined &&
+              dispatch({ type: "toggle-slow-mo", clipIndex: selectedClip })
+            }
+            onSetTrail={(on) => dispatch({ type: "set-trail", on })}
+            onSetCaption={(text) =>
+              selectedClip !== undefined &&
+              dispatch({ type: "set-caption", clipIndex: selectedClip, text })
+            }
+            onToggleFormat={() =>
+              dispatch({
+                type: "set-format",
+                format: edit.format === "16:9" ? "9:16" : "16:9",
+              })
+            }
+            onRemove={() =>
+              selectedClip !== undefined &&
+              dispatch({ type: "remove-clip", clipIndex: selectedClip })
+            }
+          />
+        </EditPanel>
       )}
     </div>
   )

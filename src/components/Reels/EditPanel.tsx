@@ -1,4 +1,4 @@
-import { ChevronsLeftRight } from "lucide-react"
+import { ChevronsLeftRight, Spline } from "lucide-react"
 import {
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -13,7 +13,8 @@ import type { RallyPublic } from "@/client"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import type { Edit } from "./reelEdit"
+import { formatTenths } from "./EditTools"
+import { captionOfClip, type Edit } from "./reelEdit"
 import {
   layOut,
   type PlacedItem,
@@ -23,6 +24,18 @@ import {
 } from "./timeline"
 
 type Span = { start: number; end: number }
+
+/** Trimming the selected clip (the editor previews the drag and commits on release). */
+export type TrimCallbacks = {
+  /** A handle is being dragged: don't move the timeline under it. */
+  active: boolean
+  /** Dragged to this time (unconstrained; the editor applies the rules). */
+  onDrag: (clipIndex: number, edge: "start" | "end", time: number) => void
+  /** Released: one undo step for the whole drag. */
+  onEnd: () => void
+  /** Keyboard: move an edge by `delta` seconds. */
+  onNudge: (clipIndex: number, edge: "start" | "end", delta: number) => void
+}
 
 const VIEW_HINT = {
   cut: "Breaks are hidden, not deleted. Tap a gap to bring it back.",
@@ -34,6 +47,7 @@ const VIEW_HINT = {
  * Everything that changes the reel is a callback that goes through the reducer.
  */
 export function EditPanel({
+  edit,
   view,
   items,
   reelTime,
@@ -45,8 +59,10 @@ export function EditPanel({
   onRestore,
   onHide,
   onPick,
+  trim,
   children,
 }: {
+  edit: Edit
   view: Edit["view"]
   items: TimelineItem[]
   /** Where the playhead is, in reel time. */
@@ -61,6 +77,7 @@ export function EditPanel({
   onRestore: (region: Span) => void
   onHide: (region: Span) => void
   onPick: (rally: RallyPublic) => void
+  trim: TrimCallbacks
   /** Below the timeline (selection info, tools). */
   children?: ReactNode
 }) {
@@ -103,6 +120,7 @@ export function EditPanel({
       </div>
 
       <Timeline
+        edit={edit}
         view={view}
         items={items}
         reelTime={reelTime}
@@ -113,11 +131,15 @@ export function EditPanel({
         onRestore={onRestore}
         onHide={onHide}
         onPick={onPick}
+        trim={trim}
       />
       {children}
     </section>
   )
 }
+
+/** Clips at least this wide (px) get their trim handles inside their edges. */
+const WIDE_CLIP = 40
 
 /** After the last scroll event of a gesture (incl. momentum), give control back. */
 const SCRUB_IDLE_MS = 180
@@ -131,6 +153,7 @@ const DRAG_THRESHOLD = 4
  * while the user moves it, the video follows the timeline.
  */
 function Timeline({
+  edit,
   view,
   items,
   reelTime,
@@ -141,7 +164,9 @@ function Timeline({
   onRestore,
   onHide,
   onPick,
+  trim,
 }: {
+  edit: Edit
   view: Edit["view"]
   items: TimelineItem[]
   reelTime: number
@@ -152,6 +177,7 @@ function Timeline({
   onRestore: (region: Span) => void
   onHide: (region: Span) => void
   onPick: (rally: RallyPublic) => void
+  trim: TrimCallbacks
 }) {
   const { placed, width } = useMemo(() => layOut(items), [items])
   const scrollRef = useRef<HTMLElement>(null)
@@ -186,10 +212,10 @@ function Timeline({
   // biome-ignore lint/correctness/useExhaustiveDependencies: half changes the scroll range
   useLayoutEffect(() => {
     const element = scrollRef.current
-    if (!element || userActive.current) return
+    if (!element || userActive.current || trim.active) return
     element.scrollLeft = xAtReelTime(placed, reelTime)
     ourScrollLeft.current = element.scrollLeft
-  }, [placed, reelTime, half])
+  }, [placed, reelTime, half, trim.active])
 
   const onScroll = () => {
     const element = scrollRef.current
@@ -250,10 +276,24 @@ function Timeline({
 
   const step = view === "full" ? 60 : 10
   const ticks = useMemo(() => rulerTicks(placed, step), [placed, step])
+  const captioned = placed.flatMap((item) => {
+    if (item.kind !== "clip") return []
+    const caption = captionOfClip(edit, item.clip)
+    return caption ? [{ item, text: caption.text }] : []
+  })
+  const hasCaptions = captioned.length > 0
+  const selectedItem = placed.find(
+    (item) => item.kind === "clip" && item.clipIndex === selectedClip,
+  )
 
   return (
-    // As tall as its tracks (ruler + clip track); the playhead spans them.
-    <div className="relative h-[96px] shrink-0">
+    // As tall as its tracks; the playhead spans them.
+    <div
+      className="relative shrink-0"
+      style={{
+        height: 96 + (edit.overlays.trail ? 28 : 0) + (hasCaptions ? 28 : 0),
+      }}
+    >
       <section
         ref={scrollRef}
         aria-label="Reel timeline"
@@ -307,7 +347,39 @@ function Timeline({
                 onPick={onPick}
               />
             ))}
+            {selectedItem?.kind === "clip" && (
+              <>
+                <TrimHandle item={selectedItem} edge="start" trim={trim} />
+                <TrimHandle item={selectedItem} edge="end" trim={trim} />
+              </>
+            )}
           </div>
+
+          {/* Overlay tracks: the shuttle trail (whole reel) and captions (per clip) */}
+          {edit.overlays.trail && (
+            <div
+              data-testid="trail-track"
+              className="mt-1 flex h-6 items-center gap-1.5 rounded-[6px] bg-success-soft px-2 text-[11px] font-extrabold text-success-text"
+              style={{ width }}
+            >
+              <Spline className="size-3" strokeWidth={2.4} />
+              Shuttle trail
+            </div>
+          )}
+          {hasCaptions && (
+            <div className="relative mt-1 h-6" style={{ width }}>
+              {captioned.map(({ item, text }) => (
+                <div
+                  key={item.key}
+                  data-testid="caption-track"
+                  className="absolute top-0 flex h-6 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[6px] bg-secondary px-2 text-[11px] font-bold text-foreground"
+                  style={{ left: item.x, width: item.w }}
+                >
+                  <span className="font-extrabold">Aa</span> {text}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -395,7 +467,12 @@ function TrackItem({
           }}
         >
           {item.w >= 34 && (
-            <span className="absolute top-[5px] left-1.5 whitespace-nowrap rounded-[5px] bg-court-ink/85 px-[5px] py-px text-[10px] font-extrabold text-court-foreground tabular-nums">
+            <span
+              className={cn(
+                "absolute top-[5px] whitespace-nowrap rounded-[5px] bg-court-ink/85 px-[5px] py-px text-[10px] font-extrabold text-court-foreground tabular-nums",
+                "left-1.5",
+              )}
+            >
               {number ? `R${number} · ` : ""}
               {formatDuration(reelLength)}
             </span>
@@ -471,4 +548,98 @@ function TrackItem({
         </button>
       )
   }
+}
+
+/**
+ * A pink handle on the selected clip's edge: drag to trim (mouse or touch), or
+ * focus it and use ←/→ (0.1 s; Shift: 1 s). A slider for assistive technology.
+ */
+function TrimHandle({
+  item,
+  edge,
+  trim,
+}: {
+  item: Extract<PlacedItem, { kind: "clip" }>
+  edge: "start" | "end"
+  trim: TrimCallbacks
+}) {
+  const origin = useRef<{ x: number; value: number; perPx: number } | null>(
+    null,
+  )
+  const value = edge === "start" ? item.src.start : item.src.end
+  const inside = item.w >= WIDE_CLIP
+  const name = item.segment ? `rally ${item.segment.number}` : "the clip"
+  return (
+    <div
+      role="slider"
+      tabIndex={0}
+      aria-label={`${edge === "start" ? "Start" : "End"} of ${name}`}
+      aria-valuemin={0}
+      aria-valuemax={Math.ceil(item.src.end + 3600)}
+      aria-valuenow={value}
+      aria-valuetext={formatTenths(value)}
+      data-testid={`trim-${edge}`}
+      onPointerDown={(event) => {
+        event.stopPropagation() // not a timeline drag
+        event.currentTarget.setPointerCapture(event.pointerId)
+        origin.current = {
+          x: event.clientX,
+          value,
+          // Source seconds per pixel, fixed for the whole drag
+          perPx: (item.src.end - item.src.start) / Math.max(item.w, 1),
+        }
+      }}
+      onPointerMove={(event) => {
+        const start = origin.current
+        if (!start) return
+        trim.onDrag(
+          item.clipIndex,
+          edge,
+          start.value + (event.clientX - start.x) * start.perPx,
+        )
+      }}
+      onPointerUp={() => {
+        if (!origin.current) return
+        origin.current = null
+        trim.onEnd()
+      }}
+      onPointerCancel={() => {
+        if (!origin.current) return
+        origin.current = null
+        trim.onEnd()
+      }}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => {
+        if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return
+        event.preventDefault()
+        event.stopPropagation()
+        const step = event.shiftKey ? 1 : 0.1
+        trim.onNudge(
+          item.clipIndex,
+          edge,
+          event.key === "ArrowLeft" ? -step : step,
+        )
+      }}
+      className={cn(
+        // 12 px pink edge with a wider touch target; no scrolling while dragging it
+        "absolute top-0 z-10 flex h-[60px] w-3 cursor-ew-resize touch-none items-center justify-center bg-highlight outline-none after:absolute after:inset-y-0 after:content-[''] focus-visible:ring-2 focus-visible:ring-ring",
+        // Outside, reach less over the neighbors
+        inside ? "after:-inset-x-2" : "after:-inset-x-1",
+        edge === "start" ? "rounded-l-[8px]" : "rounded-r-[8px]",
+      )}
+      // Inside the clip's edges (the prototype); on a narrow clip outside, like
+      // brackets, or the two handles would cover the clip and each other.
+      style={{
+        left: inside
+          ? edge === "start"
+            ? item.x
+            : item.x + item.w - 12
+          : edge === "start"
+            ? item.x - 12
+            : item.x + item.w,
+      }}
+    >
+      <span className="h-[18px] w-0.5 rounded-[1px] bg-highlight-foreground" />
+    </div>
+  )
 }
