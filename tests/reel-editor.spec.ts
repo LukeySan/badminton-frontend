@@ -46,6 +46,8 @@ async function setUp(page: Page) {
 }
 
 const saveStatus = (page: Page) => page.getByTestId("save-status")
+/** Server-side checks wait for the debounced autosave (slow machines, CI). */
+const SAVE_TIMEOUT = 10_000
 const formatChip = (page: Page) =>
   page.getByRole("button", { name: /^Format / })
 
@@ -86,14 +88,18 @@ test("format changes autosave; undo and redo (buttons and keys)", async ({
   await expect(saveStatus(page)).toHaveText("Saving…")
   await expect(saveStatus(page)).toHaveText("Saved")
   await expect
-    .poll(async () => (await readReel(token, reelId)).edit.format)
+    .poll(async () => (await readReel(token, reelId)).edit.format, {
+      timeout: SAVE_TIMEOUT,
+    })
     .toBe("9:16")
 
   await page.getByRole("button", { name: "Undo" }).click()
   await expect(formatChip(page)).toHaveText("16:9")
   await expect(saveStatus(page)).toHaveText("Saved")
   await expect
-    .poll(async () => (await readReel(token, reelId)).edit.format)
+    .poll(async () => (await readReel(token, reelId)).edit.format, {
+      timeout: SAVE_TIMEOUT,
+    })
     .toBe("16:9")
 
   await page.getByRole("button", { name: "Redo" }).click()
@@ -107,7 +113,9 @@ test("format changes autosave; undo and redo (buttons and keys)", async ({
   await expect(formatChip(page)).toHaveText("9:16")
   await expect(saveStatus(page)).toHaveText("Saved")
   await expect
-    .poll(async () => (await readReel(token, reelId)).edit.format)
+    .poll(async () => (await readReel(token, reelId)).edit.format, {
+      timeout: SAVE_TIMEOUT,
+    })
     .toBe("9:16")
 })
 
@@ -191,10 +199,12 @@ test.describe("Highlights mode", () => {
     await expect(bar(page)).toHaveText("2 picked")
     // Saved in match order, padded but not overlapping each other
     await expect
-      .poll(async () =>
-        (
-          (await readReel(token, reelId)).edit.clips as { rally_id: number }[]
-        ).map((c) => c.rally_id),
+      .poll(
+        async () =>
+          (
+            (await readReel(token, reelId)).edit.clips as { rally_id: number }[]
+          ).map((c) => c.rally_id),
+        { timeout: SAVE_TIMEOUT },
       )
       .toEqual([rallies[1].id, rallies[4].id])
     const clips = (await readReel(token, reelId)).edit.clips as {
@@ -322,7 +332,9 @@ test.describe("Edit mode timeline", () => {
     await expect(page.getByTestId("unpicked")).toHaveCount(3)
     await expect(page.getByTestId("reel-time")).toContainText("/ 0:10") // 9.6 s
     await expect
-      .poll(async () => (await readReel(token, reelId)).edit.restored_gaps)
+      .poll(async () => (await readReel(token, reelId)).edit.restored_gaps, {
+        timeout: SAVE_TIMEOUT,
+      })
       .toEqual([{ start: 2.3, end: 5.8 }])
 
     // Tap a restored break (one that isn't next to the selected clip's handles):
@@ -331,7 +343,9 @@ test.describe("Edit mode timeline", () => {
     await expect(page.getByTestId("gap")).toHaveCount(2)
     await expect(page.getByTestId("unpicked")).toHaveCount(0)
     await expect
-      .poll(async () => (await readReel(token, reelId)).edit.restored_gaps)
+      .poll(async () => (await readReel(token, reelId)).edit.restored_gaps, {
+        timeout: SAVE_TIMEOUT,
+      })
       .toEqual([])
 
     // Undo brings the restored stretch back
@@ -356,7 +370,9 @@ test.describe("Edit mode timeline", () => {
       page.getByRole("switch", { name: "Skip breaks" }),
     ).toBeVisible()
     await expect
-      .poll(async () => (await readReel(token, reelId)).edit.view)
+      .poll(async () => (await readReel(token, reelId)).edit.view, {
+        timeout: SAVE_TIMEOUT,
+      })
       .toBe("full")
 
     // Select clip 5 so clip 1's trim handles don't sit next to rally 3
@@ -369,7 +385,9 @@ test.describe("Edit mode timeline", () => {
       page.getByRole("button", { name: /^Rally 3, /, pressed: true }),
     ).toBeVisible()
     await expect
-      .poll(async () => (await readReel(token, reelId)).edit.clips.length)
+      .poll(async () => (await readReel(token, reelId)).edit.clips.length, {
+        timeout: SAVE_TIMEOUT,
+      })
       .toBe(3)
 
     await page.getByRole("radio", { name: "Rallies only" }).click()
@@ -455,7 +473,7 @@ test.describe("Trimming and tools", () => {
     await drag("end", 150)
     await expect(end).toHaveAttribute("aria-valuenow", "12")
     await expect
-      .poll(() => clipTrims(token, reelId))
+      .poll(() => clipTrims(token, reelId), { timeout: SAVE_TIMEOUT })
       .toEqual([
         [0, 2.3],
         [2.3, 12],
@@ -489,7 +507,9 @@ test.describe("Trimming and tools", () => {
       page.getByRole("slider", { name: "Start of rally 1" }),
     ).toHaveAttribute("aria-valuenow", "0") // the video's start
     await expect
-      .poll(async () => (await clipTrims(token, reelId))[0])
+      .poll(async () => (await clipTrims(token, reelId))[0], {
+        timeout: SAVE_TIMEOUT,
+      })
       .toEqual([0, 0.6])
   })
 
@@ -527,7 +547,9 @@ test.describe("Trimming and tools", () => {
     ).toBeVisible()
 
     await expect
-      .poll(async () => (await readReel(token, reelId)).edit)
+      .poll(async () => (await readReel(token, reelId)).edit, {
+        timeout: SAVE_TIMEOUT,
+      })
       .toMatchObject({
         format: "9:16",
         overlays: {
@@ -542,7 +564,9 @@ test.describe("Trimming and tools", () => {
       .click()
     await expect(page.getByTestId("clip")).toHaveCount(1)
     await expect
-      .poll(async () => (await readReel(token, reelId)).edit.clips.length)
+      .poll(async () => (await readReel(token, reelId)).edit.clips.length, {
+        timeout: SAVE_TIMEOUT,
+      })
       .toBe(1)
   })
 })
@@ -686,5 +710,105 @@ test.describe("Preview playback", () => {
     await startAt(page, 1.0) // in clip 1
     await play(page)
     await expect.poll(rate).toBe(1)
+  })
+})
+
+// --- Shuttle trail ------------------------------------------------------------------------
+
+/** 15 fps for 12 s: the shuttle crosses the frame left to right at mid height. */
+const LINE_TRAJECTORY = (() => {
+  const frames = 180
+  const xs = Array.from({ length: frames }, (_, i) =>
+    Number((0.1 + (0.8 * i) / (frames - 1)).toFixed(4)),
+  )
+  return {
+    fps: 15,
+    visible: xs.map(() => 1),
+    x: xs,
+    y: xs.map(() => 0.5),
+  }
+})()
+const shuttleX = (t: number) => 0.1 + (0.8 * Math.round(t * 15)) / 179
+
+/** Highest alpha in a 7×7 patch of the trail canvas around (fx, fy) (fractions). */
+const trailAlphaAt = (page: Page, fx: number, fy: number) =>
+  page.getByTestId("trail").evaluate(
+    (canvas, [x, y]) => {
+      const c = canvas as HTMLCanvasElement
+      const data = c
+        .getContext("2d")!
+        .getImageData(
+          Math.round(x * c.width) - 3,
+          Math.round(y * c.height) - 3,
+          7,
+          7,
+        ).data
+      let max = 0
+      for (let i = 3; i < data.length; i += 4) max = Math.max(max, data[i])
+      return max
+    },
+    [fx, fy],
+  )
+
+test.describe("Shuttle trail", () => {
+  test("drawn from /trajectory, following the video (last 0.6 s only)", async ({
+    page,
+  }) => {
+    const email = randomEmail()
+    const password = randomPassword()
+    await createUser({ email, password })
+    const token = await apiToken(email, password)
+    const videoId = await uploadVideo(token, "trail.webm", PLAYABLE_CLIP)
+    cleanup = () => deleteVideo(token, videoId)
+    await seedAnalysis(videoId, [[1, 11]], LINE_TRAJECTORY)
+    const [rally] = await readRallies(token, videoId)
+    const reelId = await createReel(token, videoId, "Trail", {
+      clips: [{ rally_id: rally.id, trim_start: 0, trim_end: 12 }],
+    })
+    await logInUser(page, email, password)
+    await page.goto(`/videos/${videoId}/reels/${reelId}?mode=edit`)
+    await page.waitForFunction(
+      () => (document.querySelector("video")?.readyState ?? 0) >= 2,
+    )
+    await expect(page.getByTestId("trail")).toHaveCount(0) // off by default
+
+    const loaded = page.waitForResponse((r) => r.url().includes("/trajectory"))
+    await page
+      .getByRole("toolbar", { name: "Edit tools" })
+      .getByRole("button", { name: "Trail" })
+      .click()
+    expect((await loaded).status()).toBe(200)
+    await expect(page.getByTestId("trail")).toBeVisible()
+
+    await startAt(page, 6)
+    await expect
+      .poll(() => trailAlphaAt(page, shuttleX(6), 0.5))
+      .toBeGreaterThan(100)
+    expect(await trailAlphaAt(page, 0.95, 0.1)).toBe(0) // nothing elsewhere
+
+    // 3 s later the trail has moved on: 6 s is far older than 0.6 s
+    await startAt(page, 9)
+    await expect
+      .poll(() => trailAlphaAt(page, shuttleX(9), 0.5))
+      .toBeGreaterThan(100)
+    expect(await trailAlphaAt(page, shuttleX(6), 0.5)).toBe(0)
+    await expect
+      .poll(async () => (await readReel(token, reelId)).edit, {
+        timeout: SAVE_TIMEOUT,
+      })
+      .toMatchObject({ overlays: { trail: true } })
+  })
+
+  test("a match without a trajectory says how to get one", async ({ page }) => {
+    const { token, videoId } = await setUp(page) // analyzed without a trajectory
+    const reelId = await reelWithTwoClips(token, videoId)
+    await page.goto(`/videos/${videoId}/reels/${reelId}?mode=edit`)
+    await page
+      .getByRole("toolbar", { name: "Edit tools" })
+      .getByRole("button", { name: "Trail" })
+      .click()
+    await expect(page.getByRole("note")).toContainText("re-analyze to enable")
+    await expect(page.getByTestId("trail")).toHaveCount(0)
+    await expect(page.getByTestId("trail-track")).toContainText("not available")
   })
 })

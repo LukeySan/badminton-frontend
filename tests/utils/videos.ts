@@ -86,7 +86,17 @@ export async function readReel(token: string, reelId: string) {
   return (await response.json()) as {
     title: string
     updated_at: string
-    edit: Record<string, unknown> & { format?: string; view?: string }
+    edit: Record<string, unknown> & {
+      format?: string
+      view?: string
+      clips: {
+        rally_id: number | null
+        trim_start: number
+        trim_end: number
+        slow_mo?: boolean
+      }[]
+      restored_gaps: { start: number; end: number }[]
+    }
   }
 }
 

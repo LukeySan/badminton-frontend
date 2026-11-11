@@ -48,6 +48,7 @@ const VIEW_HINT = {
  */
 export function EditPanel({
   edit,
+  trailMissing,
   view,
   items,
   reelTime,
@@ -63,6 +64,8 @@ export function EditPanel({
   children,
 }: {
   edit: Edit
+  /** The trail is on, but this match has no shuttle positions (analyzed before). */
+  trailMissing: boolean
   view: Edit["view"]
   items: TimelineItem[]
   /** Where the playhead is, in reel time. */
@@ -121,6 +124,7 @@ export function EditPanel({
 
       <Timeline
         edit={edit}
+        trailMissing={trailMissing}
         view={view}
         items={items}
         reelTime={reelTime}
@@ -154,6 +158,7 @@ const DRAG_THRESHOLD = 4
  */
 function Timeline({
   edit,
+  trailMissing,
   view,
   items,
   reelTime,
@@ -167,6 +172,7 @@ function Timeline({
   trim,
 }: {
   edit: Edit
+  trailMissing: boolean
   view: Edit["view"]
   items: TimelineItem[]
   reelTime: number
@@ -359,11 +365,17 @@ function Timeline({
           {edit.overlays.trail && (
             <div
               data-testid="trail-track"
-              className="mt-1 flex h-6 items-center gap-1.5 rounded-[6px] bg-success-soft px-2 text-[11px] font-extrabold text-success-text"
+              className={cn(
+                // One line, readable even when the reel is short (or empty)
+                "mt-1 flex h-6 min-w-48 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[6px] px-2 text-[11px] font-extrabold",
+                trailMissing
+                  ? "bg-secondary text-muted-foreground"
+                  : "bg-success-soft text-success-text",
+              )}
               style={{ width }}
             >
               <Spline className="size-3" strokeWidth={2.4} />
-              Shuttle trail
+              {trailMissing ? "Shuttle trail · not available" : "Shuttle trail"}
             </div>
           )}
           {hasCaptions && (

@@ -277,6 +277,12 @@ sideways is wide but short, so it keeps the phone layout.
     tracks under the clip track: "Shuttle trail" (`bg-success-soft`) across the reel,
     caption bars "Aa …" (`bg-secondary`) under their clips. On the video: "Slow-mo" tag
     top-right and the caption bottom center (`bg-court-ink/75`).
+  - Shuttle trail (Trail tool): a canvas over the video with the last 0.6 s of the
+    shuttle's path, fading out (`--court-foreground` line with a soft glow), and the
+    shuttle now as a mint dot ringed in `--highlight`. Matches analyzed before trails
+    existed: no trail, a small note on the video ("No shuttle trail for this match ·
+    re-analyze to enable it", `bg-court-ink/85`) and a muted "Shuttle trail · not
+    available" track.
   - "Make a highlight" sits in the player header (clapperboard icon; "Highlight" on
     phones).
 - **How to record** (`/recording-tips`, linked from Upload and Profile): side-view and

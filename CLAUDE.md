@@ -150,6 +150,17 @@ list lives in one reducer with undo/redo (`components/Reels/reelEdit.ts`; every 
 is an action there) and is autosaved (`useReelAutosave`: 800 ms debounce, one save at a
 time, 409 → reload + toast). Query key `["videos", id, "reels", reelId]`, never
 refetched in the background (the editor owns the edit list once loaded).
+`components/Reels/timeline.ts` turns the edit list into items in reel order (clips,
+kept footage, collapsed gaps) with source and reel times; the timeline, the time row
+and preview playback all read it. Preview playback is `useVideoPlayer`'s playback
+rule (spans that play + speed), checked on every video frame. The shuttle trail
+(`TrailCanvas`) loads `/trajectory` in 60 s chunks and draws on
+`requestVideoFrameCallback`. A trim drag is previewed locally and committed as one
+reducer action on release.
+
+E2E tests use real data: `seedAnalysis()` (tests/utils/videos.ts) calls the backend's
+development-only `POST /private/videos/{id}/analysis` to finish a video with given
+rallies (and a trajectory), the way the worker does.
 
 **Never use native video full screen for previews (decided).** No
 `video.requestFullscreen()`, no `webkitEnterFullscreen()`, no `controls` on the

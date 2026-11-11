@@ -48,12 +48,14 @@ import {
   type ReelFormat,
   reelLength,
 } from "./reelEdit"
+import { TrailCanvas } from "./TrailCanvas"
 import {
   buildTimeline,
   clipIndexAtSource,
   reelTimeAtSource,
   sourceAtReelTime,
 } from "./timeline"
+import { useTrajectory } from "./trajectory"
 import { type SaveStatus, useReelAutosave } from "./useReelAutosave"
 
 export type EditorMode = "highlights" | "edit"
@@ -255,6 +257,9 @@ export function ReelEditor({
       : [],
   )
 
+  // Shuttle trail (Trail tool): loaded around the playhead while it's on.
+  const trajectory = useTrajectory(video.id, time, shown.overlays.trail)
+
   // What's on screen now: the clip playing (slow-mo tag) and its caption.
   const playingClip = clipIndexAtSource(items, time)
   const playing =
@@ -308,6 +313,25 @@ export function ReelEditor({
           cropToFrame={frameAspect < videoAspect}
           frameOverlays={
             <>
+              {shown.overlays.trail && !trajectory.missing && (
+                <TrailCanvas
+                  videoRef={player.videoRef}
+                  src={src}
+                  points={trajectory.points}
+                  videoAspect={videoAspect}
+                  cover={frameAspect < videoAspect}
+                />
+              )}
+              {shown.overlays.trail && trajectory.missing && (
+                // Analyzed before trails existed: no positions to draw
+                <span
+                  role="note"
+                  data-testid="trail-missing"
+                  className="pointer-events-none absolute bottom-3 left-3 max-w-[60%] rounded-[8px] bg-court-ink/85 px-2 py-1 text-[11px] font-bold text-court-foreground"
+                >
+                  No shuttle trail for this match · re-analyze to enable it
+                </span>
+              )}
               {playing?.slow_mo && (
                 <span
                   data-testid="slow-mo-tag"
@@ -514,6 +538,7 @@ export function ReelEditor({
       ) : (
         <EditPanel
           edit={shown}
+          trailMissing={trajectory.missing}
           view={edit.view}
           items={items}
           reelTime={reelTime}
