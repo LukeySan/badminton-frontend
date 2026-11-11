@@ -132,6 +132,35 @@ export function pickRally(
   return { ...edit, clips }
 }
 
+/** Show a hidden stretch again in "Rallies only" (stored as its time range). */
+export function restoreRegion(
+  edit: Edit,
+  region: { start: number; end: number },
+): Edit {
+  return {
+    ...edit,
+    restored_gaps: [
+      ...hideRegion(edit, region).restored_gaps,
+      { start: round3(region.start), end: round3(region.end) },
+    ],
+  }
+}
+
+/** Hide a stretch again: drop every restored range that overlaps it. */
+export function hideRegion(
+  edit: Edit,
+  region: { start: number; end: number },
+): Edit {
+  return {
+    ...edit,
+    restored_gaps: edit.restored_gaps.filter(
+      (gap) =>
+        Math.min(gap.end, region.end) - Math.max(gap.start, region.start) <
+        MIN_SPAN,
+    ),
+  }
+}
+
 /** Take a rally out of the reel (its footage becomes part of the gap around it). */
 export function unpickRally(edit: Edit, rallyId: number): Edit {
   return {
@@ -172,6 +201,9 @@ export type EditAction =
   | { type: "set-format"; format: ReelFormat }
   | { type: "pick-rally"; rally: RallyPublic; duration: number }
   | { type: "unpick-rally"; rallyId: number }
+  | { type: "set-view"; view: Edit["view"] }
+  | { type: "restore-region"; region: { start: number; end: number } }
+  | { type: "hide-region"; region: { start: number; end: number } }
   | { type: "undo" }
   | { type: "redo" }
 
@@ -226,5 +258,11 @@ export function editReducer(
       )
     case "unpick-rally":
       return commit(history, unpickRally(history.present, action.rallyId))
+    case "set-view":
+      return commit(history, { ...history.present, view: action.view })
+    case "restore-region":
+      return commit(history, restoreRegion(history.present, action.region))
+    case "hide-region":
+      return commit(history, hideRegion(history.present, action.region))
   }
 }

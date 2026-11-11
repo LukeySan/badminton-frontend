@@ -162,7 +162,8 @@ test("mode toggle is in the URL; full screen works; no sideways scroll", async (
   await page.getByRole("button", { name: "Full screen", exact: true }).click()
   const layer = page.getByRole("dialog", { name: /full screen$/ })
   await expect(layer).toBeVisible()
-  await expect(layer.getByRole("switch", { name: "Skip breaks" })).toBeVisible()
+  // Edit + Rallies only: the breaks are cut by the edit, so the pill says so
+  await expect(layer.getByTestId("breaks-cut")).toBeVisible()
   await expect(layer.getByTestId("video")).toBeVisible()
   await layer.getByRole("button", { name: "Exit full screen" }).click()
   await expect(layer).toHaveCount(0)
@@ -274,5 +275,132 @@ test.describe("Highlights mode", () => {
     await expect(
       page.getByRole("radio", { name: "Edit", exact: true }),
     ).toBeChecked()
+  })
+})
+
+// --- Edit mode: timeline -------------------------------------------------------------
+
+/**
+ * A reel with rallies 1 and 5 of SEEDED_RALLIES, at known times: clip 1 is
+ * 0-2.3 s, clip 5 is 5.8-9.6 s. Between them (2.3-5.8 s): rallies 2, 3 and 4.
+ */
+async function reelWithTwoClips(token: string, videoId: string) {
+  const rallies = await readRallies(token, videoId)
+  return createReel(token, videoId, "Two clips", {
+    clips: [
+      { rally_id: rallies[0].id, trim_start: 0, trim_end: 2.3 },
+      { rally_id: rallies[4].id, trim_start: 5.8, trim_end: 9.6 },
+    ],
+  })
+}
+
+const videoTimeOf = (page: Page) =>
+  page.evaluate(() => document.querySelector("video")!.currentTime)
+
+test.describe("Edit mode timeline", () => {
+  test("Rallies only: gaps restore on tap, a restored break hides again", async ({
+    page,
+  }) => {
+    const { token, videoId } = await setUp(page)
+    const reelId = await reelWithTwoClips(token, videoId)
+    await page.goto(`/videos/${videoId}/reels/${reelId}?mode=edit`)
+
+    await expect(page.getByTestId("clip")).toHaveCount(2)
+    await expect(page.getByTestId("gap")).toHaveCount(2) // between, and after
+    await expect(page.getByTestId("breaks-cut")).toBeVisible()
+    await expect(
+      page.getByText("Breaks are hidden, not deleted."),
+    ).toBeVisible()
+    await expect(page.getByTestId("reel-time")).toContainText("/ 0:06")
+
+    // The 3.5 s between the clips comes back: rallies 2-4 faint, breaks between
+    await page
+      .getByRole("button", { name: /^Show 0:0\d of cut footage$/ })
+      .first()
+      .click()
+    await expect(page.getByTestId("gap")).toHaveCount(1)
+    await expect(page.getByTestId("unpicked")).toHaveCount(3)
+    await expect(page.getByTestId("reel-time")).toContainText("/ 0:10") // 9.6 s
+    await expect
+      .poll(async () => (await readReel(token, reelId)).edit.restored_gaps)
+      .toEqual([{ start: 2.3, end: 5.8 }])
+
+    // Tap a restored break: hidden again
+    await page.getByTestId("break").first().click()
+    await expect(page.getByTestId("gap")).toHaveCount(2)
+    await expect(page.getByTestId("unpicked")).toHaveCount(0)
+    await expect
+      .poll(async () => (await readReel(token, reelId)).edit.restored_gaps)
+      .toEqual([])
+
+    // Undo brings the restored stretch back
+    await page.getByRole("button", { name: "Undo" }).click()
+    await expect(page.getByTestId("unpicked")).toHaveCount(3)
+  })
+
+  test("Full video: everything stays; tap a faint rally to add it", async ({
+    page,
+  }) => {
+    const { token, videoId } = await setUp(page)
+    const reelId = await reelWithTwoClips(token, videoId)
+    await page.goto(`/videos/${videoId}/reels/${reelId}?mode=edit`)
+
+    await page.getByRole("radio", { name: "Full video" }).click()
+    await expect(page.getByText("Everything stays.")).toBeVisible()
+    await expect(page.getByTestId("gap")).toHaveCount(0)
+    await expect(page.getByTestId("unpicked")).toHaveCount(5) // 2, 3, 4, 6, 7
+    await expect(page.getByTestId("reel-time")).toContainText("/ 0:12")
+    // Full video plays the whole match: the skip-breaks toggle is back
+    await expect(
+      page.getByRole("switch", { name: "Skip breaks" }),
+    ).toBeVisible()
+    await expect
+      .poll(async () => (await readReel(token, reelId)).edit.view)
+      .toBe("full")
+
+    await page
+      .getByRole("button", { name: "Rally 3, not in the reel. Tap to add" })
+      .click()
+    await expect(page.getByTestId("clip")).toHaveCount(3)
+    await expect(
+      page.getByRole("button", { name: /^Rally 3, /, pressed: true }),
+    ).toBeVisible()
+    await expect
+      .poll(async () => (await readReel(token, reelId)).edit.clips.length)
+      .toBe(3)
+
+    await page.getByRole("radio", { name: "Rallies only" }).click()
+    await expect(page.getByTestId("gap").first()).toBeVisible()
+  })
+
+  test("moving the timeline seeks the video (scroll and mouse drag)", async ({
+    page,
+  }, testInfo) => {
+    const { token, videoId } = await setUp(page)
+    const reelId = await reelWithTwoClips(token, videoId)
+    await page.goto(`/videos/${videoId}/reels/${reelId}?mode=edit`)
+    await page.waitForFunction(
+      () => (document.querySelector("video")?.readyState ?? 0) >= 1,
+    )
+    const timeline = page.getByTestId("timeline")
+
+    // Clip 1 is 2.3 s (13.8 px), then the 40 px gap marker (no time), then clip 5.
+    // 62 px = 0.7 s into clip 5, which starts at 5.8 s in the video.
+    await timeline.evaluate((element) => {
+      element.scrollLeft = 62
+    })
+    await expect.poll(() => videoTimeOf(page)).toBeCloseTo(6.5, 1)
+    await expect(page.getByTestId("reel-time")).toContainText("0:03 /")
+
+    if (testInfo.project.name === "iphone") return // touch: native scrolling only
+    // Mouse: click and drag left moves the reel forward
+    const box = (await timeline.boundingBox())!
+    const y = box.y + box.height / 2
+    await page.mouse.move(box.x + box.width / 2, y)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2 - 12, y, { steps: 4 })
+    await page.mouse.up()
+    // 12 px more = 2 s more of clip 5
+    await expect.poll(() => videoTimeOf(page)).toBeCloseTo(8.5, 1)
   })
 })

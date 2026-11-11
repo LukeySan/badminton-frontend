@@ -254,6 +254,18 @@ sideways is wide but short, so it keeps the phone layout.
     `bg-highlight/16 text-highlight-text-strong`), current row = `bg-card` + 2px pink
     inset ring, 14px radius. Bottom bar (top border `border-track`): "6 picked" 14/800,
     "1:24 reel" 12 muted, **Edit reel ›** (foreground fill, 44px).
+  - Edit: "Rallies only | Full video" (radio pills in a bordered track, selected =
+    `bg-chapter text-chapter-foreground`) with the hint next to it (11px muted). The
+    timeline: fixed center playhead (2px foreground, ringed), native horizontal scroll
+    (mouse: click and drag), 6 px per second of reel time, 2px between items. Ruler ticks
+    every 10 s (Rallies only) / 60 s (Full video), 10px muted. Clip track 60px: clips
+    `bg-court` with faint `--chapter` stripes and an "R19 · 0:09" chip
+    (`bg-court-ink/85`), selected clip = 2px pink inset ring; collapsed gap = 40px
+    `bg-sheet` marker with a ⟷ icon and the hidden length; breaks striped
+    (`--card`/`--secondary`), "Break 0:35"; unpicked rallies `bg-court/45` with a
+    `--chapter` ring, "R7" and "+ add". In Edit + Rallies only the video's pill is a
+    static "✓ Breaks cut" (`text-court-accent`, `--chapter` border), elsewhere the skip
+    toggle. The time row shows reel time ("0:12 / 1:24").
   - "Make a highlight" sits in the player header (clapperboard icon; "Highlight" on
     phones).
 - **How to record** (`/recording-tips`, linked from Upload and Profile): side-view and

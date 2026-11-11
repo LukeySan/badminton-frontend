@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { ChevronLeft, Redo2, Undo2, Upload } from "lucide-react"
+import { Check, ChevronLeft, Redo2, Undo2, Upload } from "lucide-react"
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react"
 
 import type { RallyPublic, ReelPublic, VideoPublic } from "@/client"
@@ -31,6 +31,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ralliesQueryOptions } from "@/components/Videos/queries"
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { EditPanel } from "./EditPanel"
 import { HighlightsPanel } from "./HighlightsPanel"
 import {
   type Edit,
@@ -40,6 +41,7 @@ import {
   type ReelFormat,
   reelLength,
 } from "./reelEdit"
+import { buildTimeline, reelTimeAtSource, sourceAtReelTime } from "./timeline"
 import { type SaveStatus, useReelAutosave } from "./useReelAutosave"
 
 export type EditorMode = "highlights" | "edit"
@@ -111,6 +113,32 @@ export function ReelEditor({
   const rallyBadge = current && <RallyBadge number={current.number} />
   const inFullscreen = player.fullscreen.active
   const reelSeconds = reelLength(edit, duration)
+  // The reel as items in reel order: the timeline and the time row read from it.
+  const items = useMemo(
+    () => buildTimeline(edit, segments, duration),
+    [edit, segments, duration],
+  )
+  const reelTime = reelTimeAtSource(items, time)
+  const [selected, setSelected] = useState<number | undefined>(0)
+  const selectedClip =
+    selected !== undefined && selected < edit.clips.length
+      ? selected
+      : edit.clips.length > 0
+        ? 0
+        : undefined
+  // Edit + "Rallies only": the breaks are cut by the edit itself, so the pill says so
+  // instead of offering to skip them.
+  const breaksCut = mode === "edit" && edit.view === "cut"
+  const pill = (className?: string) =>
+    breaksCut ? (
+      <BreaksCutPill className={className} />
+    ) : (
+      <SkipBreaksPill
+        on={skipBreaks}
+        onToggle={toggleSkipBreaks}
+        className={className}
+      />
+    )
   const isPicked = useCallback(
     (rally: RallyPublic) => edit.clips.some((c) => c.rally_id === rally.id),
     [edit.clips],
@@ -150,17 +178,11 @@ export function ReelEditor({
                   {rallyBadge}
                 </div>
               )}
-              <SkipBreaksPill
-                on={skipBreaks}
-                onToggle={toggleSkipBreaks}
-                className="absolute right-1.5 bottom-1"
-              />
+              {pill("absolute right-1.5 bottom-1")}
             </>
           }
           fullscreenBadge={rallyBadge}
-          fullscreenTop={
-            <SkipBreaksPill on={skipBreaks} onToggle={toggleSkipBreaks} />
-          }
+          fullscreenTop={pill()}
           fullscreenBottom={
             <>
               <div className="pr-2.5">
@@ -205,11 +227,15 @@ export function ReelEditor({
           inFullscreen && "invisible",
         )}
       >
-        <span className="min-w-0 flex-1 whitespace-nowrap text-[13px] tabular-nums">
-          {formatDuration(time)}
+        {/* Reel time: where the playhead is in the reel, and how long the reel is */}
+        <span
+          data-testid="reel-time"
+          className="min-w-0 flex-1 whitespace-nowrap text-[13px] tabular-nums"
+        >
+          {formatDuration(reelTime)}
           <span className="text-muted-foreground">
             {" "}
-            / {formatDuration(duration)}
+            / {formatDuration(reelSeconds)}
           </span>
         </span>
         <ControlButton
@@ -303,13 +329,29 @@ export function ReelEditor({
           onEditReel={() => onModeChange("edit")}
         />
       ) : (
-        <section
-          aria-label="Edit"
-          data-testid="editor-panel"
-          className="mx-4 mt-1 mb-4 rounded-xl border border-dashed px-4 py-8 text-center text-[13px] text-muted-foreground md:mx-0"
-        >
-          The timeline comes next.
-        </section>
+        <EditPanel
+          view={edit.view}
+          items={items}
+          reelTime={reelTime}
+          selectedClip={selectedClip}
+          onSetView={(view) => dispatch({ type: "set-view", view })}
+          onScrubStart={player.pause}
+          onScrub={(t) => {
+            const source = sourceAtReelTime(items, t)
+            if (source !== undefined) player.seek(source)
+          }}
+          onSelectClip={setSelected}
+          onRestore={(region) => dispatch({ type: "restore-region", region })}
+          onHide={(region) => dispatch({ type: "hide-region", region })}
+          onPick={(rally) => {
+            dispatch({ type: "pick-rally", rally, duration })
+            // Select the new clip: it lands after the clips that start before it.
+            setSelected(
+              edit.clips.filter((clip) => clip.trim_start <= rally.start)
+                .length,
+            )
+          }}
+        />
       )}
     </div>
   )
@@ -442,4 +484,19 @@ function useUndoKeys({ undo, redo }: { undo: () => void; redo: () => void }) {
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [undo, redo])
+}
+
+/** Edit + "Rallies only": a static pill saying the breaks are already cut. */
+function BreaksCutPill({ className }: { className?: string }) {
+  return (
+    <span
+      className={cn("flex h-11 items-center px-1.5", className)}
+      data-testid="breaks-cut"
+    >
+      <span className="flex h-[30px] items-center gap-[5px] whitespace-nowrap rounded-full border border-chapter/60 bg-court-ink/80 px-3 text-xs font-extrabold text-court-accent">
+        <Check className="size-3.5" strokeWidth={3} />
+        Breaks cut
+      </span>
+    </span>
+  )
 }
