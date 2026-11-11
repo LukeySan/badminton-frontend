@@ -58,3 +58,56 @@ export async function deleteVideo(token: string, id: string) {
     headers: { Authorization: `Bearer ${token}` },
   })
 }
+
+/** A reel on a video (empty edit list unless given); returns its id. */
+export async function createReel(
+  token: string,
+  videoId: string,
+  title = "Test highlight",
+  edit: Record<string, unknown> = {},
+) {
+  const response = await fetch(`${API}/videos/${videoId}/reels`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ title, edit }),
+  })
+  if (!response.ok) throw new Error(`Create reel failed: ${response.status}`)
+  return ((await response.json()) as { id: string }).id
+}
+
+/** GET /reels/{id} as JSON. */
+export async function readReel(token: string, reelId: string) {
+  const response = await fetch(`${API}/reels/${reelId}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  return (await response.json()) as {
+    title: string
+    updated_at: string
+    edit: Record<string, unknown> & { format?: string; view?: string }
+  }
+}
+
+/** Saves a reel the way another tab or device would (full replace). */
+export async function saveReelElsewhere(
+  token: string,
+  reelId: string,
+  edit: Record<string, unknown>,
+) {
+  const current = await readReel(token, reelId)
+  const response = await fetch(`${API}/reels/${reelId}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      title: current.title,
+      edit: { ...current.edit, ...edit },
+      updated_at: current.updated_at,
+    }),
+  })
+  if (!response.ok) throw new Error(`Save reel failed: ${response.status}`)
+}

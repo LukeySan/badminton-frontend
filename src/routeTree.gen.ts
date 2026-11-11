@@ -22,6 +22,7 @@ import { Route as LayoutSettingsRouteImport } from './routes/_layout/settings'
 import { Route as LayoutUploadRouteImport } from './routes/_layout/upload'
 import { Route as LayoutVideosIdIndexRouteImport } from './routes/_layout/videos/$id/index'
 import { Route as LayoutVideosIdCourtRouteImport } from './routes/_layout/videos/$id/court'
+import { Route as LayoutVideosIdReelsReelIdRouteImport } from './routes/_layout/videos/$id/reels/$reelId'
 
 const LayoutRoute = LayoutRouteImport.update({
   id: '/_layout',
@@ -87,6 +88,12 @@ const LayoutVideosIdCourtRoute = LayoutVideosIdCourtRouteImport.update({
   path: '/videos/$id/court',
   getParentRoute: () => LayoutRoute,
 } as any)
+const LayoutVideosIdReelsReelIdRoute =
+  LayoutVideosIdReelsReelIdRouteImport.update({
+    id: '/videos/$id/reels/$reelId',
+    path: '/videos/$id/reels/$reelId',
+    getParentRoute: () => LayoutRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof LayoutIndexRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByFullPath {
   '/upload': typeof LayoutUploadRoute
   '/videos/$id/court': typeof LayoutVideosIdCourtRoute
   '/videos/$id/': typeof LayoutVideosIdIndexRoute
+  '/videos/$id/reels/$reelId': typeof LayoutVideosIdReelsReelIdRoute
 }
 export interface FileRoutesByTo {
   '/login': typeof LoginRoute
@@ -115,6 +123,7 @@ export interface FileRoutesByTo {
   '/': typeof LayoutIndexRoute
   '/videos/$id/court': typeof LayoutVideosIdCourtRoute
   '/videos/$id': typeof LayoutVideosIdIndexRoute
+  '/videos/$id/reels/$reelId': typeof LayoutVideosIdReelsReelIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -131,6 +140,7 @@ export interface FileRoutesById {
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/videos/$id/court': typeof LayoutVideosIdCourtRoute
   '/_layout/videos/$id/': typeof LayoutVideosIdIndexRoute
+  '/_layout/videos/$id/reels/$reelId': typeof LayoutVideosIdReelsReelIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/upload'
     | '/videos/$id/court'
     | '/videos/$id/'
+    | '/videos/$id/reels/$reelId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/login'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/'
     | '/videos/$id/court'
     | '/videos/$id'
+    | '/videos/$id/reels/$reelId'
   id:
     | '__root__'
     | '/_layout'
@@ -176,6 +188,7 @@ export interface FileRouteTypes {
     | '/_layout/'
     | '/_layout/videos/$id/court'
     | '/_layout/videos/$id/'
+    | '/_layout/videos/$id/reels/$reelId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -280,6 +293,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LayoutVideosIdCourtRouteImport
       parentRoute: typeof LayoutRoute
     }
+    '/_layout/videos/$id/reels/$reelId': {
+      id: '/_layout/videos/$id/reels/$reelId'
+      path: '/videos/$id/reels/$reelId'
+      fullPath: '/videos/$id/reels/$reelId'
+      preLoaderRoute: typeof LayoutVideosIdReelsReelIdRouteImport
+      parentRoute: typeof LayoutRoute
+    }
   }
 }
 
@@ -291,6 +311,7 @@ interface LayoutRouteChildren {
   LayoutIndexRoute: typeof LayoutIndexRoute
   LayoutVideosIdCourtRoute: typeof LayoutVideosIdCourtRoute
   LayoutVideosIdIndexRoute: typeof LayoutVideosIdIndexRoute
+  LayoutVideosIdReelsReelIdRoute: typeof LayoutVideosIdReelsReelIdRoute
 }
 
 const LayoutRouteChildren: LayoutRouteChildren = {
@@ -301,6 +322,7 @@ const LayoutRouteChildren: LayoutRouteChildren = {
   LayoutIndexRoute: LayoutIndexRoute,
   LayoutVideosIdCourtRoute: LayoutVideosIdCourtRoute,
   LayoutVideosIdIndexRoute: LayoutVideosIdIndexRoute,
+  LayoutVideosIdReelsReelIdRoute: LayoutVideosIdReelsReelIdRoute,
 }
 
 const LayoutRouteWithChildren =

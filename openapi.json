@@ -1142,6 +1142,87 @@
         }
       }
     },
+    "/api/v1/videos/{id}/trajectory": {
+      "get": {
+        "tags": ["videos"],
+        "summary": "Read Video Trajectory",
+        "description": "Shuttle positions for every frame from `start` to `end` (seconds), as fractions\nof the frame like the court corners. For drawing the shuttle trail.\nAt most 600 seconds per request.",
+        "operationId": "videos-read_video_trajectory",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "start",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Seconds",
+              "title": "Start"
+            },
+            "description": "Seconds"
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "minimum": 0,
+              "description": "Seconds",
+              "title": "End"
+            },
+            "description": "Seconds"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TrajectoryPublic"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "code `trajectory_missing`: the video was analyzed before trajectories were saved (or not analyzed yet); re-analyzing it adds one. A video that doesn't exist gives a plain 404 without a code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorWithCode"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/videos/{id}/file-url": {
       "get": {
         "tags": ["videos"],
@@ -1221,6 +1302,271 @@
         "responses": {
           "200": {
             "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/videos/{id}/reels": {
+      "get": {
+        "tags": ["reels"],
+        "summary": "Read Reels",
+        "description": "A video's reels, most recently saved first.",
+        "operationId": "reels-read_reels",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "skip",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0,
+              "title": "Skip"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReelsPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["reels"],
+        "summary": "Create Reel",
+        "description": "Create a reel for a video. It belongs to the video's owner.",
+        "operationId": "reels-create_reel",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReelCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReelPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, or times past its end. Errors have the usual `loc`, e.g. [\"body\", \"edit\", \"clips\", 2, \"trim_end\"]"
+          }
+        }
+      }
+    },
+    "/api/v1/reels/{reel_id}": {
+      "get": {
+        "tags": ["reels"],
+        "summary": "Read Reel",
+        "description": "Get a reel with its edit list.",
+        "operationId": "reels-read_reel",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Reel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReelPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["reels"],
+        "summary": "Update Reel",
+        "description": "Save a reel: replaces the title and the whole edit list. Send the `updated_at`\nyou loaded; if the reel was saved since, nothing changes and you get 409.",
+        "operationId": "reels-update_reel",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Reel Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReelUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReelPublic"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "code `reel_changed`: saved elsewhere (another tab or device) since you loaded it, or its clips were re-linked after the video was re-analyzed. Load it again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorWithCode"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, or times past its end. Errors have the usual `loc`, e.g. [\"body\", \"edit\", \"clips\", 2, \"trim_end\"]"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["reels"],
+        "summary": "Delete Reel",
+        "description": "Delete a reel. The video and its rallies are not affected.",
+        "operationId": "reels-delete_reel",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "reel_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Reel Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
           },
           "422": {
             "description": "Validation Error",
@@ -1346,6 +1692,30 @@
         "required": ["file"],
         "title": "Body_videos-upload_video"
       },
+      "Caption": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "End"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["start", "end", "text"],
+        "title": "Caption"
+      },
       "CourtUpdate": {
         "properties": {
           "corners": {
@@ -1379,6 +1749,26 @@
         "type": "object",
         "required": ["corners"],
         "title": "CourtUpdate"
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": ["trajectory_missing", "reel_changed"],
+        "title": "ErrorCode"
+      },
+      "ErrorWithCode": {
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          },
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          }
+        },
+        "type": "object",
+        "required": ["detail", "code"],
+        "title": "ErrorWithCode",
+        "description": "{\"detail\": \"...\", \"code\": \"...\"}: detail is for people, code for the app."
       },
       "FailureReason": {
         "type": "string",
@@ -1567,6 +1957,233 @@
         "required": ["id", "start", "end", "duration"],
         "title": "RallyPublic"
       },
+      "ReelClip": {
+        "properties": {
+          "rally_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rally Id",
+            "description": "The rally this clip came from. null: not tied to a rally (its rally disappeared when the video was re-analyzed)"
+          },
+          "trim_start": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Trim Start"
+          },
+          "trim_end": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Trim End"
+          },
+          "slow_mo": {
+            "type": "boolean",
+            "title": "Slow Mo",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["rally_id", "trim_start", "trim_end"],
+        "title": "ReelClip"
+      },
+      "ReelCreate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "edit": {
+            "$ref": "#/components/schemas/ReelEdit"
+          }
+        },
+        "type": "object",
+        "required": ["title"],
+        "title": "ReelCreate"
+      },
+      "ReelEdit": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "const": 1,
+            "title": "Version",
+            "default": 1
+          },
+          "view": {
+            "type": "string",
+            "enum": ["cut", "full"],
+            "title": "View",
+            "default": "cut"
+          },
+          "format": {
+            "type": "string",
+            "enum": ["16:9", "9:16"],
+            "title": "Format",
+            "default": "16:9"
+          },
+          "clips": {
+            "items": {
+              "$ref": "#/components/schemas/ReelClip"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Clips",
+            "description": "In reel order",
+            "default": []
+          },
+          "restored_gaps": {
+            "items": {
+              "$ref": "#/components/schemas/TimeRange"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Restored Gaps",
+            "description": "Breaks between rallies shown again in cut view",
+            "default": []
+          },
+          "overlays": {
+            "$ref": "#/components/schemas/ReelOverlays"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ReelEdit",
+        "description": "The edit list, stored as JSON. `version` lets the format change later:\nold versions get upgraded when read, so stored reels never need rewriting."
+      },
+      "ReelOverlays": {
+        "properties": {
+          "trail": {
+            "type": "boolean",
+            "title": "Trail",
+            "default": false
+          },
+          "captions": {
+            "items": {
+              "$ref": "#/components/schemas/Caption"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Captions",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ReelOverlays"
+      },
+      "ReelPublic": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "video_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Video Id"
+          },
+          "owner_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Owner Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "edit": {
+            "$ref": "#/components/schemas/ReelEdit"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "video_id",
+          "owner_id",
+          "title",
+          "edit",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ReelPublic"
+      },
+      "ReelUpdate": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "edit": {
+            "$ref": "#/components/schemas/ReelEdit"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At",
+            "description": "The reel's updated_at as you loaded it. If it was saved elsewhere since then, the save is refused (409, code reel_changed)"
+          }
+        },
+        "type": "object",
+        "required": ["title", "edit", "updated_at"],
+        "title": "ReelUpdate",
+        "description": "Full replace of the title and edit list."
+      },
+      "ReelsPublic": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ReelPublic"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": ["data", "count"],
+        "title": "ReelsPublic"
+      },
+      "TimeRange": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "End"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["start", "end"],
+        "title": "TimeRange"
+      },
       "Token": {
         "properties": {
           "access_token": {
@@ -1582,6 +2199,79 @@
         "type": "object",
         "required": ["access_token"],
         "title": "Token"
+      },
+      "TrajectoryPoint": {
+        "properties": {
+          "frame": {
+            "type": "integer",
+            "title": "Frame",
+            "description": "Frame index; the frame is at frame / fps seconds"
+          },
+          "t": {
+            "type": "number",
+            "title": "T",
+            "description": "Seconds in the original video (frame / fps)"
+          },
+          "visible": {
+            "type": "boolean",
+            "title": "Visible",
+            "description": "Shuttle seen in this frame"
+          },
+          "x": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "X",
+            "description": "Fraction of the frame width; null if not seen"
+          },
+          "y": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Y",
+            "description": "Fraction of the frame height; null if not seen"
+          }
+        },
+        "type": "object",
+        "required": ["frame", "t", "visible", "x", "y"],
+        "title": "TrajectoryPoint"
+      },
+      "TrajectoryPublic": {
+        "properties": {
+          "fps": {
+            "type": "number",
+            "title": "Fps"
+          },
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/TrajectoryPoint"
+            },
+            "type": "array",
+            "title": "Points",
+            "description": "Every frame between start and end, in order"
+          }
+        },
+        "type": "object",
+        "required": ["fps", "start", "end", "points"],
+        "title": "TrajectoryPublic"
       },
       "UpdatePassword": {
         "properties": {

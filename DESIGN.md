@@ -237,6 +237,15 @@ sideways is wide but short, so it keeps the phone layout.
 - **Player** (`/videos/$id` when done): header (back, title, "21:24 · 73 rallies", more),
   video with rally badge + skip pill, scrubber, control row, stat strip, rally list sheet.
   See `player-*.mockup.html`.
+- **Highlight editor** (`/videos/$id/reels/$reelId`): not mocked in this repo yet (the
+  EditorHighlights / EditorEdit / EditorFull prototypes weren't available), so the top
+  half follows the player: header (back to the match, reel title, "1:04 · 5 clips ·
+  Saved", Export as a disabled primary button with "Coming soon" under it), the video
+  (max 40% of the screen tall; a 9:16 reel shows the middle of the footage), a time row
+  (time · play · undo · redo · format chip · full screen; plain 44px icon buttons, the
+  format chip a 28px outlined pill), then the Highlights | Edit segmented control
+  (`bg-secondary` track, selected = foreground fill). "Make a highlight" sits in the
+  player header (clapperboard icon; "Highlight" on phones).
 - **How to record** (`/recording-tips`, linked from Upload and Profile): side-view and
   camera-view drawings on `bg-court` (court lines `--court-line`, labels
   `--court-foreground`, sight lines `--court-accent`), good/bad captions in
