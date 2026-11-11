@@ -199,6 +199,44 @@ export type NewPassword = {
 };
 
 /**
+ * PrivateAnalysis
+ */
+export type PrivateAnalysis = {
+    /**
+     * Rallies
+     */
+    rallies: Array<[
+        number,
+        number
+    ]>;
+    trajectory?: PrivateTrajectory | null;
+};
+
+/**
+ * PrivateTrajectory
+ *
+ * The worker's trajectory file contents (see app/trajectory.py).
+ */
+export type PrivateTrajectory = {
+    /**
+     * Fps
+     */
+    fps: number;
+    /**
+     * Visible
+     */
+    visible: Array<number>;
+    /**
+     * X
+     */
+    x: Array<number | null>;
+    /**
+     * Y
+     */
+    y: Array<number | null>;
+};
+
+/**
  * PrivateUserCreate
  */
 export type PrivateUserCreate = {
@@ -1903,3 +1941,33 @@ export type privateCreateUserResponses = {
 };
 
 export type privateCreateUserResponse = privateCreateUserResponses[keyof privateCreateUserResponses];
+
+export type privateSetAnalysisData = {
+    body: PrivateAnalysis;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/private/videos/{id}/analysis';
+};
+
+export type privateSetAnalysisErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type privateSetAnalysisError = privateSetAnalysisErrors[keyof privateSetAnalysisErrors];
+
+export type privateSetAnalysisResponses = {
+    /**
+     * Successful Response
+     */
+    200: VideoPublic;
+};
+
+export type privateSetAnalysisResponse = privateSetAnalysisResponses[keyof privateSetAnalysisResponses];

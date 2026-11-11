@@ -111,3 +111,51 @@ export async function saveReelElsewhere(
   })
   if (!response.ok) throw new Error(`Save reel failed: ${response.status}`)
 }
+
+/**
+ * Seven rallies on the 12 s PLAYABLE_CLIP (start, end in seconds). Lengths 0.8, 0.3,
+ * 1.2, 0.3, 1.8, 0.4, 1.0: the five longest are rallies 5, 3, 7, 1, 6.
+ */
+export const SEEDED_RALLIES: [number, number][] = [
+  [0.5, 1.3],
+  [2.3, 2.6],
+  [3.4, 4.6],
+  [5.6, 5.9],
+  [6.8, 8.6],
+  [9.4, 9.8],
+  [10.6, 11.6],
+]
+
+/**
+ * Marks a video analyzed with real rallies (and optionally a trajectory) through the
+ * backend's development-only fixture, the same way the worker finishes a video.
+ */
+export async function seedAnalysis(
+  videoId: string,
+  rallies: [number, number][] = SEEDED_RALLIES,
+  trajectory?: {
+    fps: number
+    visible: number[]
+    x: (number | null)[]
+    y: (number | null)[]
+  },
+) {
+  const response = await fetch(`${API}/private/videos/${videoId}/analysis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ rallies, trajectory }),
+  })
+  if (!response.ok) throw new Error(`Seeding failed: ${response.status}`)
+}
+
+/** The video's rallies as the API returns them (ids in match order). */
+export async function readRallies(token: string, videoId: string) {
+  const response = await fetch(`${API}/videos/${videoId}/rallies`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  return (
+    (await response.json()) as {
+      data: { id: number; start: number; end: number }[]
+    }
+  ).data
+}

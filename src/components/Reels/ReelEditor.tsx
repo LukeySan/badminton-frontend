@@ -3,7 +3,7 @@ import { Link } from "@tanstack/react-router"
 import { ChevronLeft, Redo2, Undo2, Upload } from "lucide-react"
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react"
 
-import type { ReelPublic, VideoPublic } from "@/client"
+import type { RallyPublic, ReelPublic, VideoPublic } from "@/client"
 import {
   ExitFullscreenIcon,
   FullscreenIcon,
@@ -31,6 +31,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { ralliesQueryOptions } from "@/components/Videos/queries"
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { HighlightsPanel } from "./HighlightsPanel"
 import {
   type Edit,
   editReducer,
@@ -107,17 +108,28 @@ export function ReelEditor({
 
   const title = reel.title
   const toggleSkipBreaks = () => setSkipBreaks((on) => !on)
-  const rallyBadge = current && (
-    <RallyBadge number={current.number} total={segments.length} />
-  )
+  const rallyBadge = current && <RallyBadge number={current.number} />
   const inFullscreen = player.fullscreen.active
+  const reelSeconds = reelLength(edit, duration)
+  const isPicked = useCallback(
+    (rally: RallyPublic) => edit.clips.some((c) => c.rally_id === rally.id),
+    [edit.clips],
+  )
 
   return (
-    <div className="flex flex-col max-md:portrait:-m-4">
+    <div
+      className={cn(
+        "flex flex-col",
+        // Phones held upright: one screen like the prototypes. The top half stays,
+        // the bottom half (rally list / timeline) scrolls by itself.
+        "max-md:portrait:-m-4 max-md:portrait:h-dvh",
+      )}
+    >
       <EditorHeader
         video={video}
         title={title}
-        edit={edit}
+        clipCount={edit.clips.length}
+        reelSeconds={reelSeconds}
         saveStatus={autosave.status}
         onRetrySave={() => void autosave.retry()}
       />
@@ -243,13 +255,13 @@ export function ReelEditor({
       </div>
 
       {/* Highlights | Edit */}
-      <div className="px-4 pt-2 md:px-0">
+      <div className="px-4 pt-0.5 pb-2.5 md:px-0">
         <ToggleGroup
           type="single"
           value={mode}
           onValueChange={(next) => next && onModeChange(next as EditorMode)}
           aria-label="Editor mode"
-          className="grid w-full grid-cols-2 rounded-[14px] bg-secondary p-1"
+          className="grid w-full grid-cols-2 rounded-[12px] bg-card p-[3px]"
         >
           {(
             [
@@ -261,8 +273,8 @@ export function ReelEditor({
               key={value}
               value={value}
               className={cn(
-                "h-9 rounded-[10px] text-[13px]",
-                "data-[state=off]:bg-transparent data-[state=off]:font-semibold data-[state=off]:text-subtle-foreground data-[state=off]:hover:text-foreground",
+                "h-[34px] rounded-[9px] text-[13px]",
+                "data-[state=off]:bg-transparent data-[state=off]:font-bold data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
                 "data-[state=on]:bg-foreground data-[state=on]:font-extrabold data-[state=on]:text-background data-[state=on]:hover:bg-foreground data-[state=on]:hover:text-background",
               )}
             >
@@ -272,16 +284,33 @@ export function ReelEditor({
         </ToggleGroup>
       </div>
 
-      {/* Bottom half: the mode's tools (rally list / timeline) */}
-      <section
-        aria-label={mode === "edit" ? "Edit" : "Highlights"}
-        data-testid="editor-panel"
-        className="mx-4 mt-3 mb-4 rounded-xl border border-dashed px-4 py-8 text-center text-[13px] text-muted-foreground md:mx-0"
-      >
-        {mode === "highlights"
-          ? `${edit.clips.length} ${edit.clips.length === 1 ? "rally" : "rallies"} picked. The rally list comes next.`
-          : "The timeline comes next."}
-      </section>
+      {/* Bottom half: the mode's tools */}
+      {mode === "highlights" ? (
+        <HighlightsPanel
+          segments={segments}
+          isPicked={isPicked}
+          currentNumber={current?.number}
+          pickedCount={edit.clips.length}
+          reelSeconds={reelSeconds}
+          onToggle={(rally, pick) =>
+            dispatch(
+              pick
+                ? { type: "pick-rally", rally, duration }
+                : { type: "unpick-rally", rallyId: rally.id },
+            )
+          }
+          onJump={playSegment}
+          onEditReel={() => onModeChange("edit")}
+        />
+      ) : (
+        <section
+          aria-label="Edit"
+          data-testid="editor-panel"
+          className="mx-4 mt-1 mb-4 rounded-xl border border-dashed px-4 py-8 text-center text-[13px] text-muted-foreground md:mx-0"
+        >
+          The timeline comes next.
+        </section>
+      )}
     </div>
   )
 }
@@ -290,17 +319,18 @@ export function ReelEditor({
 function EditorHeader({
   video,
   title,
-  edit,
+  clipCount,
+  reelSeconds,
   saveStatus,
   onRetrySave,
 }: {
   video: VideoPublic
   title: string
-  edit: Edit
+  clipCount: number
+  reelSeconds: number
   saveStatus: SaveStatus
   onRetrySave: () => void
 }) {
-  const clips = edit.clips.length
   return (
     <header className="flex h-14 shrink-0 items-center gap-2 py-2 pr-3 pl-1 md:mb-4 md:h-auto md:p-0">
       <Button
@@ -322,10 +352,8 @@ function EditorHeader({
           {title}
         </h1>
         <p className="truncate text-xs text-muted-foreground tabular-nums md:text-[13px]">
-          <span data-testid="reel-length">
-            {formatDuration(reelLength(edit))}
-          </span>{" "}
-          · {clips} {clips === 1 ? "clip" : "clips"} ·{" "}
+          {clipCount} {clipCount === 1 ? "rally" : "rallies"} ·{" "}
+          <span data-testid="reel-length">{formatDuration(reelSeconds)}</span> ·{" "}
           <SaveIndicator status={saveStatus} onRetry={onRetrySave} />
         </p>
       </div>

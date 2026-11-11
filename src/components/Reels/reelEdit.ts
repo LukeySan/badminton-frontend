@@ -42,23 +42,101 @@ export function clipLength(clip: ReelClip): number {
   return (clip.trim_end - clip.trim_start) * (clip.slow_mo ? 2 : 1)
 }
 
-/** The reel's length: its clips plus the breaks shown again between them. */
-export function reelLength(edit: Edit): number {
-  const clips = edit.clips.reduce((sum, clip) => sum + clipLength(clip), 0)
-  const gaps = edit.restored_gaps.reduce((sum, g) => sum + (g.end - g.start), 0)
-  return clips + gaps
+/** Shorter than this (seconds) counts as nothing: no gap, no break. */
+export const MIN_SPAN = 0.05
+
+/**
+ * The footage around the clips: before the first, between each pair, after the last
+ * (all of it when there are no clips). In "Rallies only" a region is cut unless it
+ * was restored; in "Full video" every region stays.
+ */
+export type Region = { start: number; end: number; restored: boolean }
+
+export function regionsOf(edit: Edit, duration: number): Region[] {
+  const bounds: [number, number][] = []
+  let cursor = 0
+  for (const clip of edit.clips) {
+    bounds.push([cursor, clip.trim_start])
+    cursor = Math.max(cursor, clip.trim_end)
+  }
+  bounds.push([cursor, Math.max(cursor, duration)])
+  return bounds
+    .filter(([start, end]) => end - start >= MIN_SPAN)
+    .map(([start, end]) => ({
+      start,
+      end,
+      restored: edit.restored_gaps.some(
+        (gap) =>
+          Math.min(gap.end, end) - Math.max(gap.start, start) >= MIN_SPAN,
+      ),
+    }))
 }
 
-/** A clip of a rally with the player's padding (detector times can be 1-2 s off). */
-export function clipFromRally(rally: RallyPublic, duration: number): ReelClip {
+/** A region plays in the reel: always in "Full video", if restored in "Rallies only". */
+export const regionShown = (edit: Edit, region: Region) =>
+  edit.view === "full" || region.restored
+
+/** The reel's length: clips (slow-mo counts double) plus the footage kept around them. */
+export function reelLength(edit: Edit, duration: number): number {
+  const clips = edit.clips.reduce((sum, clip) => sum + clipLength(clip), 0)
+  const around = regionsOf(edit, duration)
+    .filter((region) => regionShown(edit, region))
+    .reduce((sum, region) => sum + (region.end - region.start), 0)
+  return clips + around
+}
+
+/**
+ * A clip of a rally with the player's padding (detector times can be 1-2 s off),
+ * but never over its neighbors in the reel or past the video's ends.
+ */
+export function clipFromRally(
+  rally: RallyPublic,
+  duration: number,
+  clips: ReelClip[] = [],
+): ReelClip {
+  const before = clips.filter((c) => c.trim_start <= rally.start)
+  const after = clips.filter((c) => c.trim_start > rally.start)
+  const floor = Math.max(0, ...before.map((c) => c.trim_end))
+  const ceiling = Math.min(
+    duration > 0 ? duration : Number.POSITIVE_INFINITY,
+    ...after.map((c) => c.trim_start),
+  )
+  const start = Math.max(floor, rally.start - RALLY_PADDING)
+  const end = Math.min(ceiling, rally.end + RALLY_PADDING)
   return {
     rally_id: rally.id,
-    trim_start: Math.max(0, rally.start - RALLY_PADDING),
-    trim_end:
-      duration > 0
-        ? Math.min(duration, rally.end + RALLY_PADDING)
-        : rally.end + RALLY_PADDING,
+    // A rally already covered by a neighbor's padding still gets its own times.
+    trim_start: round3(end > start ? start : rally.start),
+    trim_end: round3(end > start ? end : rally.end),
     slow_mo: false,
+  }
+}
+
+const round3 = (t: number) => Math.round(t * 1000) / 1000
+
+/** The clip made from this rally, if it's in the reel. */
+export const clipOfRally = (edit: Edit, rallyId: number) =>
+  edit.clips.find((clip) => clip.rally_id === rallyId)
+
+/** Add a rally to the reel, in match order. */
+export function pickRally(
+  edit: Edit,
+  rally: RallyPublic,
+  duration: number,
+): Edit {
+  if (clipOfRally(edit, rally.id)) return edit
+  const clip = clipFromRally(rally, duration, edit.clips)
+  const clips = [...edit.clips, clip].sort(
+    (a, b) => a.trim_start - b.trim_start,
+  )
+  return { ...edit, clips }
+}
+
+/** Take a rally out of the reel (its footage becomes part of the gap around it). */
+export function unpickRally(edit: Edit, rallyId: number): Edit {
+  return {
+    ...edit,
+    clips: edit.clips.filter((clip) => clip.rally_id !== rallyId),
   }
 }
 
@@ -73,8 +151,15 @@ export function starterEdit(rallies: RallyPublic[], duration: number): Edit {
     .sort((a, b) => a.start - b.start)
   return {
     ...normalizeEdit(undefined),
-    clips: longest.map((rally) => clipFromRally(rally, duration)),
+    clips: withoutOverlaps(longest, duration),
   }
+}
+
+/** Clips for rallies (in match order), each padded but not over the previous one. */
+function withoutOverlaps(rallies: RallyPublic[], duration: number) {
+  const clips: ReelClip[] = []
+  for (const rally of rallies) clips.push(clipFromRally(rally, duration, clips))
+  return clips
 }
 
 // --- Edit history: one reducer, undo / redo ---------------------------------------
@@ -85,6 +170,8 @@ export type EditAction =
   /** The server's version (first load, or after a conflict): no undo past it. */
   | { type: "load"; edit: Edit }
   | { type: "set-format"; format: ReelFormat }
+  | { type: "pick-rally"; rally: RallyPublic; duration: number }
+  | { type: "unpick-rally"; rallyId: number }
   | { type: "undo" }
   | { type: "redo" }
 
@@ -132,5 +219,12 @@ export function editReducer(
     }
     case "set-format":
       return commit(history, { ...history.present, format: action.format })
+    case "pick-rally":
+      return commit(
+        history,
+        pickRally(history.present, action.rally, action.duration),
+      )
+    case "unpick-rally":
+      return commit(history, unpickRally(history.present, action.rallyId))
   }
 }

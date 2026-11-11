@@ -107,14 +107,16 @@ export function RallyBadge({
   total,
 }: {
   number: number
-  total: number
+  /** "Rally 12 of 73" (player); without it just "Rally 12" (editor). */
+  total?: number
 }) {
   return (
     <span
       data-testid="current-rally"
       className="rounded-[8px] bg-highlight px-2.5 py-1 text-[13px] font-extrabold text-highlight-foreground tabular-nums"
     >
-      Rally {number} of {total}
+      Rally {number}
+      {total !== undefined && ` of ${total}`}
     </span>
   )
 }

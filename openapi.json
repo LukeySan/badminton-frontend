@@ -1620,6 +1620,58 @@
           }
         }
       }
+    },
+    "/api/v1/private/videos/{id}/analysis": {
+      "post": {
+        "tags": ["private"],
+        "summary": "Set Analysis",
+        "description": "Test fixture: finish a video as the worker would, with these rallies (and\noptionally a shuttle trajectory), without running the ML pipeline. Goes through\ncrud.finish_video like a real worker, so reel clips are re-linked the same way.",
+        "operationId": "private-set_analysis",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivateAnalysis"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -1890,6 +1942,88 @@
         "type": "object",
         "required": ["token", "new_password"],
         "title": "NewPassword"
+      },
+      "PrivateAnalysis": {
+        "properties": {
+          "rallies": {
+            "items": {
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array",
+              "maxItems": 2,
+              "minItems": 2
+            },
+            "type": "array",
+            "title": "Rallies"
+          },
+          "trajectory": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PrivateTrajectory"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": ["rallies"],
+        "title": "PrivateAnalysis"
+      },
+      "PrivateTrajectory": {
+        "properties": {
+          "fps": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "Fps"
+          },
+          "visible": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Visible"
+          },
+          "x": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "X"
+          },
+          "y": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Y"
+          }
+        },
+        "type": "object",
+        "required": ["fps", "visible", "x", "y"],
+        "title": "PrivateTrajectory",
+        "description": "The worker's trajectory file contents (see app/trajectory.py)."
       },
       "PrivateUserCreate": {
         "properties": {

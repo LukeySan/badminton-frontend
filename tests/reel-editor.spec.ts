@@ -8,8 +8,10 @@ import {
   createReel,
   deleteVideo,
   PLAYABLE_CLIP,
+  readRallies,
   readReel,
   saveReelElsewhere,
+  seedAnalysis,
   uploadVideo,
 } from "./utils/videos"
 
@@ -28,7 +30,7 @@ test.afterEach(async () => {
   cleanup = undefined
 })
 
-/** A fresh user with the playable clip, presented as analyzed. */
+/** A fresh user with the playable clip, analyzed with SEEDED_RALLIES (real rows). */
 async function setUp(page: Page) {
   const email = randomEmail()
   const password = randomPassword()
@@ -37,72 +39,37 @@ async function setUp(page: Page) {
   const name = `reel-${Math.random().toString(36).slice(2, 8)}`
   const videoId = await uploadVideo(token, `${name}.webm`, PLAYABLE_CLIP)
   cleanup = () => deleteVideo(token, videoId) // its reels go with it
-  // The worker isn't part of the tests: present the clip as analyzed.
-  await page.route(`**/api/v1/videos/${videoId}`, async (route) => {
-    if (route.request().method() !== "GET") return route.continue()
-    const response = await route.fetch()
-    await route.fulfill({
-      response,
-      json: { ...(await response.json()), status: "done" },
-    })
-  })
+  await seedAnalysis(videoId)
+  const rallies = await readRallies(token, videoId)
   await logInUser(page, email, password)
-  return { token, videoId, name }
+  return { token, videoId, name, rallies }
 }
 
 const saveStatus = (page: Page) => page.getByTestId("save-status")
 const formatChip = (page: Page) =>
   page.getByRole("button", { name: /^Format / })
 
-test("Make a highlight picks the longest rallies and opens the editor", async ({
+test("Make a highlight picks the five longest rallies and opens the editor", async ({
   page,
 }) => {
-  const { videoId, name } = await setUp(page)
-  // Seven rallies; the five longest are (in match order) ids 101, 103-106.
-  const lengths = [1, 3, 1, 4, 5, 6, 7]
-  const rallies = lengths.map((length, i) => ({
-    id: 100 + i,
-    start: i * 1.5,
-    end: i * 1.5 + length / 10,
-    duration: length / 10,
-  }))
-  await page.route(`**/api/v1/videos/${videoId}/rallies`, (route) =>
-    route.fulfill({ json: { data: rallies, count: rallies.length } }),
-  )
-  // These rallies aren't in the database (the backend would refuse their ids), so
-  // answer the create ourselves and check what the app sent.
-  let sent: { title: string; edit: { clips: { rally_id: number }[] } } | null =
-    null
-  await page.route(`**/api/v1/videos/${videoId}/reels`, async (route) => {
-    sent = route.request().postDataJSON()
-    const now = new Date().toISOString()
-    await route.fulfill({
-      status: 201,
-      json: {
-        id: "00000000-0000-4000-8000-00000000ree1",
-        video_id: videoId,
-        owner_id: "00000000-0000-4000-8000-000000000001",
-        ...sent,
-        created_at: now,
-        updated_at: now,
-      },
-    })
-  })
-
+  const { token, videoId, name, rallies } = await setUp(page)
   await page.goto(`/videos/${videoId}`)
   await page.getByRole("button", { name: "Make a highlight" }).click()
   await page.waitForURL(/\/reels\//)
+  const reelId = page.url().split("/reels/")[1].split("?")[0]
 
-  expect(sent!.title).toBe(`${name} highlights`)
-  expect(sent!.edit.clips.map((clip) => clip.rally_id)).toEqual([
-    101, 103, 104, 105, 106,
-  ])
   await expect(
     page.getByRole("heading", { name: `${name} highlights` }),
   ).toBeVisible()
-  await expect(page.getByText("5 clips")).toBeVisible()
+  await expect(page.getByText("5 rallies ·")).toBeVisible()
   await expect(page.getByRole("button", { name: "Export" })).toBeDisabled()
   await expect(page.getByText("Coming soon")).toBeVisible()
+  // Rallies 1, 3, 5, 6, 7 (the longest five), in match order
+  const reel = await readReel(token, reelId)
+  const clips = reel.edit.clips as { rally_id: number }[]
+  expect(clips.map((c) => c.rally_id)).toEqual(
+    [0, 2, 4, 5, 6].map((i) => rallies[i].id),
+  )
 })
 
 test("format changes autosave; undo and redo (buttons and keys)", async ({
@@ -200,4 +167,112 @@ test("mode toggle is in the URL; full screen works; no sideways scroll", async (
   await layer.getByRole("button", { name: "Exit full screen" }).click()
   await expect(layer).toHaveCount(0)
   await expect(page).toHaveURL(/\?mode=edit$/)
+})
+
+// --- Highlights mode ---------------------------------------------------------------
+
+const check = (page: Page, n: number) =>
+  page.getByRole("checkbox", { name: `Rally ${n} in the reel` })
+/** Tap the round check (the checkbox's label: the input itself is visually hidden). */
+const tapCheck = (page: Page, n: number) => check(page, n).locator("..").click()
+const bar = (page: Page) => page.getByText(/^\d+ picked$/)
+
+test.describe("Highlights mode", () => {
+  test("pick and unpick with the check; autosaved; undo", async ({ page }) => {
+    const { token, videoId, rallies } = await setUp(page)
+    const reelId = await createReel(token, videoId)
+    await page.goto(`/videos/${videoId}/reels/${reelId}`)
+    await expect(bar(page)).toHaveText("0 picked")
+
+    await tapCheck(page, 5)
+    await tapCheck(page, 2)
+    await expect(check(page, 5)).toBeChecked()
+    await expect(bar(page)).toHaveText("2 picked")
+    // Saved in match order, padded but not overlapping each other
+    await expect
+      .poll(async () =>
+        (
+          (await readReel(token, reelId)).edit.clips as { rally_id: number }[]
+        ).map((c) => c.rally_id),
+      )
+      .toEqual([rallies[1].id, rallies[4].id])
+    const clips = (await readReel(token, reelId)).edit.clips as {
+      trim_start: number
+      trim_end: number
+    }[]
+    expect(clips[0]).toMatchObject({ trim_start: 1.3, trim_end: 3.6 })
+    expect(clips[1]).toMatchObject({ trim_start: 5.8, trim_end: 9.6 })
+
+    await tapCheck(page, 5)
+    await expect(bar(page)).toHaveText("1 picked")
+    await page.getByRole("button", { name: "Undo" }).click()
+    await expect(bar(page)).toHaveText("2 picked")
+    await expect(check(page, 5)).toBeChecked()
+  })
+
+  test("filters: picked only, and longest first", async ({ page }) => {
+    const { token, videoId, rallies } = await setUp(page)
+    const reelId = await createReel(token, videoId, "Test", {
+      clips: [rallies[2], rallies[6]].map((r) => ({
+        rally_id: r.id,
+        trim_start: r.start,
+        trim_end: r.end,
+      })),
+    })
+    await page.goto(`/videos/${videoId}/reels/${reelId}`)
+    const rows = page.getByRole("list", { name: "Rallies" }).locator("li")
+    await expect(rows).toHaveCount(7)
+
+    await page.getByRole("radio", { name: "Picked 2" }).click()
+    await expect(rows).toHaveCount(2)
+    await expect(rows.nth(0)).toContainText("Rally 3")
+    await expect(rows.nth(1)).toContainText("Rally 7")
+
+    await page.getByRole("radio", { name: "Longest" }).click()
+    await expect(rows).toHaveCount(7)
+    // 1.8 s, 1.2 s, 1.0 s, ...
+    await expect(rows.nth(0)).toContainText("Rally 5")
+    await expect(rows.nth(1)).toContainText("Rally 3")
+    await expect(rows.nth(2)).toContainText("Rally 7")
+  })
+
+  test("tap a row: jumps there and marks it as playing", async ({ page }) => {
+    const { token, videoId } = await setUp(page)
+    const reelId = await createReel(token, videoId)
+    await page.goto(`/videos/${videoId}/reels/${reelId}`)
+    await page.waitForFunction(
+      () => (document.querySelector("video")?.readyState ?? 0) >= 1,
+    )
+
+    await page.getByRole("button", { name: /^Play rally 5,/ }).click()
+    // Rally 5 starts at 6.8 s; the player plays it with 1 s of padding
+    await expect
+      .poll(() =>
+        page.evaluate(() => document.querySelector("video")!.currentTime),
+      )
+      .toBeGreaterThanOrEqual(5.8)
+    // Past rally 4's padding (to 6.9 s), where rally 5 is the only one playing
+    await expect
+      .poll(
+        () => page.evaluate(() => document.querySelector("video")!.currentTime),
+        { timeout: 5000 },
+      )
+      .toBeGreaterThan(7)
+    await page.evaluate(() => document.querySelector("video")!.pause())
+    const row = page.locator('li[data-number="5"] [aria-current="true"]')
+    await expect(row).toBeVisible()
+    await expect(row).toContainText("Playing")
+    await expect(page.getByTestId("current-rally")).toHaveText("Rally 5")
+  })
+
+  test("Edit reel opens the Edit mode", async ({ page }) => {
+    const { token, videoId } = await setUp(page)
+    const reelId = await createReel(token, videoId)
+    await page.goto(`/videos/${videoId}/reels/${reelId}`)
+    await page.getByRole("button", { name: "Edit reel" }).click()
+    await expect(page).toHaveURL(/\?mode=edit$/)
+    await expect(
+      page.getByRole("radio", { name: "Edit", exact: true }),
+    ).toBeChecked()
+  })
 })

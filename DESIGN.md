@@ -237,15 +237,25 @@ sideways is wide but short, so it keeps the phone layout.
 - **Player** (`/videos/$id` when done): header (back, title, "21:24 · 73 rallies", more),
   video with rally badge + skip pill, scrubber, control row, stat strip, rally list sheet.
   See `player-*.mockup.html`.
-- **Highlight editor** (`/videos/$id/reels/$reelId`): not mocked in this repo yet (the
-  EditorHighlights / EditorEdit / EditorFull prototypes weren't available), so the top
-  half follows the player: header (back to the match, reel title, "1:04 · 5 clips ·
-  Saved", Export as a disabled primary button with "Coming soon" under it), the video
-  (max 40% of the screen tall; a 9:16 reel shows the middle of the footage), a time row
-  (time · play · undo · redo · format chip · full screen; plain 44px icon buttons, the
-  format chip a 28px outlined pill), then the Highlights | Edit segmented control
-  (`bg-secondary` track, selected = foreground fill). "Make a highlight" sits in the
-  player header (clapperboard icon; "Highlight" on phones).
+- **Highlight editor** (`/videos/$id/reels/$reelId`): see `EditorHighlights` /
+  `EditorEdit` / `EditorFull.dc.html` (one template; they differ only in the starting
+  mode and view). Phones: one screen (`h-dvh`), the top half stays, the bottom half
+  scrolls by itself.
+  - Top half: header (back to the match, reel title, "6 rallies · 1:24 · Saved", Export
+    disabled with "Coming soon" under it), the video (max 40% of the screen; "Rally 19"
+    badge without "of N"; a 9:16 reel shows the middle of the footage), time row (time ·
+    play · undo · redo · format chip · full screen; 44px targets, so play sits right of
+    the time instead of centered as in the prototype), Highlights | Edit tabs (`bg-card`
+    track, selected = foreground fill).
+  - Highlights: filter chips (All 73 / Picked 6 / Longest = longest first), rally rows
+    (round check in a 44px target: `bg-chapter` filled when picked, `border-muted-
+    foreground` ring when not; 72×40 court thumbnail with the length; "Rally 19" 14/700,
+    "at 7:48" 12 muted; "Longest" tag `bg-success-soft`, "Playing" tag on the current row
+    `bg-highlight/16 text-highlight-text-strong`), current row = `bg-card` + 2px pink
+    inset ring, 14px radius. Bottom bar (top border `border-track`): "6 picked" 14/800,
+    "1:24 reel" 12 muted, **Edit reel ›** (foreground fill, 44px).
+  - "Make a highlight" sits in the player header (clapperboard icon; "Highlight" on
+    phones).
 - **How to record** (`/recording-tips`, linked from Upload and Profile): side-view and
   camera-view drawings on `bg-court` (court lines `--court-line`, labels
   `--court-foreground`, sight lines `--court-accent`), good/bad captions in
