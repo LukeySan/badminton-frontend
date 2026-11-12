@@ -1,39 +1,69 @@
-import { Check, ChevronRight } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import {
+  Check,
+  ChevronRight,
+  EllipsisVertical,
+  Merge,
+  MoveHorizontal,
+  SquareSplitHorizontal,
+  Trash2,
+} from "lucide-react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 
 import type { RallyPublic } from "@/client"
 import type { Segment } from "@/components/Player/rallies"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { CourtThumbnail } from "@/components/Videos/CourtThumbnail"
-import { formatDuration } from "@/lib/format"
+import { formatDuration, formatPlayhead } from "@/lib/format"
 import { cn } from "@/lib/utils"
+import { FrameThumb, type Thumbnails } from "./thumbnails"
 
 type Filter = "all" | "picked" | "longest"
 
+/** A rally fix from the ⋮ menu (the editor opens a dialog or calls the backend). */
+export type FixKind = "edit" | "split" | "merge" | "delete"
+
 /**
  * Highlights mode: every rally of the match with a check to put it in the reel or
- * take it out. Tap a row to watch it. The bar at the bottom sums up the reel and
- * leads to the timeline.
+ * take it out. Tap a row to watch it; ⋮ fixes the rally itself (everywhere, not just
+ * this reel). The bar at the bottom sums up the reel and leads to the timeline.
  */
 export function HighlightsPanel({
   segments,
   isPicked,
+  keptOf,
   currentNumber,
   pickedCount,
   reelSeconds,
+  thumbs,
+  fixBusy,
   onToggle,
   onJump,
+  onFix,
+  onAddMissed,
   onEditReel,
 }: {
   /** Every rally, numbered in match order (as in the player). */
   segments: Segment[]
   isPicked: (rally: RallyPublic) => boolean
+  /** Seconds kept in this reel, when the rally was cut here (undefined: not cut). */
+  keptOf: (rally: RallyPublic) => number | undefined
   currentNumber: number | undefined
   pickedCount: number
   reelSeconds: number
+  thumbs: Thumbnails | undefined
+  /** A rally fix is running: no other one until it's done. */
+  fixBusy: boolean
   onToggle: (rally: RallyPublic, pick: boolean) => void
   onJump: (segment: Segment) => void
+  onFix: (kind: FixKind, segment: Segment) => void
+  onAddMissed: () => void
   onEditReel: () => void
 }) {
   const [filter, setFilter] = useState<Filter>("all")
@@ -77,32 +107,44 @@ export function HighlightsPanel({
     { value: "picked", label: `Picked ${pickedCount}` },
     { value: "longest", label: "Longest" },
   ]
+  const last = segments[segments.length - 1]
 
   return (
     <section aria-label="Highlights" className="flex min-h-0 flex-1 flex-col">
-      <ToggleGroup
-        type="single"
-        spacing={1}
-        value={filter}
-        onValueChange={(next) => next && setFilter(next as Filter)}
-        aria-label="Show rallies"
-        className="justify-start px-4 pb-2 md:px-0"
-      >
-        {filters.map((option) => (
-          <ToggleGroupItem
-            key={option.value}
-            value={option.value}
-            className={cn(
-              // 44 px tall touch target around the 30 px pill
-              "relative h-[30px] rounded-full px-3 text-xs after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']",
-              "data-[state=off]:border data-[state=off]:bg-transparent data-[state=off]:font-semibold data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
-              "data-[state=on]:bg-foreground data-[state=on]:font-extrabold data-[state=on]:text-background data-[state=on]:hover:bg-foreground data-[state=on]:hover:text-background",
-            )}
-          >
-            {option.label}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      <div className="flex items-center gap-1.5 px-4 pb-2 md:px-0">
+        <ToggleGroup
+          type="single"
+          spacing={1}
+          value={filter}
+          onValueChange={(next) => next && setFilter(next as Filter)}
+          aria-label="Show rallies"
+          className="justify-start"
+        >
+          {filters.map((option) => (
+            <ToggleGroupItem
+              key={option.value}
+              value={option.value}
+              className={cn(
+                // 44 px tall touch target around the 30 px pill
+                "relative h-[30px] rounded-full px-3 text-xs after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']",
+                "data-[state=off]:border data-[state=off]:bg-transparent data-[state=off]:font-semibold data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
+                "data-[state=on]:bg-foreground data-[state=on]:font-extrabold data-[state=on]:text-background data-[state=on]:hover:bg-foreground data-[state=on]:hover:text-background",
+              )}
+            >
+              {option.label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <button
+          type="button"
+          onClick={onAddMissed}
+          disabled={fixBusy}
+          aria-label="Add a missed rally here"
+          className="relative ml-auto h-[30px] shrink-0 whitespace-nowrap rounded-full border border-dashed border-muted-foreground px-2.5 text-xs font-bold outline-none after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+        >
+          + Missed rally
+        </button>
+      </div>
 
       {rows.length === 0 ? (
         <p className="flex-1 px-4 py-6 text-center text-[13px] text-muted-foreground">
@@ -115,14 +157,19 @@ export function HighlightsPanel({
           className="relative flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-2 pb-2 md:px-0"
         >
           {rows.map((segment) => (
-            <li key={segment.number} data-number={segment.number}>
+            <li key={segment.rally.id} data-number={segment.number}>
               <RallyRow
                 segment={segment}
                 picked={isPicked(segment.rally)}
+                kept={keptOf(segment.rally)}
                 current={segment.number === currentNumber}
                 longest={segment === longest}
+                isLast={segment === last}
+                thumbs={thumbs}
+                fixBusy={fixBusy}
                 onToggle={onToggle}
                 onJump={onJump}
+                onFix={onFix}
               />
             </li>
           ))}
@@ -153,17 +200,27 @@ export function HighlightsPanel({
 function RallyRow({
   segment,
   picked,
+  kept,
   current,
   longest,
+  isLast,
+  thumbs,
+  fixBusy,
   onToggle,
   onJump,
+  onFix,
 }: {
   segment: Segment
   picked: boolean
+  kept: number | undefined
   current: boolean
   longest: boolean
+  isLast: boolean
+  thumbs: Thumbnails | undefined
+  fixBusy: boolean
   onToggle: (rally: RallyPublic, pick: boolean) => void
   onJump: (segment: Segment) => void
+  onFix: (kind: FixKind, segment: Segment) => void
 }) {
   const { rally, number } = segment
   return (
@@ -196,13 +253,35 @@ function RallyRow({
         type="button"
         onClick={() => onJump(segment)}
         aria-label={`Play rally ${number}, at ${formatDuration(rally.start)}, ${formatDuration(rally.duration)} long`}
-        className="flex h-14 min-w-0 flex-1 items-center gap-2.5 rounded-[14px] pr-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex h-14 min-w-0 flex-1 items-center gap-2.5 rounded-[14px] pr-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        <CourtThumbnail duration={rally.duration} size="sm" />
+        <CourtThumbnail
+          duration={rally.duration}
+          size="sm"
+          frame={
+            thumbs && (
+              <FrameThumb
+                thumbs={thumbs}
+                // A moment into the rally: the serve, not the walk back
+                t={Math.min(rally.end, rally.start + 1)}
+                width={72}
+                height={40}
+              />
+            )
+          }
+        />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="text-sm font-bold">Rally {number}</span>
-          <span className="text-xs text-muted-foreground tabular-nums">
+          <span className="truncate text-xs text-muted-foreground tabular-nums">
             at {formatDuration(rally.start)}
+            {kept !== undefined && (
+              <>
+                {" · "}
+                <span data-testid="kept" className="text-success-text">
+                  {formatPlayhead(kept)} kept
+                </span>
+              </>
+            )}
           </span>
         </span>
         {current ? (
@@ -215,7 +294,80 @@ function RallyRow({
           )
         )}
       </button>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Fix rally ${number}`}
+            disabled={fixBusy}
+            className="flex h-[52px] w-10 shrink-0 items-center justify-center rounded-[14px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+          >
+            <EllipsisVertical className="size-[18px]" strokeWidth={2.2} />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          className="w-[min(18rem,calc(100vw-2rem))] rounded-[14px] border-0 bg-card p-1.5 shadow-lg"
+        >
+          <FixItem
+            icon={<MoveHorizontal />}
+            onSelect={() => onFix("edit", segment)}
+          >
+            Fix start and end
+          </FixItem>
+          <FixItem
+            icon={<SquareSplitHorizontal />}
+            onSelect={() => onFix("split", segment)}
+          >
+            Split into two rallies
+          </FixItem>
+          <FixItem
+            icon={<Merge />}
+            disabled={isLast}
+            onSelect={() => onFix("merge", segment)}
+          >
+            Merge with next rally
+          </FixItem>
+          <FixItem
+            icon={<Trash2 />}
+            variant="destructive"
+            onSelect={() => onFix("delete", segment)}
+          >
+            Not a rally, delete it
+          </FixItem>
+          <p className="mx-3 mt-1 mb-1.5 text-[11px] leading-[1.35] text-muted-foreground">
+            Fixes change this rally everywhere, including the player's chapters.
+            To shorten it just for this reel, use Cut in Edit mode.
+          </p>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
+  )
+}
+
+function FixItem({
+  icon,
+  children,
+  variant,
+  disabled,
+  onSelect,
+}: {
+  icon: ReactNode
+  children: string
+  variant?: "destructive"
+  disabled?: boolean
+  onSelect: () => void
+}) {
+  return (
+    <DropdownMenuItem
+      variant={variant}
+      disabled={disabled}
+      onSelect={onSelect}
+      className="h-11 gap-2.5 rounded-[10px] px-3 text-[13px] font-bold [&_svg:not([class*='size-'])]:size-4"
+    >
+      {icon}
+      {children}
+    </DropdownMenuItem>
   )
 }
 

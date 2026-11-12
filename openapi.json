@@ -1099,7 +1099,7 @@
       "get": {
         "tags": ["videos"],
         "summary": "Read Video Rallies",
-        "description": "Detected rallies, in seconds, ordered by start time.",
+        "description": "The video's rallies (detected, then corrected by the user), in seconds,\nnumbered in time order.",
         "operationId": "videos-read_video_rallies",
         "security": [
           {
@@ -1138,6 +1138,60 @@
                 }
               }
             }
+          }
+        }
+      },
+      "post": {
+        "tags": ["rallies"],
+        "summary": "Add Rally",
+        "description": "Add a rally the detector missed. It must not overlap another rally.",
+        "operationId": "rallies-add_rally",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RallyTimes"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RallyChange"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video or rally not found"
+          },
+          "409": {
+            "description": "The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours"
+          },
+          "422": {
+            "description": "Invalid times (e.g. past the end of the video)"
           }
         }
       }
@@ -1270,6 +1324,125 @@
         }
       }
     },
+    "/api/v1/videos/{id}/thumbnails-url": {
+      "get": {
+        "tags": ["videos"],
+        "summary": "Read Video Thumbnails Url",
+        "description": "Temporary links (12 h) to the thumbnail strip: one small frame per second,\npacked into sprite sheets. Fetch `index_url` for the layout (interval, tile\nsize, columns, rows, count), then the sheets as needed.",
+        "operationId": "videos-read_video_thumbnails_url",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ThumbnailUrls"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "code `thumbnails_missing`: analyzed before thumbnails existed, or not analyzed yet (see the backfill command). A video that doesn't exist gives a plain 404 without a code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorWithCode"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/videos/{id}/thumbnails/{name}": {
+      "get": {
+        "tags": ["videos"],
+        "summary": "Read Video Thumbnail File",
+        "description": "One file of the thumbnail strip: `index.json` or a sheet (`sheet_000.jpg`...).",
+        "operationId": "videos-read_video_thumbnail_file",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "From GET /videos/{id}/thumbnails-url",
+              "title": "Token"
+            },
+            "description": "From GET /videos/{id}/thumbnails-url"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "image/jpeg": {},
+              "application/json": {}
+            }
+          },
+          "403": {
+            "description": "Invalid or expired link"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/videos/{id}/file": {
       "get": {
         "tags": ["videos"],
@@ -1312,6 +1485,245 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/videos/{id}/rallies/{rally_id}": {
+      "put": {
+        "tags": ["rallies"],
+        "summary": "Edit Rally",
+        "description": "Set a rally's start and end. Reel pieces outside the new bounds (plus each\nreel's lead_in/lead_out) are trimmed.",
+        "operationId": "rallies-edit_rally",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "rally_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rally Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RallyTimes"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RallyChange"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video or rally not found"
+          },
+          "409": {
+            "description": "The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours"
+          },
+          "422": {
+            "description": "Invalid times (e.g. past the end of the video)"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["rallies"],
+        "summary": "Delete Rally",
+        "description": "Delete a rally (e.g. a false detection). Reel clips of it are dropped.",
+        "operationId": "rallies-delete_rally",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "rally_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rally Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RallyChange"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video or rally not found"
+          },
+          "409": {
+            "description": "The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours"
+          },
+          "422": {
+            "description": "Invalid times (e.g. past the end of the video)"
+          }
+        }
+      }
+    },
+    "/api/v1/videos/{id}/rallies/{rally_id}/split": {
+      "post": {
+        "tags": ["rallies"],
+        "summary": "Split Rally",
+        "description": "Split a rally in two at `at` seconds. The first part keeps the id; the second\nis a new rally. Reel clips are split the same way.",
+        "operationId": "rallies-split_rally",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "rally_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rally Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RallySplit"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RallyChange"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video or rally not found"
+          },
+          "409": {
+            "description": "The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours"
+          },
+          "422": {
+            "description": "Invalid times (e.g. past the end of the video)"
+          }
+        }
+      }
+    },
+    "/api/v1/videos/{id}/rallies/merge": {
+      "post": {
+        "tags": ["rallies"],
+        "summary": "Merge Rallies",
+        "description": "Merge two neighbouring rallies into one new rally (new id). Reel clips of\neither point at the new rally; back-to-back clips of the two become one.",
+        "operationId": "rallies-merge_rallies",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RallyMerge"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RallyChange"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video or rally not found"
+          },
+          "409": {
+            "description": "The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours"
+          },
+          "422": {
+            "description": "Invalid times (e.g. past the end of the video)"
           }
         }
       }
@@ -1385,7 +1797,7 @@
       "post": {
         "tags": ["reels"],
         "summary": "Create Reel",
-        "description": "Create a reel for a video. It belongs to the video's owner.",
+        "description": "Create a reel for a video. It belongs to the video's owner. Clips without\npieces are dropped.",
         "operationId": "reels-create_reel",
         "security": [
           {
@@ -1426,7 +1838,7 @@
             }
           },
           "422": {
-            "description": "Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, or times past its end. Errors have the usual `loc`, e.g. [\"body\", \"edit\", \"clips\", 2, \"trim_end\"]"
+            "description": "Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. [\"body\", \"edit\", \"clips\", 2, \"pieces\", 0, \"end\"]"
           }
         }
       }
@@ -1480,7 +1892,7 @@
       "put": {
         "tags": ["reels"],
         "summary": "Update Reel",
-        "description": "Save a reel: replaces the title and the whole edit list. Send the `updated_at`\nyou loaded; if the reel was saved since, nothing changes and you get 409.",
+        "description": "Save a reel: replaces the title and the whole edit list (clips without pieces\nare dropped). Send the `updated_at` you loaded; if the reel was saved since,\nnothing changes and you get 409.",
         "operationId": "reels-update_reel",
         "security": [
           {
@@ -1521,7 +1933,7 @@
             }
           },
           "409": {
-            "description": "code `reel_changed`: saved elsewhere (another tab or device) since you loaded it, or its clips were re-linked after the video was re-analyzed. Load it again.",
+            "description": "code `reel_changed`: saved elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1531,7 +1943,7 @@
             }
           },
           "422": {
-            "description": "Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, or times past its end. Errors have the usual `loc`, e.g. [\"body\", \"edit\", \"clips\", 2, \"trim_end\"]"
+            "description": "Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. [\"body\", \"edit\", \"clips\", 2, \"pieces\", 0, \"end\"]"
           }
         }
       },
@@ -1804,7 +2216,7 @@
       },
       "ErrorCode": {
         "type": "string",
-        "enum": ["trajectory_missing", "reel_changed"],
+        "enum": ["trajectory_missing", "reel_changed", "thumbnails_missing"],
         "title": "ErrorCode"
       },
       "ErrorWithCode": {
@@ -1943,6 +2355,29 @@
         "required": ["token", "new_password"],
         "title": "NewPassword"
       },
+      "Piece": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "End"
+          },
+          "slow_mo": {
+            "type": "boolean",
+            "title": "Slow Mo",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["start", "end"],
+        "title": "Piece"
+      },
       "PrivateAnalysis": {
         "properties": {
           "rallies": {
@@ -2067,11 +2502,80 @@
         "required": ["data", "count"],
         "title": "RalliesPublic"
       },
+      "RallyChange": {
+        "properties": {
+          "added": {
+            "items": {
+              "$ref": "#/components/schemas/RallyPublic"
+            },
+            "type": "array",
+            "title": "Added"
+          },
+          "updated": {
+            "items": {
+              "$ref": "#/components/schemas/RallyPublic"
+            },
+            "type": "array",
+            "title": "Updated",
+            "description": "Rallies whose start/end changed"
+          },
+          "deleted": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Deleted",
+            "description": "Ids of rallies that no longer exist"
+          },
+          "rallies": {
+            "items": {
+              "$ref": "#/components/schemas/RallyPublic"
+            },
+            "type": "array",
+            "title": "Rallies",
+            "description": "All the video's rallies after the change, numbered in time order"
+          },
+          "reels": {
+            "items": {
+              "$ref": "#/components/schemas/ReelImpact"
+            },
+            "type": "array",
+            "title": "Reels",
+            "description": "Reels that had to be adjusted"
+          }
+        },
+        "type": "object",
+        "required": ["added", "updated", "deleted", "rallies", "reels"],
+        "title": "RallyChange",
+        "description": "What a correction changed, so the app can update its list and tell the user\n(e.g. \"Rally 5 split into 5 and 6; 1 reel updated\")."
+      },
+      "RallyMerge": {
+        "properties": {
+          "rally_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Rally Ids",
+            "description": "Two rallies next to each other"
+          }
+        },
+        "type": "object",
+        "required": ["rally_ids"],
+        "title": "RallyMerge"
+      },
       "RallyPublic": {
         "properties": {
           "id": {
             "type": "integer",
             "title": "Id"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number",
+            "description": "1, 2, 3... in time order; changes when rallies are added, split, merged or deleted before this one"
           },
           "start": {
             "type": "number",
@@ -2088,42 +2592,61 @@
           }
         },
         "type": "object",
-        "required": ["id", "start", "end", "duration"],
+        "required": ["id", "number", "start", "end", "duration"],
         "title": "RallyPublic"
+      },
+      "RallySplit": {
+        "properties": {
+          "at": {
+            "type": "number",
+            "exclusiveMinimum": 0.0,
+            "title": "At",
+            "description": "Seconds; becomes the end of the first part and the start of the second"
+          }
+        },
+        "type": "object",
+        "required": ["at"],
+        "title": "RallySplit"
+      },
+      "RallyTimes": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "End"
+          }
+        },
+        "type": "object",
+        "required": ["start", "end"],
+        "title": "RallyTimes",
+        "description": "Add a rally, or set an existing one's start/end (seconds)."
       },
       "ReelClip": {
         "properties": {
           "rally_id": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
+            "type": "integer",
             "title": "Rally Id",
-            "description": "The rally this clip came from. null: not tied to a rally (its rally disappeared when the video was re-analyzed)"
+            "description": "The rally this clip shows"
           },
-          "trim_start": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Trim Start"
-          },
-          "trim_end": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Trim End"
-          },
-          "slow_mo": {
-            "type": "boolean",
-            "title": "Slow Mo",
-            "default": false
+          "pieces": {
+            "items": {
+              "$ref": "#/components/schemas/Piece"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Pieces",
+            "description": "The parts of the rally to show: sorted, not overlapping (they may touch, e.g. after a split), within the rally's bounds widened by the reel's lead_in/lead_out. A clip without pieces is dropped when saved.",
+            "default": []
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["rally_id", "trim_start", "trim_end"],
+        "required": ["rally_id"],
         "title": "ReelClip"
       },
       "ReelCreate": {
@@ -2146,9 +2669,9 @@
         "properties": {
           "version": {
             "type": "integer",
-            "const": 1,
+            "const": 2,
             "title": "Version",
-            "default": 1
+            "default": 2
           },
           "view": {
             "type": "string",
@@ -2161,6 +2684,22 @@
             "enum": ["16:9", "9:16"],
             "title": "Format",
             "default": "16:9"
+          },
+          "lead_in": {
+            "type": "number",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Lead In",
+            "description": "Seconds a piece may start before its rally's detected start (0-3; the detector can be 1-2 s off)",
+            "default": 1.0
+          },
+          "lead_out": {
+            "type": "number",
+            "maximum": 3.0,
+            "minimum": 0.0,
+            "title": "Lead Out",
+            "description": "Seconds a piece may end after its rally's detected end (0-3)",
+            "default": 1.0
           },
           "clips": {
             "items": {
@@ -2189,7 +2728,52 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ReelEdit",
-        "description": "The edit list, stored as JSON. `version` lets the format change later:\nold versions get upgraded when read, so stored reels never need rewriting."
+        "description": "The edit list, stored as JSON. `version` changes when the format does; an\nAlembic migration converts stored reels, so the code only knows the current one.\nv2 (this): clips are rallies cut into pieces. v1 had one trim per clip."
+      },
+      "ReelImpact": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At",
+            "description": "New version: an open editor must reload"
+          },
+          "clips_removed": {
+            "type": "integer",
+            "title": "Clips Removed",
+            "description": "Clips dropped (their rally is gone, or nothing of them was left inside the new bounds)"
+          },
+          "pieces_trimmed": {
+            "type": "integer",
+            "title": "Pieces Trimmed",
+            "description": "Pieces cut back to the new bounds"
+          },
+          "pieces_removed": {
+            "type": "integer",
+            "title": "Pieces Removed",
+            "description": "Pieces entirely outside the new bounds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "updated_at",
+          "clips_removed",
+          "pieces_trimmed",
+          "pieces_removed"
+        ],
+        "title": "ReelImpact",
+        "description": "How a reel was adjusted to a rally change."
       },
       "ReelOverlays": {
         "properties": {
@@ -2299,6 +2883,31 @@
         "type": "object",
         "required": ["data", "count"],
         "title": "ReelsPublic"
+      },
+      "ThumbnailUrls": {
+        "properties": {
+          "index_url": {
+            "type": "string",
+            "title": "Index Url"
+          },
+          "sheet_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Sheet Urls",
+            "description": "In the order of the index's `sheets`"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": ["index_url", "sheet_urls", "expires_at"],
+        "title": "ThumbnailUrls",
+        "description": "Signed links (12 h) to a video's thumbnail strip. The index says where each\nsecond's tile is: tile i (time i * interval) is in sheet i // (columns * rows),\nat column i % columns and row (i // columns) % rows."
       },
       "TimeRange": {
         "properties": {

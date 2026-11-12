@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, privateSetAnalysisData, privateSetAnalysisErrors, privateSetAnalysisResponses, reelsCreateReelData, reelsCreateReelErrors, reelsCreateReelResponses, reelsDeleteReelData, reelsDeleteReelErrors, reelsDeleteReelResponses, reelsReadReelData, reelsReadReelErrors, reelsReadReelResponses, reelsReadReelsData, reelsReadReelsErrors, reelsReadReelsResponses, reelsUpdateReelData, reelsUpdateReelErrors, reelsUpdateReelResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosReadVideoTrajectoryData, videosReadVideoTrajectoryErrors, videosReadVideoTrajectoryResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
+import type { healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, privateSetAnalysisData, privateSetAnalysisErrors, privateSetAnalysisResponses, ralliesAddRallyData, ralliesAddRallyErrors, ralliesAddRallyResponses, ralliesDeleteRallyData, ralliesDeleteRallyErrors, ralliesDeleteRallyResponses, ralliesEditRallyData, ralliesEditRallyErrors, ralliesEditRallyResponses, ralliesMergeRalliesData, ralliesMergeRalliesErrors, ralliesMergeRalliesResponses, ralliesSplitRallyData, ralliesSplitRallyErrors, ralliesSplitRallyResponses, reelsCreateReelData, reelsCreateReelErrors, reelsCreateReelResponses, reelsDeleteReelData, reelsDeleteReelErrors, reelsDeleteReelResponses, reelsReadReelData, reelsReadReelErrors, reelsReadReelResponses, reelsReadReelsData, reelsReadReelsErrors, reelsReadReelsResponses, reelsUpdateReelData, reelsUpdateReelErrors, reelsUpdateReelResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosReadVideoThumbnailFileData, videosReadVideoThumbnailFileErrors, videosReadVideoThumbnailFileResponses, videosReadVideoThumbnailsUrlData, videosReadVideoThumbnailsUrlErrors, videosReadVideoThumbnailsUrlResponses, videosReadVideoTrajectoryData, videosReadVideoTrajectoryErrors, videosReadVideoTrajectoryResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -416,7 +416,8 @@ export class VideosService {
     /**
      * Read Video Rallies
      *
-     * Detected rallies, in seconds, ordered by start time.
+     * The video's rallies (detected, then corrected by the user), in seconds,
+     * numbered in time order.
      */
     public static readVideoRallies<ThrowOnError extends boolean = true>(options: Options<videosReadVideoRalliesData, ThrowOnError>) {
         return (options.client ?? client).get<videosReadVideoRalliesResponses, videosReadVideoRalliesErrors, ThrowOnError>({
@@ -461,6 +462,35 @@ export class VideosService {
     }
     
     /**
+     * Read Video Thumbnails Url
+     *
+     * Temporary links (12 h) to the thumbnail strip: one small frame per second,
+     * packed into sprite sheets. Fetch `index_url` for the layout (interval, tile
+     * size, columns, rows, count), then the sheets as needed.
+     */
+    public static readVideoThumbnailsUrl<ThrowOnError extends boolean = true>(options: Options<videosReadVideoThumbnailsUrlData, ThrowOnError>) {
+        return (options.client ?? client).get<videosReadVideoThumbnailsUrlResponses, videosReadVideoThumbnailsUrlErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/thumbnails-url',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Video Thumbnail File
+     *
+     * One file of the thumbnail strip: `index.json` or a sheet (`sheet_000.jpg`...).
+     */
+    public static readVideoThumbnailFile<ThrowOnError extends boolean = true>(options: Options<videosReadVideoThumbnailFileData, ThrowOnError>) {
+        return (options.client ?? client).get<videosReadVideoThumbnailFileResponses, videosReadVideoThumbnailFileErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/videos/{id}/thumbnails/{name}',
+            ...options
+        });
+    }
+    
+    /**
      * Read Video File
      *
      * Stream the video file. Supports Range requests, which the browser's player
@@ -468,6 +498,97 @@ export class VideosService {
      */
     public static readVideoFile<ThrowOnError extends boolean = true>(options: Options<videosReadVideoFileData, ThrowOnError>) {
         return (options.client ?? client).get<videosReadVideoFileResponses, videosReadVideoFileErrors, ThrowOnError>({ url: '/api/v1/videos/{id}/file', ...options });
+    }
+}
+
+export class RalliesService {
+    /**
+     * Add Rally
+     *
+     * Add a rally the detector missed. It must not overlap another rally.
+     */
+    public static addRally<ThrowOnError extends boolean = true>(options: Options<ralliesAddRallyData, ThrowOnError>) {
+        return (options.client ?? client).post<ralliesAddRallyResponses, ralliesAddRallyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Rally
+     *
+     * Delete a rally (e.g. a false detection). Reel clips of it are dropped.
+     */
+    public static deleteRally<ThrowOnError extends boolean = true>(options: Options<ralliesDeleteRallyData, ThrowOnError>) {
+        return (options.client ?? client).delete<ralliesDeleteRallyResponses, ralliesDeleteRallyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies/{rally_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Edit Rally
+     *
+     * Set a rally's start and end. Reel pieces outside the new bounds (plus each
+     * reel's lead_in/lead_out) are trimmed.
+     */
+    public static editRally<ThrowOnError extends boolean = true>(options: Options<ralliesEditRallyData, ThrowOnError>) {
+        return (options.client ?? client).put<ralliesEditRallyResponses, ralliesEditRallyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies/{rally_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Split Rally
+     *
+     * Split a rally in two at `at` seconds. The first part keeps the id; the second
+     * is a new rally. Reel clips are split the same way.
+     */
+    public static splitRally<ThrowOnError extends boolean = true>(options: Options<ralliesSplitRallyData, ThrowOnError>) {
+        return (options.client ?? client).post<ralliesSplitRallyResponses, ralliesSplitRallyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies/{rally_id}/split',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Merge Rallies
+     *
+     * Merge two neighbouring rallies into one new rally (new id). Reel clips of
+     * either point at the new rally; back-to-back clips of the two become one.
+     */
+    public static mergeRallies<ThrowOnError extends boolean = true>(options: Options<ralliesMergeRalliesData, ThrowOnError>) {
+        return (options.client ?? client).post<ralliesMergeRalliesResponses, ralliesMergeRalliesErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies/merge',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
     }
 }
 
@@ -489,7 +610,8 @@ export class ReelsService {
     /**
      * Create Reel
      *
-     * Create a reel for a video. It belongs to the video's owner.
+     * Create a reel for a video. It belongs to the video's owner. Clips without
+     * pieces are dropped.
      */
     public static createReel<ThrowOnError extends boolean = true>(options: Options<reelsCreateReelData, ThrowOnError>) {
         return (options.client ?? client).post<reelsCreateReelResponses, reelsCreateReelErrors, ThrowOnError>({
@@ -535,8 +657,9 @@ export class ReelsService {
     /**
      * Update Reel
      *
-     * Save a reel: replaces the title and the whole edit list. Send the `updated_at`
-     * you loaded; if the reel was saved since, nothing changes and you get 409.
+     * Save a reel: replaces the title and the whole edit list (clips without pieces
+     * are dropped). Send the `updated_at` you loaded; if the reel was saved since,
+     * nothing changes and you get 409.
      */
     public static updateReel<ThrowOnError extends boolean = true>(options: Options<reelsUpdateReelData, ThrowOnError>) {
         return (options.client ?? client).put<reelsUpdateReelResponses, reelsUpdateReelErrors, ThrowOnError>({

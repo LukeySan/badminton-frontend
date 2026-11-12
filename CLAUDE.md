@@ -80,19 +80,21 @@ works inside Capacitor.
 All times are **seconds** (float). Court corners are **fractions** of the video's
 width/height, order **far-left, far-right, near-right, near-left**.
 
-| Endpoint                                                    | Use                                                                                                                                                                                                                                                                                                                                                          |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /videos/?skip&limit&all`                               | your videos, newest first, `{data, count}`. Superusers: `all=true` = everyone's (403 for others, and the app logs out on 403, so only send it for a confirmed superuser)                                                                                                                                                                                     |
-| `POST /videos/` multipart field `file`                      | upload → `VideoPublic` (status `uploaded`). Refusals with a readable `detail`: 413 over 2 GB, 422 over 60 min, 415 not a video type, 400 unreadable. The app checks size (and length, when the browser can read it) first: `components/Videos/uploadLimits.ts` repeats the two limits, the backend still enforces them                                       |
-| `GET /videos/{id}`                                          | `VideoPublic`: `status` (`uploaded`→`queued`→`processing`→`done`/`failed`), `progress` (0–1), `failure_reason` (enum, when failed; the technical `error` is NOT in the API), `duration`, `fps`, `width`, `height`, `court_corners`, `court_out_of_frame`, `rally_count`, `play_seconds` (sum of rally lengths), timestamps. The list returns the same fields |
-| `DELETE /videos/{id}`                                       | delete a video with its rallies and files (yours, or any as a superuser). 409 with a readable `detail` while it's processing                                                                                                                                                                                                                                 |
-| `GET /videos/{id}/frame?t=1.0`                              | JPEG for court tapping. Needs the login header, so fetch it with the client (as a blob) and show it via `URL.createObjectURL` — not as a plain `<img src>`                                                                                                                                                                                                   |
-| `PUT /videos/{id}/court` `{corners: [[x,y]×4]}`             | save corners. 422 with a readable message for wrong tap order or a corner too far outside                                                                                                                                                                                                                                                                    |
-| `POST /videos/{id}/process`                                 | queue (also reprocess). 409 no court / already queued; 429 when the user already has 2 videos queued or processing. Show the `detail`                                                                                                                                                                                                                        |
-| `GET /videos/{id}/rallies`                                  | `{data: [{id, start, end, duration}], count}`                                                                                                                                                                                                                                                                                                                |
-| `GET /videos/{id}/file-url`                                 | `{url, expires_at}`: a signed, expiring URL for this one video. Use `<video src={VITE_API_URL + url}>`. Refetch a new one when it expires (the video tag can't send the login header, which is why this exists)                                                                                                                                              |
-| `GET /videos/{id}/trajectory?start&end`                     | shuttle position per frame (`{fps, start, end, points: [{frame, t, visible, x, y}]}`, x/y fractions, max 600 s). 404 `code: "trajectory_missing"` for videos analyzed before it existed                                                                                                                                                                      |
-| `GET/POST /videos/{id}/reels`, `GET/PUT/DELETE /reels/{id}` | highlight reels: a title + a versioned edit list (`view`, `format`, `clips` with `rally_id`/`trim_start`/`trim_end`/`slow_mo`, `restored_gaps`, `overlays`). PUT is a full replace with the `updated_at` you loaded: stale → 409 `code: "reel_changed"`. Clip `rally_id`s must be this video's rallies                                                       |
+| Endpoint                                                                                                                                                               | Use                                                                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /videos/?skip&limit&all`                                                                                                                                          | your videos, newest first, `{data, count}`. Superusers: `all=true` = everyone's (403 for others, and the app logs out on 403, so only send it for a confirmed superuser)                                                                                                                                                                                                                 |
+| `POST /videos/` multipart field `file`                                                                                                                                 | upload → `VideoPublic` (status `uploaded`). Refusals with a readable `detail`: 413 over 2 GB, 422 over 60 min, 415 not a video type, 400 unreadable. The app checks size (and length, when the browser can read it) first: `components/Videos/uploadLimits.ts` repeats the two limits, the backend still enforces them                                                                   |
+| `GET /videos/{id}`                                                                                                                                                     | `VideoPublic`: `status` (`uploaded`→`queued`→`processing`→`done`/`failed`), `progress` (0–1), `failure_reason` (enum, when failed; the technical `error` is NOT in the API), `duration`, `fps`, `width`, `height`, `court_corners`, `court_out_of_frame`, `rally_count`, `play_seconds` (sum of rally lengths), timestamps. The list returns the same fields                             |
+| `DELETE /videos/{id}`                                                                                                                                                  | delete a video with its rallies and files (yours, or any as a superuser). 409 with a readable `detail` while it's processing                                                                                                                                                                                                                                                             |
+| `GET /videos/{id}/frame?t=1.0`                                                                                                                                         | JPEG for court tapping. Needs the login header, so fetch it with the client (as a blob) and show it via `URL.createObjectURL` — not as a plain `<img src>`                                                                                                                                                                                                                               |
+| `PUT /videos/{id}/court` `{corners: [[x,y]×4]}`                                                                                                                        | save corners. 422 with a readable message for wrong tap order or a corner too far outside                                                                                                                                                                                                                                                                                                |
+| `POST /videos/{id}/process`                                                                                                                                            | queue (also reprocess). 409 no court / already queued; 429 when the user already has 2 videos queued or processing. Show the `detail`                                                                                                                                                                                                                                                    |
+| `GET /videos/{id}/rallies`                                                                                                                                             | `{data: [{id, number, start, end, duration}], count}` (`number` = 1, 2, 3… in time order; changes when rallies are added, split, merged or deleted)                                                                                                                                                                                                                                      |
+| `POST /videos/{id}/rallies`, `PUT`/`DELETE /videos/{id}/rallies/{rally_id}`, `POST …/{rally_id}/split` `{at}`, `POST /videos/{id}/rallies/merge` `{rally_ids: [a, b]}` | rally corrections (the editor's fix menu). Each returns `RallyChange`: `added`, `updated`, `deleted`, the whole renumbered `rallies` list and the `reels` the server adjusted (new `updated_at`). 409 with a readable `detail` for overlaps, non-neighbours, or while processing                                                                                                         |
+| `GET /videos/{id}/thumbnails-url`                                                                                                                                      | `{index_url, sheet_urls, expires_at}`: signed links (12 h) to the thumbnail strip (one 160 px frame per second, 10×10 tiles per sheet; `index.json` has the layout). 404 `code: "thumbnails_missing"` for videos analyzed before it existed                                                                                                                                              |
+| `GET /videos/{id}/file-url`                                                                                                                                            | `{url, expires_at}`: a signed, expiring URL for this one video. Use `<video src={VITE_API_URL + url}>`. Refetch a new one when it expires (the video tag can't send the login header, which is why this exists)                                                                                                                                                                          |
+| `GET /videos/{id}/trajectory?start&end`                                                                                                                                | shuttle position per frame. Still saved by the backend; **not used by the app** (the shuttle trail was removed)                                                                                                                                                                                                                                                                          |
+| `GET/POST /videos/{id}/reels`, `GET/PUT/DELETE /reels/{id}`                                                                                                            | highlight reels: a title + an edit list, **version 2**: `view`, `format`, `lead_in`/`lead_out` (0–3 s), `clips` = `{rally_id, pieces: [{start, end, slow_mo}]}` (pieces sorted, inside the rally ± lead), `restored_gaps`, `overlays.captions`. PUT is a full replace with the `updated_at` you loaded: stale → 409 `code: "reel_changed"`. Rally corrections adjust reels on the server |
 
 Off-screen corners (decided in the backend — the app only displays the result):
 
@@ -148,25 +150,44 @@ slots), `controls.tsx` (ControlButton, ControlRow, SkipBreaksPill, RallyBadge),
 "Make a highlight" on the player (new reel, the 5 longest rallies pre-picked). The edit
 list lives in one reducer with undo/redo (`components/Reels/reelEdit.ts`; every change
 is an action there) and is autosaved (`useReelAutosave`: 800 ms debounce, one save at a
-time, 409 → reload + toast). Query key `["videos", id, "reels", reelId]`, never
-refetched in the background (the editor owns the edit list once loaded).
-`components/Reels/timeline.ts` turns the edit list into items in reel order (clips,
-kept footage, collapsed gaps) with source and reel times; the timeline, the time row
-and preview playback all read it. Preview playback is `useVideoPlayer`'s playback
-rule (spans that play + speed), checked on every video frame. The shuttle trail
-(`TrailCanvas`) loads `/trajectory` in 60 s chunks and draws on
-`requestVideoFrameCallback`. A trim drag is previewed locally and committed as one
-reducer action on release.
+time, 409 → reload + toast; `flush`/`hold`/`adopt`/`rebase` for rally fixes). Query key
+`["videos", id, "reels", reelId]`, never refetched in the background (the editor owns
+the edit list once loaded).
+
+- **Cut model (edit list v2):** a clip is a rally cut into pieces. Each rally has a
+  _window_ (`rallyWindows`): the rally ± the reel's lead, never past the video or into a
+  neighbour's window (close rallies share the gap). Pieces live in the window; the rest
+  of it is a soft "cut". Cut splits the selected piece at the playhead (not within
+  0.3 s of an edge), Delete removes it (the last one takes the rally out). Changing the
+  lead or a rally's bounds `refit`s clips: an edge at the window's edge moves with it.
+- `components/Reels/timeline.ts` turns the edit list into items in reel order (pieces,
+  cut parts, breaks, unpicked rallies, collapsed gaps) with source and reel times; the
+  timeline, the time row and preview playback all read it. In Rallies only, breaks AND
+  cut parts collapse into gap markers (a tap restores both); in Full video cut parts
+  are pink stripes. Preview playback is `useVideoPlayer`'s playback rule (spans that
+  play + speed + loop), checked on every video frame. The selected piece follows the
+  playhead.
+- **Rally fixes** (`rallyFixes.ts`, Highlights' ⋮ menu): server changes to the match's
+  rallies, shown everywhere. The editor saves first, holds autosave, calls the
+  endpoint, writes the returned list into `["videos", id, "rallies"]` (the player's
+  chapters), reloads the reel if the server adjusted it, refits, and pushes one
+  history entry carrying the fix. Undo calls the reverse endpoint(s) (edit ↔ edit,
+  add ↔ delete, split ↔ merge, merge ↔ split + edit), redo the forward one; those make
+  new rally ids, so the history entries on that side of the fix are remapped
+  (`undo-fix` / `redo-fix`).
+- Thumbnails (`thumbnails.tsx`): sprite-sheet tiles as CSS backgrounds; the timeline
+  draws only tiles near the view, rally rows load theirs when scrolled into view.
+  Without a strip (older videos) everything falls back to the drawn court.
 
 E2E tests use real data: `seedAnalysis()` (tests/utils/videos.ts) calls the backend's
 development-only `POST /private/videos/{id}/analysis` to finish a video with given
-rallies (and a trajectory), the way the worker does.
+rallies (and optionally the thumbnail strip), the way the worker does.
 
 **Never use native video full screen for previews (decided).** No
 `video.requestFullscreen()`, no `webkitEnterFullscreen()`, no `controls` on the
 player's `<video>` (it has `playsinline` + `webkit-playsinline`). On iPhone native full
 screen hands playback to Apple's player, which hides our overlays (rally badge, skip
-pill, chapter bar, future trail/caption overlays) and shows the raw file's timeline.
+pill, chapter bar, caption overlays) and shows the raw file's timeline.
 The player has its own full screen (`components/Player/useFullscreenPlayer.ts`): a
 fixed layer with our controls, plus the Fullscreen API _on that layer_ where it works
 (desktop, iPad, Android). The one `<video>` is moved between the inline and

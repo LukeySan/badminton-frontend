@@ -125,6 +125,7 @@ button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparen
             <button aria-pressed="false" onClick="{{f.pick}}" style="height: 30px; padding: 0 12px; border: 1px solid #34343F; border-radius: 999px; background: transparent; color: #9DB8AC; font-size: 12px; font-weight: 600">{{f.label}}</button>
           </sc-if>
         </sc-for>
+        <button onClick="{{addRally}}" style="margin-left: auto; height: 30px; padding: 0 10px; border: 1px dashed #5E6E67; border-radius: 999px; background: transparent; color: #DEFFF2; font-size: 12px; font-weight: 700; white-space: nowrap">+ Missed rally</button>
       </div>
       <div class="noscroll" style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 2px">
         <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
@@ -146,7 +147,7 @@ button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparen
               </span>
               <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
                 <span style="font-size: 14px; font-weight: 700">Rally {{r.n}}</span>
-                <span style="font-size: 12px; color: #9DB8AC; font-variant-numeric: tabular-nums">at {{r.at}}</span>
+                <span style="font-size: 12px; color: #9DB8AC; font-variant-numeric: tabular-nums">at {{r.at}}<sc-if value="{{r.trimmed}}" hint-placeholder-val="{{ false }}"> · <span style="color: #7FD69B">{{r.trimText}}</span></sc-if></span>
               </span>
               <sc-if value="{{r.longest}}" hint-placeholder-val="{{ false }}">
                 <span style="height: 22px; padding: 0 8px; border-radius: 999px; background: rgba(57,158,90,0.18); color: #7FD69B; display: flex; align-items: center; font-size: 11px; font-weight: 800; white-space: nowrap">Longest</span>
@@ -155,7 +156,21 @@ button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparen
                 <span style="height: 22px; padding: 0 8px; border-radius: 999px; background: rgba(255,51,102,0.16); color: #FF8FAB; display: flex; align-items: center; font-size: 11px; font-weight: 800; white-space: nowrap">Playing</span>
               </sc-if>
             </button>
+            <button aria-label="{{r.menuLabel}}" aria-expanded="{{r.menuAria}}" onClick="{{r.openMenu}}" style="width: 40px; height: 52px; flex-shrink: 0; border: none; background: transparent; color: #9DB8AC; display: flex; align-items: center; justify-content: center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+            </button>
           </div>
+          <sc-if value="{{r.menuOpen}}" hint-placeholder-val="{{ false }}">
+            <div role="menu" style="margin: 2px 8px 8px 52px; padding: 6px; border-radius: 14px; background: #23232F; box-shadow: 0 8px 24px rgba(0,0,0,0.4)">
+              <sc-for list="{{r.fixes}}" as="f" hint-placeholder-count="4">
+                <button role="menuitem" onClick="{{f.pick}}" style="{{f.style}}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{f.icon}}"></path></svg>
+                  {{f.label}}
+                </button>
+              </sc-for>
+              <p style="margin: 4px 12px 6px; font-size: 11px; color: #9DB8AC; line-height: 1.35">Fixes change this rally everywhere, including the player's chapters. To shorten it just for this reel, use Cut in Edit mode.</p>
+            </div>
+          </sc-if>
         </sc-for>
       </div>
       <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 16px 22px; border-top: 1px solid #2A2A36">
@@ -211,8 +226,7 @@ button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparen
                   <span style="position: absolute; left: 6px; bottom: 5px; color: #9DB8AC; font-size: 10px; font-weight: 700; white-space: nowrap">+ add</span>
                 </sc-if>
                 <sc-if value="{{c.isClip}}" hint-placeholder-val="{{ true }}">
-                <span style="position: absolute; inset: 0; background: repeating-linear-gradient(90deg, rgba(57,158,90,0.35) 0 1px, transparent 1px 30px)"></span>
-                <span style="position: absolute; left: 6px; top: 5px; padding: 1px 5px; border-radius: 5px; background: rgba(25,25,35,0.85); color: #DEFFF2; font-size: 10px; font-weight: 800; white-space: nowrap">R{{c.n}} · {{c.len}}</span>
+                                <span style="position: absolute; left: 6px; top: 5px; padding: 1px 5px; border-radius: 5px; background: rgba(25,25,35,0.85); color: #DEFFF2; font-size: 10px; font-weight: 800; white-space: nowrap">{{c.tag}} · {{c.len}}</span>
                 </sc-if>
                 <sc-if value="{{c.slow}}" hint-placeholder-val="{{ false }}">
                   <span style="position: absolute; left: 6px; bottom: 5px; padding: 1px 5px; border-radius: 5px; background: #DEFFF2; color: #191923; font-size: 10px; font-weight: 800">Slow-mo</span>
@@ -240,10 +254,11 @@ button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparen
             Add sound
           </div>
         </div>
-        <div style="position: absolute; left: 194px; top: 0; bottom: 8px; width: 2px; border-radius: 1px; background: #DEFFF2; box-shadow: 0 0 0 1px #191923; pointer-events: none"></div>
+        <div style="position: absolute; left: 194px; top: 22px; bottom: 8px; width: 2px; border-radius: 1px; background: #DEFFF2; box-shadow: 0 0 0 1px #191923; pointer-events: none"></div>
+        <div style="position: absolute; left: 195px; top: 2px; transform: translateX(-50%); padding: 1px 7px; border-radius: 6px; background: #DEFFF2; color: #191923; font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; pointer-events: none; white-space: nowrap">{{nowAt}}</div>
       </div>
-      <div style="flex-shrink: 0; height: 28px; padding: 0 16px; display: flex; align-items: center; font-size: 12px; color: #9DB8AC">
-        <span><span style="color: #FF8FAB; font-weight: 800">Rally {{selRally}}</span> selected · drag the pink edges to trim</span>
+      <div style="flex-shrink: 0; min-height: 34px; padding: 2px 16px; display: flex; align-items: center; font-size: 12px; color: #9DB8AC">
+        <span style="line-height: 1.3">{{hint}}</span>
       </div>
       <div class="noscroll" style="flex-shrink: 0; display: flex; gap: 8px; overflow-x: auto; padding: 4px 12px 22px; border-top: 1px solid #2A2A36">
         <sc-for list="{{tools}}" as="t" hint-placeholder-count="7">
@@ -295,7 +310,7 @@ button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparen
 class Component extends DCLogic {
   constructor(props) {
     super(props);
-    this.state = { mode: 'edit', filter: 'all', picked: { 3: 1, 12: 1, 19: 1, 27: 1, 41: 1, 58: 1 }, current: 19, sel: 19, trail: true, text: true, slow: { 27: 1 }, vertical: false, view: 'cut', restored: {}, skip: true, fs: false };
+    this.state = { mode: 'edit', filter: 'all', picked: { 3: 1, 12: 1, 19: 1, 27: 1, 41: 1, 58: 1 }, segs: { 19: [[0, 3], [5, 9]] }, current: 19, sel: { n: 19, i: 1 }, ph: 1.5, trail: false, text: true, slow: {}, vertical: false, view: 'cut', restored: {}, skip: true, fs: false, menu: 0, removed: {}, loop: false };
   }
   renderVals() {
     var self = this, st = this.state;
@@ -305,12 +320,17 @@ class Component extends DCLogic {
       { n: 15, at: '6:15', s: 11 }, { n: 19, at: '7:48', s: 9 }, { n: 22, at: '8:57', s: 4 },
       { n: 27, at: '10:31', s: 31 }, { n: 33, at: '12:20', s: 7 }, { n: 41, at: '14:46', s: 14 },
       { n: 46, at: '16:02', s: 12 }, { n: 58, at: '18:35', s: 15 }, { n: 64, at: '19:50', s: 8 }
-    ];
-    function fmt(s) { var m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; }
+    ].filter(function (r) { return !st.removed[r.n]; });
+    function fmt(s) { s = Math.round(s * 10) / 10; var m = Math.floor(s / 60), r = s - m * 60, w = Math.floor(r), f = Math.round((r - w) * 10); return m + ':' + (w < 10 ? '0' : '') + w + (f ? '.' + f : ''); }
+    function fmtW(s) { s = Math.round(s); var m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; }
+    function sec(a) { var p = a.split(':'); return (+p[0]) * 60 + (+p[1]); }
+    function segsOf(r) { return st.segs[r.n] || [[0, r.s]]; }
+    function keepLen(r) { return segsOf(r).reduce(function (a, p) { return a + p[1] - p[0]; }, 0); }
+    function setSegs(n, arr, extra) { var s = Object.assign({}, st.segs); s[n] = arr; self.setState(Object.assign({ segs: s }, extra || {})); }
     var longestN = 27;
     var picked = all.filter(function (r) { return st.picked[r.n]; });
-    var total = picked.reduce(function (a, r) { return a + r.s; }, 0);
 
+    // ---------- Highlights mode ----------
     var list = all.filter(function (r) {
       if (st.filter === 'picked') return st.picked[r.n];
       if (st.filter === 'long') return r.s >= 12;
@@ -318,126 +338,176 @@ class Component extends DCLogic {
     });
     if (st.filter === 'long') list = list.slice().sort(function (a, b) { return b.s - a.s; });
     var rows = list.map(function (r) {
-      var on = !!st.picked[r.n], cur = r.n === st.current;
+      var on = !!st.picked[r.n], cur = r.n === st.current, open = st.menu === r.n;
+      var kl = keepLen(r), trimmed = on && kl < r.s;
       return {
-        n: r.n, at: r.at, len: fmt(r.s), checkLabel: 'Add rally ' + r.n + ' to the reel', picked: on, unpicked: !on, aria: on ? 'true' : 'false',
-        longest: r.n === longestN && !cur, playing: cur,
+        n: r.n, at: r.at, len: fmtW(r.s), checkLabel: 'Add rally ' + r.n + ' to the reel', picked: on, unpicked: !on, aria: on ? 'true' : 'false',
+        longest: r.n === longestN && !cur, playing: cur, trimmed: trimmed, trimText: fmt(kl) + ' kept',
+        menuOpen: open, menuAria: open ? 'true' : 'false', menuLabel: 'Fix rally ' + r.n,
         style: 'display:flex;align-items:center;border-radius:14px;' + (cur ? 'background:#23232F;box-shadow:inset 0 0 0 2px #FF3366;' : ''),
         toggle: function () { var p = Object.assign({}, st.picked); if (p[r.n]) delete p[r.n]; else p[r.n] = 1; self.setState({ picked: p }); },
-        go: function () { self.setState({ current: r.n, sel: r.n }); }
+        go: function () { self.setState({ current: r.n, sel: { n: r.n, i: 0 }, menu: 0 }); },
+        openMenu: function () { self.setState({ menu: open ? 0 : r.n }); },
+        fixes: [
+          { label: 'Fix start and end', icon: 'M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4', danger: false },
+          { label: 'Split into two rallies', icon: 'M12 3v18M7 8l-4 4 4 4M17 8l4 4-4 4', danger: false },
+          { label: 'Merge with next rally', icon: 'M4 7h6l4 5-4 5H4M20 12h-6', danger: false },
+          { label: 'Not a rally, delete it', icon: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', danger: true }
+        ].map(function (f, k) {
+          return { label: f.label, icon: f.icon,
+            style: 'width:100%;height:44px;border:none;background:transparent;display:flex;align-items:center;gap:10px;padding:0 12px;font-size:13px;font-weight:700;text-align:left;border-radius:10px;color:' + (f.danger ? '#FF8FAB' : '#DEFFF2'),
+            pick: function () {
+              if (k === 3) { var rm = Object.assign({}, st.removed); rm[r.n] = 1; var p = Object.assign({}, st.picked); delete p[r.n]; self.setState({ removed: rm, picked: p, menu: 0 }); }
+              else self.setState({ menu: 0 });
+            } };
+        })
       };
     });
 
-    // Build the timeline: picked rallies are clips; everything between them is either
-    // soft-removed (a collapsed sliver you can tap to restore) or shown (dimmed breaks + unpicked rallies).
-    function sec(a) { var p = a.split(':'); return (+p[0]) * 60 + (+p[1]); }
+    // ---------- Timeline ----------
     var full = st.view === 'full';
     var BASE = 'position:relative;flex-shrink:0;height:60px;border:none;padding:0;border-radius:8px;overflow:hidden;';
+    var THUMB = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='60'><rect width='40' height='60' fill='%2303440C'/><path d='M13 14 L27 14 L38 56 L2 56 Z' fill='none' stroke='%23399E5A' stroke-width='1'/><path d='M7 33 L33 33' stroke='%23DEFFF2' stroke-width='1.2'/><circle cx='15' cy='46' r='2.4' fill='%23DEFFF2'/><circle cx='24' cy='22' r='1.8' fill='%239DB8AC'/></svg>\")";
     var items = [], region = [], prevEnd = null, lastKey = 'lead';
     function flush(key) {
       if (!region.length) return;
-      var show = full || st.restored[key];
-      if (show) {
-        region.forEach(function (it) { items.push(it); });
-      } else {
+      if (full || st.restored[key]) region.forEach(function (it) { items.push(it); });
+      else {
         var d = region.reduce(function (a, it) { return a + it.d; }, 0);
-        items.push({ kind: 'sliver', d: 0, w: 40, label: 'Show ' + fmt(d) + ' of cut footage', text: fmt(d),
-          style: BASE + 'width:40px;background:#1F1F29;box-shadow:inset 0 0 0 1px #5E6E67;border-radius:8px;',
-          pick: (function (k) { return function () { var r = Object.assign({}, st.restored); r[k] = 1; self.setState({ restored: r }); }; })(key) });
+        items.push({ kind: 'sliver', d: 0, w: 40, label: 'Show ' + fmtW(d) + ' of hidden footage', text: fmtW(d),
+          style: BASE + 'width:40px;background:#1F1F29;box-shadow:inset 0 0 0 1px #5E6E67;',
+          pick: function () { var r = Object.assign({}, st.restored); r[key] = 1; self.setState({ restored: r }); } });
       }
       region = [];
     }
+    function hideAgain(key) { return function () { if (full) return; var x = Object.assign({}, st.restored); delete x[key]; self.setState({ restored: x }); }; }
     all.forEach(function (r) {
       var start = sec(r.at), end = start + r.s;
       if (prevEnd !== null && start > prevEnd) {
-        var bd = start - prevEnd, key = lastKey;
-        region.push({ kind: 'break', d: bd, w: bd * PX, text: 'Break ' + fmt(bd), label: 'Break, ' + fmt(bd) + (full ? '' : ', tap to cut again'),
+        var bd = start - prevEnd;
+        region.push({ kind: 'break', d: bd, w: bd * PX, text: 'Break ' + fmtW(bd), label: 'Break, ' + fmtW(bd),
           style: BASE + 'width:' + (bd * PX) + 'px;background:repeating-linear-gradient(135deg,#23232F 0 6px,#1D1D27 6px 12px);',
-          pick: function () { if (full) return; var x = Object.assign({}, st.restored); delete x[key]; self.setState({ restored: x }); } });
+          pick: hideAgain(lastKey) });
       }
       if (st.picked[r.n]) {
-        flush(lastKey);
-        var sel = r.n === st.sel;
-        items.push({ kind: 'clip', n: r.n, d: r.s, w: r.s * PX, len: fmt(r.s), label: 'Rally ' + r.n + ', ' + fmt(r.s), sel: sel, slow: !!st.slow[r.n],
-          style: BASE + 'width:' + (r.s * PX) + 'px;background:#03440C;' + (sel ? 'box-shadow:inset 0 0 0 2px #FF3366;' : ''),
-          pick: function () { self.setState({ sel: r.n, current: r.n }); } });
-        lastKey = 'g' + r.n;
+        var pcs = segsOf(r), pos = 0;
+        pcs.forEach(function (p, i) {
+          if (p[0] > pos) pushCut(r, pos, p[0]);
+          flush(lastKey);
+          var sel = st.sel.n === r.n && st.sel.i === i, d = p[1] - p[0];
+          items.push({ kind: 'clip', n: r.n, i: i, d: d, w: d * PX, len: fmt(d), label: 'Rally ' + r.n + (pcs.length > 1 ? ' part ' + (i + 1) : '') + ', ' + fmt(d), sel: sel, slow: !!st.slow[r.n + ':' + i],
+            tag: 'R' + r.n + (pcs.length > 1 ? String.fromCharCode(97 + i) : ''),
+            style: BASE + 'width:' + (d * PX) + 'px;background:' + THUMB + ' repeat-x left center / 40px 60px;' + (sel ? 'box-shadow:inset 0 0 0 3px #FF3366;' : ''),
+            pick: function () { self.setState({ sel: { n: r.n, i: i }, current: r.n, ph: Math.min(2, d / 2) }); } });
+          lastKey = 'g' + r.n + '_' + i;
+          pos = p[1];
+        });
+        if (pos < r.s) pushCut(r, pos, r.s);
       } else {
         region.push({ kind: 'muted', n: r.n, d: r.s, w: r.s * PX, text: 'R' + r.n, label: 'Rally ' + r.n + ', not in the reel. Tap to add',
-          style: BASE + 'width:' + (r.s * PX) + 'px;background:rgba(3,68,12,0.45);box-shadow:inset 0 0 0 1px rgba(57,158,90,0.5);',
-          pick: function () { var p = Object.assign({}, st.picked); p[r.n] = 1; self.setState({ picked: p, sel: r.n, current: r.n }); } });
+          style: BASE + 'width:' + (r.s * PX) + 'px;background:' + THUMB + ' repeat-x left center / 40px 60px;opacity:0.35;',
+          pick: function () { var p = Object.assign({}, st.picked); p[r.n] = 1; self.setState({ picked: p, sel: { n: r.n, i: 0 }, current: r.n, ph: 2 }); } });
       }
       prevEnd = end;
     });
     flush(lastKey);
+    function pushCut(r, a, b) {
+      var d = b - a;
+      region.push({ kind: 'cut', d: d, w: Math.max(d * PX, 14), text: 'Cut ' + fmt(d), label: 'Cut part of rally ' + r.n + ', ' + fmt(d) + '. Tap to put it back',
+        style: BASE + 'width:' + Math.max(d * PX, 14) + 'px;background:repeating-linear-gradient(135deg,rgba(255,51,102,0.22) 0 4px,#1D1D27 4px 9px);',
+        pick: function () {
+          var arr = segsOf(r).concat([[a, b]]).sort(function (x, y) { return x[0] - y[0]; }), out = [];
+          arr.forEach(function (p) { var l = out[out.length - 1]; if (l && p[0] <= l[1] + 1e-6) l[1] = Math.max(l[1], p[1]); else out.push([p[0], p[1]]); });
+          setSegs(r.n, out, { sel: { n: r.n, i: 0 } });
+        } });
+    }
 
-    var x = 0, tsec = 0, selX = 0, selT = 0, textX = -1, textW = 0, ticks = [];
+    var x = 0, tsec = 0, selX = 0, selT = 0, selD = 0, selItem = null, textX = -1, textW = 0, ticks = [];
     var step = full ? 60 : 10;
     var clips = items.map(function (it) {
       var d = it.d;
       if (it.kind !== 'sliver') {
         var first = Math.ceil(tsec / step) * step;
-        for (var T = first; T < tsec + d; T += step) ticks.push({ label: fmt(T), style: 'position:absolute;top:2px;left:' + Math.round(x + (T - tsec) * PX) + 'px;font-size:10px;color:#5E6E67;font-variant-numeric:tabular-nums;border-left:1px solid #34343F;padding-left:3px;height:14px;line-height:14px;white-space:nowrap' });
+        for (var T = first; T < tsec + d; T += step) ticks.push({ label: fmtW(T), style: 'position:absolute;top:2px;left:' + Math.round(x + (T - tsec) * PX) + 'px;font-size:10px;color:#5E6E67;font-variant-numeric:tabular-nums;border-left:1px solid #34343F;padding-left:3px;height:14px;line-height:14px;white-space:nowrap' });
       }
-      if (it.kind === 'clip' && it.sel) { selX = x; selT = tsec; }
-      if (it.kind === 'clip' && it.n === 27) { textX = x; textW = it.w; }
-      var c = { n: it.n, len: it.len || it.text, text: it.text, label: it.label, style: it.style, pick: it.pick,
-        isClip: it.kind === 'clip', isSliver: it.kind === 'sliver', isBreak: it.kind === 'break', isMuted: it.kind === 'muted',
-        sel: !!it.sel, slow: !!it.slow };
+      if (it.kind === 'clip' && it.sel) { selX = x; selT = tsec; selD = d; selItem = it; }
+      if (it.kind === 'clip' && it.n === 27 && textX < 0) { textX = x; textW = it.w; }
+      var c = { n: it.n, len: it.len || it.text, text: it.text, tag: it.tag, label: it.label, style: it.style, pick: it.pick,
+        isClip: it.kind === 'clip', isSliver: it.kind === 'sliver', isBreak: it.kind === 'break' || it.kind === 'cut', isMuted: it.kind === 'muted',
+        sel: false, slow: !!it.slow };
       x += it.w + 2; tsec += d;
       return c;
     });
     var total = tsec;
     var trackW = Math.max(x - 2, 60);
-    var playheadX = selX + 3 * PX, playheadT = selT + 3;
+    var ph = selItem ? Math.min(Math.max(st.ph, 0.3), selD - 0.3) : 0;
+    var playheadX = selX + ph * PX, playheadT = selT + ph;
 
+    // ---------- Tools ----------
     var I = {
-      trim: 'M6 3v12a3 3 0 1 0 0 0M18 21V9a3 3 0 1 0 0 0M6 9h12M6 15h12',
-      split: 'M12 3v18M8 7l-4 5 4 5M16 7l4 5-4 5',
+      split: 'M6 4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6 15a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 8l12 10M8 16L20 6',
+      del: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
       slow: 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
-      trail: 'M3 19 Q 9 3 21 7M21 7l-4-1M21 7l-2 4',
+      loop: 'M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4',
       text: 'M4 7V5h16v2M12 5v14M9 19h6',
-      sound: 'M9 18V5l12-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM21 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
-      format: 'M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z',
-      del: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3'
+      format: 'M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z'
     };
-    function tool(key, label, active, fn) {
+    function tool(key, label, active, fn, accent) {
       return {
         label: label, icon: I[key], aria: active ? 'true' : 'false', pick: fn,
-        style: 'flex-shrink:0;width:72px;height:64px;border-radius:14px;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:700;' +
-          (active ? 'background:rgba(57,158,90,0.18);color:#7FD69B;box-shadow:inset 0 0 0 1.5px #399E5A;' : 'background:#23232F;color:#DEFFF2;')
+        style: 'flex-shrink:0;width:68px;height:64px;border-radius:14px;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:700;' +
+          (accent ? 'background:#DEFFF2;color:#191923;' : active ? 'background:rgba(57,158,90,0.18);color:#7FD69B;box-shadow:inset 0 0 0 1.5px #399E5A;' : 'background:#23232F;color:#DEFFF2;')
       };
     }
+    var selKey = st.sel.n + ':' + st.sel.i;
+    function doSplit() {
+      if (!selItem) return;
+      var r = all.filter(function (q) { return q.n === st.sel.n; })[0], pcs = segsOf(r).map(function (p) { return p.slice(); });
+      var p = pcs[st.sel.i], at = p[0] + ph;
+      if (at - p[0] < 0.3 || p[1] - at < 0.3) return;
+      pcs.splice(st.sel.i, 1, [p[0], at], [at, p[1]]);
+      setSegs(r.n, pcs, { sel: { n: r.n, i: st.sel.i + 1 }, ph: Math.min(1.5, (p[1] - at) / 2) });
+    }
+    function doDelete() {
+      if (!selItem) return;
+      var r = all.filter(function (q) { return q.n === st.sel.n; })[0], pcs = segsOf(r).slice();
+      pcs.splice(st.sel.i, 1);
+      if (!pcs.length) { var pk = Object.assign({}, st.picked); delete pk[r.n]; var s2 = Object.assign({}, st.segs); delete s2[r.n]; self.setState({ picked: pk, segs: s2 }); }
+      else setSegs(r.n, pcs, { sel: { n: r.n, i: Math.max(0, st.sel.i - 1) }, ph: 1 });
+    }
     var tools = [
-      tool('trim', 'Trim', false, function () {}),
-      tool('split', 'Split', false, function () {}),
-      tool('slow', 'Slow-mo', !!st.slow[st.sel], function () { var p = Object.assign({}, st.slow); if (p[st.sel]) delete p[st.sel]; else p[st.sel] = 1; self.setState({ slow: p }); }),
-      tool('trail', 'Trail', st.trail, function () { self.setState({ trail: !st.trail }); }),
+      tool('split', 'Cut', false, doSplit, true),
+      tool('del', 'Delete', false, doDelete),
+      tool('slow', 'Slow-mo', !!st.slow[selKey], function () { var p = Object.assign({}, st.slow); if (p[selKey]) delete p[selKey]; else p[selKey] = 1; self.setState({ slow: p }); }),
+      tool('loop', 'Loop', st.loop, function () { self.setState({ loop: !st.loop }); }),
       tool('text', 'Text', st.text, function () { self.setState({ text: !st.text }); }),
-      tool('sound', 'Sound', false, function () {}),
-      tool('format', st.vertical ? '9:16' : '16:9', false, function () { self.setState({ vertical: !st.vertical }); }),
-      tool('del', 'Remove', false, function () { var p = Object.assign({}, st.picked); delete p[st.sel]; self.setState({ picked: p }); })
+      tool('format', st.vertical ? '9:16' : '16:9', false, function () { self.setState({ vertical: !st.vertical }); })
     ];
+    var selPcs = selItem ? segsOf(all.filter(function (q) { return q.n === st.sel.n; })[0]).length : 0;
+    var hint = selItem
+      ? 'Rally ' + st.sel.n + (selPcs > 1 ? ', part ' + (st.sel.i + 1) + ' of ' + selPcs : '') + ' selected. Cut at the playhead, then delete the part you don’t want.'
+      : 'Tap a clip to select it.';
 
-    var filters = [{ v: 'all', label: 'All 73' }, { v: 'picked', label: 'Picked ' + picked.length }, { v: 'long', label: 'Longest' }].map(function (f) {
+    var filters = [{ v: 'all', label: 'All ' + (73 - Object.keys(st.removed).length) }, { v: 'picked', label: 'Picked ' + picked.length }, { v: 'long', label: 'Longest' }].map(function (f) {
       var on = st.filter === f.v;
       return { label: f.label, on: on, off: !on, pick: function () { self.setState({ filter: f.v }); } };
     });
     var modes = [{ v: 'list', label: 'Highlights' }, { v: 'edit', label: 'Edit' }].map(function (m) {
       var on = st.mode === m.v;
-      return { label: m.label, on: on, off: !on, pick: function () { self.setState({ mode: m.v }); } };
+      return { label: m.label, on: on, off: !on, pick: function () { self.setState({ mode: m.v, menu: 0 }); } };
     });
+    var reelTotal = picked.reduce(function (a, r) { return a + keepLen(r); }, 0);
 
-    var curSlow = !!st.slow[st.current];
     return {
       modes: modes, isList: st.mode === 'list', isEdit: st.mode === 'edit',
       filters: filters, rows: rows, clips: clips, ticks: ticks, tools: tools, trackW: trackW,
-      pickedCount: picked.length, reelLen: fmt(total),
-      curRally: st.current, selRally: st.sel,
-      trail: st.trail, textOn: st.text, slowOn: curSlow,
+      pickedCount: picked.length, reelLen: fmt(full ? total : reelTotal),
+      curRally: st.current, selRally: st.sel.n, hint: hint,
+      trail: false, textOn: st.text, slowOn: !!st.slow[selKey] && st.mode === 'edit',
       formatLabel: st.vertical ? '9:16' : '16:9',
       toggleFormat: function () { self.setState({ vertical: !st.vertical }); },
-      goEdit: function () { self.setState({ mode: 'edit' }); },
+      goEdit: function () { self.setState({ mode: 'edit', menu: 0 }); },
+      addRally: function () {},
       frameStyle: st.vertical
         ? 'position:absolute;left:50%;top:0;width:123px;height:219px;margin-left:-61px;overflow:hidden;box-shadow:0 0 0 1px #34343F'
         : 'position:absolute;inset:0;overflow:hidden',
@@ -449,7 +519,7 @@ class Component extends DCLogic {
       fs: st.fs, openFs: function () { self.setState({ fs: true }); }, closeFs: function () { self.setState({ fs: false }); },
       fsPill: 'height:32px;padding:0 12px;border-radius:999px;font-family:inherit;font-size:12px;font-weight:800;white-space:nowrap;' + (st.skip ? 'border:none;background:#399E5A;color:#191923;' : 'border:1px solid rgba(222,255,242,0.35);background:rgba(25,25,35,0.8);color:#DEFFF2;'),
       fsPillText: st.skip ? 'Skipping breaks' : 'Skip breaks',
-      fsChapters: items.filter(function (it) { return it.kind === 'clip'; }).map(function (it, i, arr) {
+      fsChapters: items.filter(function (it) { return it.kind === 'clip'; }).map(function (it) {
         var acc = 0; items.some(function (j) { if (j === it) return true; acc += j.d; return false; });
         return 'position:absolute;top:0;bottom:0;border-radius:4px;left:' + (acc / Math.max(total, 1) * 100) + '%;width:max(3px,' + (it.d / Math.max(total, 1) * 100) + '%);background:' + (it.sel ? '#FF3366' : '#399E5A');
       }),
@@ -457,10 +527,10 @@ class Component extends DCLogic {
         var on = st.view === v.v;
         return { label: v.label, on: on, off: !on, pick: function () { self.setState({ view: v.v }); } };
       }),
-      viewHint: full ? 'Everything stays. Picked rallies are highlighted.' : 'Breaks are hidden, not deleted. Tap a gap to bring it back.',
+      viewHint: full ? 'Everything stays. Picked rallies are highlighted.' : 'Breaks and cut parts are hidden, not deleted. Tap a gap to bring it back.',
       textBar: textX < 0 ? 'display:none' : 'margin-top:4px;margin-left:' + textX + 'px;width:' + textW + 'px;height:24px;border-radius:6px;background:#3A3A4A;color:#DEFFF2;display:flex;align-items:center;gap:6px;padding:0 8px;box-sizing:border-box;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden',
-      soundBar: 'margin-top:4px;width:' + trackW + 'px;height:28px;border-radius:6px;background:#23232F;color:#9DB8AC;display:flex;align-items:center;gap:6px;padding:0 10px;box-sizing:border-box;font-size:12px;font-weight:700',
-      trailBar: 'margin-top:4px;width:' + trackW + 'px;height:24px;border-radius:6px;background:rgba(57,158,90,0.22);color:#7FD69B;display:flex;align-items:center;gap:6px;padding:0 8px;box-sizing:border-box;font-size:11px;font-weight:800'
+      soundBar: 'display:none',
+      trailBar: 'display:none'
     };
   }
 }

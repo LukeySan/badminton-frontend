@@ -78,7 +78,9 @@ export async function createReel(
   return ((await response.json()) as { id: string }).id
 }
 
-/** GET /reels/{id} as JSON. */
+export type TestPiece = { start: number; end: number; slow_mo?: boolean }
+
+/** GET /reels/{id} as JSON (edit list v2: clips are rallies cut into pieces). */
 export async function readReel(token: string, reelId: string) {
   const response = await fetch(`${API}/reels/${reelId}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -89,13 +91,11 @@ export async function readReel(token: string, reelId: string) {
     edit: Record<string, unknown> & {
       format?: string
       view?: string
-      clips: {
-        rally_id: number | null
-        trim_start: number
-        trim_end: number
-        slow_mo?: boolean
-      }[]
+      lead_in: number
+      lead_out: number
+      clips: { rally_id: number; pieces: TestPiece[] }[]
       restored_gaps: { start: number; end: number }[]
+      overlays: { captions: { start: number; end: number; text: string }[] }
     }
   }
 }
@@ -137,23 +137,19 @@ export const SEEDED_RALLIES: [number, number][] = [
 ]
 
 /**
- * Marks a video analyzed with real rallies (and optionally a trajectory) through the
- * backend's development-only fixture, the same way the worker finishes a video.
+ * Marks a video analyzed with real rallies through the backend's development-only
+ * fixture, the same way the worker finishes a video. `thumbnails`: also make the
+ * thumbnail strip from the uploaded file (ffmpeg, ~1 s).
  */
 export async function seedAnalysis(
   videoId: string,
   rallies: [number, number][] = SEEDED_RALLIES,
-  trajectory?: {
-    fps: number
-    visible: number[]
-    x: (number | null)[]
-    y: (number | null)[]
-  },
+  { thumbnails = false }: { thumbnails?: boolean } = {},
 ) {
   const response = await fetch(`${API}/private/videos/${videoId}/analysis`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rallies, trajectory }),
+    body: JSON.stringify({ rallies, thumbnails }),
   })
   if (!response.ok) throw new Error(`Seeding failed: ${response.status}`)
 }
@@ -165,7 +161,11 @@ export async function readRallies(token: string, videoId: string) {
   })
   return (
     (await response.json()) as {
-      data: { id: number; start: number; end: number }[]
+      data: { id: number; number: number; start: number; end: number }[]
     }
   ).data
 }
+
+/** [start, end] of each rally, in match order (for comparing after a fix). */
+export const rallyBounds = async (token: string, videoId: string) =>
+  (await readRallies(token, videoId)).map((r) => [r.start, r.end])

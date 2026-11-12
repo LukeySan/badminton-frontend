@@ -11,6 +11,20 @@ export function formatDuration(seconds: number | null | undefined): string {
   return h > 0 ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`
 }
 
+/** 41.23 → "0:41.2": editing times need tenths. */
+export function formatTenths(seconds: number): string {
+  const tenths = Math.round(seconds * 10)
+  const m = Math.floor(tenths / 600)
+  const s = ((tenths % 600) / 10).toFixed(1).padStart(4, "0")
+  return `${m}:${s}`
+}
+
+/** 41.2 → "0:41.2", 41.0 → "0:41": a playhead time (tenths only when there are some). */
+export function formatPlayhead(seconds: number): string {
+  const text = formatTenths(seconds)
+  return text.endsWith(".0") ? text.slice(0, -2) : text
+}
+
 /** Rough "about N min" for estimates; never less than 1 minute. */
 export function formatMinutes(seconds: number): string {
   return `about ${Math.max(1, Math.round(seconds / 60))} min`

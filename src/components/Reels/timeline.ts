@@ -1,23 +1,44 @@
-import type { ReelClip } from "@/client"
 import type { Segment } from "@/components/Player/rallies"
-import { clipLength, type Edit, MIN_SPAN, regionShown } from "./reelEdit"
+import {
+  type Clip,
+  clipWindow,
+  type Edit,
+  type Hidden,
+  MIN_SPAN,
+  type Piece,
+  pieceLength,
+  type Span,
+  type Windows,
+} from "./reelEdit"
 
 // The reel as a sequence of items, in reel order, each with its place in the source
-// video (`src`) and in the reel (`reel`). One model for the timeline, the time row
-// and (later) preview playback, so they always agree.
+// video (`src`) and in the reel (`reel`). One model for the timeline, the time row and
+// preview playback, so they always agree.
 //
-// "Rallies only": clips back to back; the footage between them is a zero-length gap
-// marker unless it was restored, then it's shown as breaks and unpicked rallies.
-// "Full video": everything, unpicked rallies faint.
-
-type Span = { start: number; end: number }
+// "Rallies only": the clips' pieces back to back. Everything else (breaks between
+// clips and cut parts of clips) collapses into zero-length gap markers, unless a break
+// was restored: then it's shown as breaks and unpicked rallies.
+// "Full video": everything, unpicked rallies faint, cut parts as pink stripes.
 
 export type TimelineItem =
   | {
-      kind: "clip"
+      kind: "piece"
       key: string
       clipIndex: number
-      clip: ReelClip
+      pieceIndex: number
+      /** How many pieces its clip has ("part 2 of 3"). */
+      pieceCount: number
+      clip: Clip
+      piece: Piece
+      segment: Segment | undefined
+      src: Span
+      reel: Span
+    }
+  /** A cut part of a clip, shown in "Full video" (tap to put it back). */
+  | {
+      kind: "cut"
+      key: string
+      clipIndex: number
       segment: Segment | undefined
       src: Span
       reel: Span
@@ -32,16 +53,42 @@ export type TimelineItem =
       reel: Span
     }
   /** Hidden footage in "Rallies only": no reel time, tap to bring it back. */
-  | { kind: "gap"; key: string; region: Span; src: Span; reel: Span }
+  | { kind: "gap"; key: string; hidden: Hidden; src: Span; reel: Span }
 
 export function buildTimeline(
   edit: Edit,
   segments: Segment[],
+  windows: Windows,
   duration: number,
 ): TimelineItem[] {
   const items: TimelineItem[] = []
   const pickedIds = new Set(edit.clips.map((clip) => clip.rally_id))
+  const full = edit.view === "full"
   let reelTime = 0
+  let hidden: Hidden = { regions: [], cuts: [] }
+
+  /** Hidden footage so far becomes one gap marker, before the next shown item. */
+  const flush = () => {
+    const spans = [...hidden.regions, ...hidden.cuts.map((c) => c.span)]
+    if (spans.length === 0) return
+    const start = Math.min(...spans.map((s) => s.start))
+    const end = Math.max(...spans.map((s) => s.end))
+    items.push({
+      kind: "gap",
+      key: `gap-${start}`,
+      hidden,
+      src: { start, end },
+      reel: { start: reelTime, end: reelTime },
+    })
+    hidden = { regions: [], cuts: [] }
+  }
+  const show = (item: TimelineItem, length: number) => {
+    flush()
+    item.reel = { start: reelTime, end: reelTime + length }
+    items.push(item)
+    reelTime += length
+  }
+  const NO_TIME = { start: 0, end: 0 }
 
   const addRegion = (start: number, end: number) => {
     if (end - start < MIN_SPAN) return
@@ -49,28 +96,24 @@ export function buildTimeline(
     const restored = edit.restored_gaps.some(
       (gap) => Math.min(gap.end, end) - Math.max(gap.start, start) >= MIN_SPAN,
     )
-    if (!regionShown(edit, { ...region, restored })) {
-      items.push({
-        kind: "gap",
-        key: `gap-${start}`,
-        region,
-        src: region,
-        reel: { start: reelTime, end: reelTime },
-      })
+    if (!full && !restored) {
+      hidden.regions.push(region)
       return
     }
     // Shown: unpicked rallies (faint, tap to add) and the breaks between them.
     let cursor = start
-    const footage = (kind: "break", from: number, to: number) => {
+    const footage = (from: number, to: number) => {
       if (to - from < MIN_SPAN) return
-      items.push({
-        kind,
-        key: `${kind}-${from}`,
-        region,
-        src: { start: from, end: to },
-        reel: { start: reelTime, end: reelTime + (to - from) },
-      })
-      reelTime += to - from
+      show(
+        {
+          kind: "break",
+          key: `break-${from}`,
+          region,
+          src: { start: from, end: to },
+          reel: NO_TIME,
+        },
+        to - from,
+      )
     }
     for (const segment of segments) {
       const { rally } = segment
@@ -78,40 +121,85 @@ export function buildTimeline(
       const from = Math.max(start, rally.start)
       const to = Math.min(end, rally.end)
       if (to - from < MIN_SPAN) continue
-      footage("break", cursor, from)
-      items.push({
-        kind: "unpicked",
-        key: `rally-${rally.id}`,
-        region,
-        segment,
-        src: { start: from, end: to },
-        reel: { start: reelTime, end: reelTime + (to - from) },
-      })
-      reelTime += to - from
+      footage(cursor, from)
+      show(
+        {
+          kind: "unpicked",
+          key: `rally-${rally.id}`,
+          region,
+          segment,
+          src: { start: from, end: to },
+          reel: NO_TIME,
+        },
+        to - from,
+      )
       cursor = to
     }
-    footage("break", cursor, end)
+    footage(cursor, end)
+  }
+
+  const addCut = (
+    clipIndex: number,
+    segment: Segment | undefined,
+    start: number,
+    end: number,
+  ) => {
+    if (end - start < MIN_SPAN) return
+    const span = { start, end }
+    if (!full) {
+      hidden.cuts.push({ clipIndex, span })
+      return
+    }
+    show(
+      {
+        kind: "cut",
+        key: `cut-${clipIndex}-${start}`,
+        clipIndex,
+        segment,
+        src: span,
+        reel: NO_TIME,
+      },
+      end - start,
+    )
   }
 
   let cursor = 0
   edit.clips.forEach((clip, clipIndex) => {
-    addRegion(cursor, clip.trim_start)
-    const length = clipLength(clip)
-    items.push({
-      kind: "clip",
-      key: `clip-${clipIndex}-${clip.rally_id}`,
-      clipIndex,
-      clip,
-      segment: segments.find((s) => s.rally.id === clip.rally_id),
-      src: { start: clip.trim_start, end: clip.trim_end },
-      reel: { start: reelTime, end: reelTime + length },
+    const window = clipWindow(clip, windows)
+    const segment = segments.find((s) => s.rally.id === clip.rally_id)
+    const start = Math.max(cursor, window.start)
+    addRegion(cursor, start)
+    let position = start
+    clip.pieces.forEach((piece, pieceIndex) => {
+      addCut(clipIndex, segment, position, piece.start)
+      show(
+        {
+          kind: "piece",
+          key: `clip-${clipIndex}-${clip.rally_id}-${pieceIndex}`,
+          clipIndex,
+          pieceIndex,
+          pieceCount: clip.pieces.length,
+          clip,
+          piece,
+          segment,
+          src: { start: piece.start, end: piece.end },
+          reel: NO_TIME,
+        },
+        pieceLength(piece),
+      )
+      position = Math.max(position, piece.end)
     })
-    reelTime += length
-    cursor = Math.max(cursor, clip.trim_end)
+    addCut(clipIndex, segment, position, window.end)
+    cursor = Math.max(cursor, window.end, position)
   })
   addRegion(cursor, Math.max(cursor, duration))
+  flush()
   return items
 }
+
+/** The reel's length: where the last item ends. */
+export const timelineLength = (items: TimelineItem[]) =>
+  items.length ? items[items.length - 1].reel.end : 0
 
 // --- Layout: pixels on the timeline ---------------------------------------------
 
@@ -121,6 +209,8 @@ export const PX_PER_SECOND = 6
 export const ITEM_GAP = 2
 /** A collapsed gap marker's width. */
 export const GAP_WIDTH = 40
+/** A cut part is at least this wide, so it can be tapped. */
+const CUT_MIN_WIDTH = 14
 /** Narrowest item drawn (a very short break). */
 const MIN_WIDTH = 2
 
@@ -135,7 +225,10 @@ export function layOut(
     const w =
       item.kind === "gap"
         ? GAP_WIDTH
-        : Math.max(MIN_WIDTH, (item.reel.end - item.reel.start) * pxPerSecond)
+        : Math.max(
+            item.kind === "cut" ? CUT_MIN_WIDTH : MIN_WIDTH,
+            (item.reel.end - item.reel.start) * pxPerSecond,
+          )
     const out = { ...item, x, w }
     x += w + ITEM_GAP
     return out
@@ -205,13 +298,10 @@ export function reelTimeAtSource(items: TimelineItem[], s: number): number {
   return last ? last.reel.end : 0
 }
 
-/** The clip playing at a source time, if any. */
-export function clipIndexAtSource(
-  items: TimelineItem[],
-  s: number,
-): number | undefined {
+/** The piece playing at a source time, if any. */
+export function pieceAtSource(items: TimelineItem[], s: number) {
   const item = items.find(
-    (i) => i.kind === "clip" && s >= i.src.start && s < i.src.end,
+    (i) => i.kind === "piece" && s >= i.src.start && s < i.src.end,
   )
-  return item?.kind === "clip" ? item.clipIndex : undefined
+  return item?.kind === "piece" ? item : undefined
 }

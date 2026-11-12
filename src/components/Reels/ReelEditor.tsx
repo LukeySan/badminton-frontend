@@ -1,9 +1,22 @@
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { Check, ChevronLeft, Redo2, Undo2, Upload } from "lucide-react"
-import { useCallback, useEffect, useMemo, useReducer, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react"
+import { toast } from "sonner"
 
-import type { RallyPublic, ReelPublic, VideoPublic } from "@/client"
+import type {
+  RallyChange,
+  RallyPublic,
+  ReelPublic,
+  VideoPublic,
+} from "@/client"
 import {
   ExitFullscreenIcon,
   FullscreenIcon,
@@ -32,30 +45,59 @@ import {
 import { VideoStage } from "@/components/Player/VideoStage"
 import { Button } from "@/components/ui/button"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
-import { ralliesQueryOptions } from "@/components/Videos/queries"
+import {
+  invalidateVideoLists,
+  ralliesQueryOptions,
+} from "@/components/Videos/queries"
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { EditPanel, type TrimCallbacks } from "./EditPanel"
+import { extractErrorMessage } from "@/utils"
+import { EditPanel } from "./EditPanel"
 import { EditTools } from "./EditTools"
-import { HighlightsPanel } from "./HighlightsPanel"
+import { type FixKind, HighlightsPanel } from "./HighlightsPanel"
+import { reelQueryOptions } from "./queries"
 import {
-  captionOfClip,
-  constrainTrim,
+  type FixRequest,
+  type FixValues,
+  RallyFixDialog,
+} from "./RallyFixDialog"
+import {
+  applyFix,
+  describeFix,
+  describeImpact,
+  type NewFix,
+  type RallyFix,
+  reverseFix,
+} from "./rallyFixes"
+import {
+  canCut,
+  canRedo,
+  canUndo,
+  captionOf,
+  clipOfRally,
   type Edit,
   editReducer,
+  fixToRedo,
+  fixToUndo,
   initialHistory,
+  joinTouching,
+  keptLength,
+  MIN_SPAN,
   normalizeEdit,
+  type PieceRef,
+  presentEdit,
   type ReelFormat,
-  reelLength,
+  rallyWindows,
+  refit,
 } from "./reelEdit"
-import { TrailCanvas } from "./TrailCanvas"
+import { useThumbnails } from "./thumbnails"
 import {
   buildTimeline,
-  clipIndexAtSource,
+  pieceAtSource,
   reelTimeAtSource,
   sourceAtReelTime,
+  timelineLength,
 } from "./timeline"
-import { useTrajectory } from "./trajectory"
 import { type SaveStatus, useReelAutosave } from "./useReelAutosave"
 
 export type EditorMode = "highlights" | "edit"
@@ -63,7 +105,8 @@ export type EditorMode = "highlights" | "edit"
 /**
  * The highlight editor. Top half (shared by both modes): header, the video, the
  * time row and the Highlights | Edit toggle. The edit list lives in one reducer
- * with undo / redo, and is autosaved.
+ * with undo / redo, and is autosaved. Rally fixes (Highlights' ⋮ menu) change the
+ * match's rallies on the server and are undone through the reverse endpoint.
  */
 export function ReelEditor({
   video,
@@ -76,18 +119,22 @@ export function ReelEditor({
   mode: EditorMode
   onModeChange: (mode: EditorMode) => void
 }) {
+  const queryClient = useQueryClient()
   const rallies = useQuery(ralliesQueryOptions(video.id))
+  const rallyList = useMemo(() => rallies.data?.data ?? [], [rallies.data])
+  const thumbs = useThumbnails(video.id)
   const [history, dispatch] = useReducer(editReducer, reel.edit, (edit) =>
     initialHistory(normalizeEdit(edit)),
   )
-  const edit = history.present
+  const edit = presentEdit(history)
+  // For async work (fixes, toasts): the latest, not the one from when it started
+  const historyRef = useRef(history)
+  historyRef.current = history
   const onReload = useCallback(
     (fresh: Edit) => dispatch({ type: "load", edit: fresh }),
     [],
   )
   const autosave = useReelAutosave({ reel, edit, onReload })
-  const undo = () => dispatch({ type: "undo" })
-  const redo = () => dispatch({ type: "redo" })
 
   // A 9:16 reel shows the middle of the (landscape) footage, as it will be cut.
   const videoAspect =
@@ -95,6 +142,7 @@ export function ReelEditor({
   const frameAspect = edit.format === "9:16" ? 9 / 16 : videoAspect
 
   const [skipBreaks, setSkipBreaks] = useState(false)
+  const [loop, setLoop] = useState(false)
   const player = useVideoPlayer(video, {
     landscape: frameAspect >= 1,
     playback: () => playbackRule(),
@@ -102,24 +150,312 @@ export function ReelEditor({
   const { time, duration, paused, src } = player
 
   const segments = useMemo(
-    () => toSegments(rallies.data?.data ?? [], duration),
-    [rallies.data, duration],
+    () => toSegments(rallyList, duration),
+    [rallyList, duration],
   )
+  const windows = useMemo(
+    () =>
+      rallyWindows(
+        rallyList,
+        { lead_in: edit.lead_in, lead_out: edit.lead_out },
+        duration,
+      ),
+    [rallyList, edit.lead_in, edit.lead_out, duration],
+  )
+  // The reel as items in reel order: the timeline, the time row and playback read it.
+  const items = useMemo(
+    () => buildTimeline(edit, segments, windows, duration),
+    [edit, segments, windows, duration],
+  )
+  const reelSeconds = timelineLength(items)
+  const reelTime = reelTimeAtSource(items, time)
   const current = segmentAt(segments, time)
-  const playSegment = (segment: (typeof segments)[number] | undefined) => {
+
+  // --- Selection: the piece under the playhead (or the last one tapped) ---------------
+  const [selection, setSelection] = useState<PieceRef>()
+  const under = pieceAtSource(items, time)
+  // Keyed by rally and position, not index: adding a clip before it is no move
+  const underKey = under ? `${under.clip.rally_id}:${under.piece.start}` : ""
+  // biome-ignore lint/correctness/useExhaustiveDependencies: follows the key only
+  useEffect(() => {
+    if (under)
+      setSelection({ clipIndex: under.clipIndex, pieceIndex: under.pieceIndex })
+  }, [underKey])
+  const selected: PieceRef | undefined =
+    selection && edit.clips[selection.clipIndex]?.pieces[selection.pieceIndex]
+      ? selection
+      : edit.clips.length > 0
+        ? { clipIndex: 0, pieceIndex: 0 }
+        : undefined
+  const selectedItem = items.find(
+    (item) =>
+      item.kind === "piece" &&
+      item.clipIndex === selected?.clipIndex &&
+      item.pieceIndex === selected.pieceIndex,
+  )
+  const selectedPiece =
+    selected && edit.clips[selected.clipIndex].pieces[selected.pieceIndex]
+  const selectedClip = selected && edit.clips[selected.clipIndex]
+  const selectedNumber = segments.find(
+    (s) => s.rally.id === selectedClip?.rally_id,
+  )?.number
+  const pieceLabel = selectedNumber ? `Rally ${selectedNumber}` : "Clip"
+
+  const playSegment = (segment: Segment | undefined) => {
     if (!segment) return
     player.seek(segment.start)
     player.play()
   }
-  // Highlights: ← / → go through the match's rallies. Edit: through the reel's clips.
+  // Highlights: ← / → go through the match's rallies. Edit: through the reel's pieces.
   const goNext = () =>
     mode === "edit"
-      ? playSegment(nextSegment(reelClips, player.currentTime()))
+      ? playSegment(nextSegment(reelPieces, player.currentTime()))
       : playSegment(nextSegment(segments, player.currentTime()))
   const goPrevious = () =>
     mode === "edit"
-      ? playSegment(previousSegment(reelClips, player.currentTime()))
+      ? playSegment(previousSegment(reelPieces, player.currentTime()))
       : playSegment(previousSegment(segments, player.currentTime()))
+
+  // --- Preview playback --------------------------------------------------------------
+  // Edit mode plays the reel as edited: its pieces in order, the footage kept around
+  // them ("Rallies only": restored breaks; "Full video": everything, without the breaks
+  // and cut parts when skip-breaks is on), slow-mo at half speed. Loop repeats the
+  // selected piece. Highlights mode plays the match freely (tap any rally to watch it).
+  const playbackRule = (): PlaybackRule => {
+    if (mode !== "edit") return { spans: skipBreaks ? segments : null }
+    if (loop && selectedItem?.kind === "piece") {
+      const rate = selectedItem.piece.slow_mo ? 0.5 : 1
+      return { spans: [selectedItem.src], loop: true, rateAt: () => rate }
+    }
+    const skipping = edit.view === "full" && skipBreaks
+    const plays = items.filter(
+      (item) =>
+        item.kind !== "gap" &&
+        !(skipping && (item.kind === "break" || item.kind === "cut")),
+    )
+    return {
+      spans: mergeSpans(plays.map((item) => item.src)),
+      rateAt: (t) =>
+        plays.some(
+          (item) =>
+            item.kind === "piece" &&
+            item.piece.slow_mo &&
+            t >= item.src.start &&
+            t < item.src.end,
+        )
+          ? 0.5
+          : 1,
+    }
+  }
+  // The reel's pieces as segments: in source time (← / →) and in reel time (the
+  // full-screen chapter bar draws each chapter from its rally's times).
+  const pieceSegments = (time: "src" | "reel"): Segment[] =>
+    items.flatMap((item, i) =>
+      item.kind === "piece"
+        ? [
+            {
+              number: item.segment?.number ?? i + 1,
+              rally: {
+                id: (item.segment?.rally.id ?? -1 - i) * 1000 + item.pieceIndex,
+                number: item.segment?.number ?? i + 1,
+                start: item[time].start,
+                end: item[time].end,
+                duration: item[time].end - item[time].start,
+              },
+              start: item[time].start,
+              end: item[time].end,
+            },
+          ]
+        : [],
+    )
+  const reelPieces = pieceSegments("src")
+  const reelChapters = pieceSegments("reel")
+
+  // What's on screen now: a slow-mo piece (Edit plays it slowly) and the caption.
+  const playingSlow = mode === "edit" && under?.piece.slow_mo
+  const caption = edit.overlays.captions.find(
+    (c) => time >= c.start && time < c.end,
+  )
+
+  // --- Rally fixes ---------------------------------------------------------------------
+  const [fixBusy, setFixBusy] = useState(false)
+  const busy = useRef(false)
+  const [fixRequest, setFixRequest] = useState<FixRequest>(null)
+
+  /** The rallies changed on the server: the player, lists and this screen see it. */
+  const applyRallies = (change: RallyChange) => {
+    queryClient.setQueryData(ralliesQueryOptions(video.id).queryKey, {
+      data: change.rallies,
+      count: change.rallies.length,
+    })
+    void queryClient.invalidateQueries({
+      queryKey: ["videos", video.id],
+      exact: true,
+    })
+    void invalidateVideoLists(queryClient)
+  }
+
+  /**
+   * One server call at a time, with the reel saved first and no autosave meanwhile
+   * (the server adjusts reels as part of a fix).
+   */
+  const exclusive = async (work: () => Promise<void>) => {
+    if (busy.current) return
+    busy.current = true
+    setFixBusy(true)
+    try {
+      await autosave.flush()
+      autosave.hold(true)
+      await work()
+    } finally {
+      autosave.hold(false)
+      busy.current = false
+      setFixBusy(false)
+    }
+  }
+
+  /** Make a fix: refresh rallies and the reel, one undo step, say what changed. */
+  const runFix = (pending: NewFix) =>
+    exclusive(async () => {
+      const before = rallyList
+      const result = await applyFix(video.id, pending)
+      const fix = { ...pending, after: result.ids } as RallyFix
+      applyRallies(result.change)
+      let next = presentEdit(historyRef.current)
+      if (result.reels.some((r) => r.id === reel.id)) {
+        // The server adjusted this reel: start from its version
+        const fresh = await queryClient.fetchQuery({
+          ...reelQueryOptions(video.id, reel.id),
+          staleTime: 0,
+        })
+        autosave.adopt(fresh)
+        next = normalizeEdit(fresh.edit)
+      }
+      // Clips follow their rallies' new windows (a longer rally = a longer clip)
+      next = refit(
+        next,
+        rallyWindows(before, next, duration),
+        rallyWindows(result.change.rallies, next, duration),
+      )
+      if (fix.kind === "merge") next = joinTouching(next, fix.after[0])
+      dispatch({ type: "fix", fix, edit: next })
+      toast.success(describeFix(fix, result.change), {
+        description: describeImpact(result.reels, reel.id),
+        action: {
+          label: "Undo",
+          onClick: () => {
+            if (fixToUndo(historyRef.current) === fix) void undo()
+          },
+        },
+      })
+    })
+
+  const fixFailed = (title: string) => (error: unknown) =>
+    toast.error(title, { description: extractErrorMessage(error as Error) })
+
+  const onFix = (kind: FixKind, segment: Segment) => {
+    const { rally } = segment
+    const from = { start: rally.start, end: rally.end }
+    if (kind === "edit") setFixRequest({ kind: "edit", rally })
+    else if (kind === "split") {
+      // At the playhead if it's inside the rally, else in the middle
+      const t = Math.round(player.currentTime() * 10) / 10
+      const inside = t - rally.start >= 0.1 && rally.end - t >= 0.1
+      const middle = Math.round(((rally.start + rally.end) / 2) * 10) / 10
+      setFixRequest({ kind: "split", rally, at: inside ? t : middle })
+    } else if (kind === "delete") {
+      runFix({ kind: "delete", before: [rally.id], from }).catch(
+        fixFailed(`Couldn't delete rally ${segment.number}`),
+      )
+    } else {
+      const next = segments[segments.indexOf(segment) + 1]
+      if (!next) return
+      runFix({
+        kind: "merge",
+        before: [rally.id, next.rally.id],
+        first: from,
+        second: { start: next.rally.start, end: next.rally.end },
+      }).catch(fixFailed(`Couldn't merge rally ${segment.number}`))
+    }
+  }
+
+  const onAddMissed = () => {
+    // From the playhead (or the end of the rally it's in) for up to 4 s, before the next
+    const t = Math.round(player.currentTime() * 10) / 10
+    const inside = rallyList.find((r) => t >= r.start && t < r.end)
+    const start = inside ? inside.end : t
+    const nextStart = Math.min(
+      ...rallyList.filter((r) => r.start >= start).map((r) => r.start),
+      duration > 0 ? duration : start + 4,
+    )
+    setFixRequest({
+      kind: "add",
+      start,
+      end: Math.round(Math.min(start + 4, nextStart) * 10) / 10,
+    })
+  }
+
+  const submitFix = (values: FixValues) => {
+    const request = fixRequest
+    if (!request) return Promise.resolve()
+    if (values.kind === "add") {
+      return runFix({
+        kind: "add",
+        before: [],
+        to: { start: values.start, end: values.end },
+      })
+    }
+    if (request.kind === "add") return Promise.resolve()
+    const { rally } = request
+    const from = { start: rally.start, end: rally.end }
+    return values.kind === "split"
+      ? runFix({ kind: "split", before: [rally.id], from, at: values.at })
+      : runFix({
+          kind: "edit",
+          before: [rally.id],
+          from,
+          to: { start: values.start, end: values.end },
+        })
+  }
+
+  // --- Undo / redo (a rally fix calls the server first) ---------------------------------
+  const undo = async () => {
+    const fix = fixToUndo(historyRef.current)
+    if (!fix) {
+      dispatch({ type: "undo" })
+      return
+    }
+    await exclusive(async () => {
+      const result = await reverseFix(video.id, fix)
+      applyRallies(result.change)
+      const mine = result.reels.find((r) => r.id === reel.id)
+      if (mine) autosave.rebase(mine.updated_at)
+      dispatch({ type: "undo-fix", ids: result.ids })
+      toast.success("Rally fix undone", {
+        description: "The player's chapters are updated too.",
+      })
+    }).catch(fixFailed("Couldn't undo the rally fix"))
+  }
+  const redo = async () => {
+    const fix = fixToRedo(historyRef.current)
+    if (!fix) {
+      dispatch({ type: "redo" })
+      return
+    }
+    await exclusive(async () => {
+      const result = await applyFix(video.id, fix)
+      applyRallies(result.change)
+      const mine = result.reels.find((r) => r.id === reel.id)
+      if (mine) autosave.rebase(mine.updated_at)
+      dispatch({ type: "redo-fix", ids: result.ids })
+      toast.success(
+        describeFix({ ...fix, after: result.ids } as RallyFix, result.change),
+        {
+          description: "Done again. The player's chapters are updated too.",
+        },
+      )
+    }).catch(fixFailed("Couldn't redo the rally fix"))
+  }
 
   usePlayerKeys({
     " ": player.togglePlay,
@@ -128,145 +464,34 @@ export function ReelEditor({
   })
   useUndoKeys({ undo, redo })
 
+  // --- Edit tools ------------------------------------------------------------------
+  const onCut = () => {
+    if (!selected) return
+    const at = player.currentTime()
+    if (!canCut(edit, selected, at)) return
+    dispatch({ type: "cut-piece", piece: selected, at })
+    // The second part is selected (the playhead is at its start)
+    setSelection({ ...selected, pieceIndex: selected.pieceIndex + 1 })
+  }
+  const onDelete = () => {
+    if (!selected || !selectedClip) return
+    dispatch({ type: "delete-piece", piece: selected })
+    setSelection(
+      selectedClip.pieces.length > 1
+        ? { ...selected, pieceIndex: Math.max(0, selected.pieceIndex - 1) }
+        : undefined,
+    )
+  }
+  const pickRally = (rally: RallyPublic) => {
+    const window = windows.get(rally.id)
+    if (!window) return
+    dispatch({ type: "pick-rally", rallyId: rally.id, window })
+    return edit.clips.filter((c) => c.pieces[0].start < window.start).length
+  }
+
   const title = reel.title
-  const toggleSkipBreaks = () => setSkipBreaks((on) => !on)
   const rallyBadge = current && <RallyBadge number={current.number} />
   const inFullscreen = player.fullscreen.active
-  // While a trim handle is dragged, the timeline shows the new edges; the edit list
-  // only changes on release (one undo step, one save).
-  const [trimPreview, setTrimPreview] = useState<{
-    clipIndex: number
-    trim_start: number
-    trim_end: number
-  } | null>(null)
-  const shown: Edit = useMemo(
-    () =>
-      trimPreview
-        ? {
-            ...edit,
-            clips: edit.clips.map((clip, i) =>
-              i === trimPreview.clipIndex ? { ...clip, ...trimPreview } : clip,
-            ),
-          }
-        : edit,
-    [edit, trimPreview],
-  )
-  const reelSeconds = reelLength(shown, duration)
-  // The reel as items in reel order: the timeline and the time row read from it.
-  const items = useMemo(
-    () => buildTimeline(shown, segments, duration),
-    [shown, segments, duration],
-  )
-  const reelTime = reelTimeAtSource(items, time)
-  const [selected, setSelected] = useState<number | undefined>(0)
-  const selectedClip =
-    selected !== undefined && selected < edit.clips.length
-      ? selected
-      : edit.clips.length > 0
-        ? 0
-        : undefined
-  const clip = selectedClip !== undefined ? edit.clips[selectedClip] : undefined
-  const clipNumber = segments.find((s) => s.rally.id === clip?.rally_id)?.number
-  const clipLabel = clipNumber ? `Rally ${clipNumber}` : "Clip"
-
-  const trim: TrimCallbacks = {
-    active: trimPreview !== null,
-    onDrag: (clipIndex, edge, value) => {
-      const next = constrainTrim(edit, clipIndex, edge, value, duration)
-      setTrimPreview({ clipIndex, ...next })
-      // Show the frame at the edge being moved.
-      player.pause()
-      player.seek(edge === "start" ? next.trim_start : next.trim_end - 0.05)
-    },
-    onEnd: () => {
-      if (trimPreview) dispatch({ type: "trim-clip", ...trimPreview })
-      setTrimPreview(null)
-    },
-    onNudge: (clipIndex, edge, delta) => {
-      const current = edit.clips[clipIndex]
-      if (!current) return
-      const from = edge === "start" ? current.trim_start : current.trim_end
-      const next = constrainTrim(edit, clipIndex, edge, from + delta, duration)
-      dispatch({ type: "trim-clip", clipIndex, ...next })
-      player.pause()
-      player.seek(edge === "start" ? next.trim_start : next.trim_end - 0.05)
-    },
-  }
-
-  // --- Preview playback --------------------------------------------------------------
-  // Edit mode plays the reel as edited: its clips in order, the footage kept around
-  // them ("Rallies only": restored stretches; "Full video": everything, without the
-  // breaks when skip-breaks is on), slow-mo clips at half speed. Highlights mode plays
-  // the match freely (tap any rally to watch it), skipping breaks if asked.
-  const playbackRule = (): PlaybackRule => {
-    if (mode !== "edit") return { spans: skipBreaks ? segments : null }
-    const plays = items.filter(
-      (item) =>
-        item.kind !== "gap" &&
-        !(edit.view === "full" && skipBreaks && item.kind === "break"),
-    )
-    return {
-      spans: mergeSpans(plays.map((item) => item.src)),
-      rateAt: (t) =>
-        plays.some(
-          (item) =>
-            item.kind === "clip" &&
-            item.clip.slow_mo &&
-            t >= item.src.start &&
-            t < item.src.end,
-        )
-          ? 0.5
-          : 1,
-    }
-  }
-  // The reel's clips as segments (source times), for ← / → in Edit mode
-  const reelClips: Segment[] = items.flatMap((item, i) =>
-    item.kind === "clip"
-      ? [
-          {
-            number: item.segment?.number ?? i + 1,
-            rally: item.segment?.rally ?? {
-              id: -1 - i,
-              start: item.src.start,
-              end: item.src.end,
-              duration: item.src.end - item.src.start,
-            },
-            start: item.src.start,
-            end: item.src.end,
-          },
-        ]
-      : [],
-  )
-  // ... and in reel time, for the full-screen chapter bar (the scrubber draws each
-  // chapter from its rally's times, so those are reel times too)
-  const reelChapters: Segment[] = items.flatMap((item, i) =>
-    item.kind === "clip"
-      ? [
-          {
-            number: item.segment?.number ?? i + 1,
-            rally: {
-              id: item.segment?.rally.id ?? -1 - i,
-              start: item.reel.start,
-              end: item.reel.end,
-              duration: item.reel.end - item.reel.start,
-            },
-            start: item.reel.start,
-            end: item.reel.end,
-          },
-        ]
-      : [],
-  )
-
-  // Shuttle trail (Trail tool): loaded around the playhead while it's on.
-  const trajectory = useTrajectory(video.id, time, shown.overlays.trail)
-
-  // What's on screen now: the clip playing (slow-mo tag) and its caption.
-  const playingClip = clipIndexAtSource(items, time)
-  const playing =
-    playingClip !== undefined ? shown.clips[playingClip] : undefined
-  const caption = shown.overlays.captions.find(
-    (c) => time >= c.start && time < c.end,
-  )
   // Edit + "Rallies only": the breaks are cut by the edit itself, so the pill says so
   // instead of offering to skip them.
   const breaksCut = mode === "edit" && edit.view === "cut"
@@ -276,7 +501,7 @@ export function ReelEditor({
     ) : (
       <SkipBreaksPill
         on={skipBreaks}
-        onToggle={toggleSkipBreaks}
+        onToggle={() => setSkipBreaks((on) => !on)}
         className={className}
       />
     )
@@ -284,6 +509,14 @@ export function ReelEditor({
     (rally: RallyPublic) => edit.clips.some((c) => c.rally_id === rally.id),
     [edit.clips],
   )
+  /** Seconds kept, for a rally cut in this reel (less than its whole window). */
+  const keptOf = (rally: RallyPublic) => {
+    const clip = clipOfRally(edit, rally.id)
+    const window = windows.get(rally.id)
+    if (!clip || !window) return undefined
+    const kept = keptLength(clip)
+    return kept < window.end - window.start - MIN_SPAN ? kept : undefined
+  }
 
   return (
     <div
@@ -300,7 +533,7 @@ export function ReelEditor({
         clipCount={edit.clips.length}
         reelSeconds={reelSeconds}
         saveStatus={autosave.status}
-        onRetrySave={() => void autosave.retry()}
+        onRetrySave={autosave.retry}
       />
 
       <div className="max-md:px-3 max-md:dark:px-0">
@@ -313,26 +546,7 @@ export function ReelEditor({
           cropToFrame={frameAspect < videoAspect}
           frameOverlays={
             <>
-              {shown.overlays.trail && !trajectory.missing && (
-                <TrailCanvas
-                  videoRef={player.videoRef}
-                  src={src}
-                  points={trajectory.points}
-                  videoAspect={videoAspect}
-                  cover={frameAspect < videoAspect}
-                />
-              )}
-              {shown.overlays.trail && trajectory.missing && (
-                // Analyzed before trails existed: no positions to draw
-                <span
-                  role="note"
-                  data-testid="trail-missing"
-                  className="pointer-events-none absolute bottom-3 left-3 max-w-[60%] rounded-[8px] bg-court-ink/85 px-2 py-1 text-[11px] font-bold text-court-foreground"
-                >
-                  No shuttle trail for this match · re-analyze to enable it
-                </span>
-              )}
-              {playing?.slow_mo && (
+              {playingSlow && (
                 <span
                   data-testid="slow-mo-tag"
                   className="pointer-events-none absolute top-3 right-3 rounded-[8px] bg-court-ink/85 px-2.5 py-1 text-xs font-extrabold text-court-foreground"
@@ -407,7 +621,7 @@ export function ReelEditor({
                 canPlay={Boolean(src)}
                 canNavigate={
                   Boolean(src) &&
-                  (mode === "edit" ? reelClips : segments).length > 0
+                  (mode === "edit" ? reelPieces : segments).length > 0
                 }
                 onPrevious={goPrevious}
                 onTogglePlay={player.togglePlay}
@@ -460,16 +674,16 @@ export function ReelEditor({
         <ControlButton
           label="Undo"
           title="Undo (⌘Z)"
-          onClick={undo}
-          disabled={history.past.length === 0}
+          onClick={() => void undo()}
+          disabled={!canUndo(history) || fixBusy}
         >
           <Undo2 className="size-5" />
         </ControlButton>
         <ControlButton
           label="Redo"
           title="Redo (⇧⌘Z)"
-          onClick={redo}
-          disabled={history.future.length === 0}
+          onClick={() => void redo()}
+          disabled={!canRedo(history) || fixBusy}
         >
           <Redo2 className="size-5" />
         </ControlButton>
@@ -522,62 +736,78 @@ export function ReelEditor({
         <HighlightsPanel
           segments={segments}
           isPicked={isPicked}
+          keptOf={keptOf}
           currentNumber={current?.number}
           pickedCount={edit.clips.length}
           reelSeconds={reelSeconds}
+          thumbs={thumbs}
+          fixBusy={fixBusy}
           onToggle={(rally, pick) =>
-            dispatch(
-              pick
-                ? { type: "pick-rally", rally, duration }
-                : { type: "unpick-rally", rallyId: rally.id },
-            )
+            pick
+              ? pickRally(rally)
+              : dispatch({ type: "unpick-rally", rallyId: rally.id })
           }
           onJump={playSegment}
+          onFix={onFix}
+          onAddMissed={onAddMissed}
           onEditReel={() => onModeChange("edit")}
         />
       ) : (
         <EditPanel
-          edit={shown}
-          trailMissing={trajectory.missing}
-          view={edit.view}
+          edit={edit}
           items={items}
           reelTime={reelTime}
-          selectedClip={selectedClip}
+          selected={selected}
+          thumbs={thumbs}
           onSetView={(view) => dispatch({ type: "set-view", view })}
-          onScrubStart={player.pause}
-          onScrub={(t) => {
-            const source = sourceAtReelTime(items, t)
-            if (source !== undefined) player.seek(source)
+          onSetLead={(lead) =>
+            dispatch({ type: "set-lead", lead, rallies: rallyList, duration })
+          }
+          timeline={{
+            onScrubStart: player.pause,
+            onScrub: (t) => {
+              const source = sourceAtReelTime(items, t)
+              if (source !== undefined) player.seek(source)
+            },
+            onSelectPiece: (piece, t) => {
+              setSelection(piece)
+              player.seek(t)
+            },
+            onRestoreHidden: (hidden) =>
+              dispatch({ type: "restore-hidden", hidden }),
+            onHide: (region) => dispatch({ type: "hide-region", region }),
+            onRestoreCut: (clipIndex, span) =>
+              dispatch({ type: "restore-cut", clipIndex, span }),
+            onPick: (rally) => {
+              const clipIndex = pickRally(rally)
+              if (clipIndex !== undefined)
+                setSelection({ clipIndex, pieceIndex: 0 })
+            },
           }}
-          onSelectClip={setSelected}
-          onRestore={(region) => dispatch({ type: "restore-region", region })}
-          onHide={(region) => dispatch({ type: "hide-region", region })}
-          onPick={(rally) => {
-            dispatch({ type: "pick-rally", rally, duration })
-            // Select the new clip: it lands after the clips that start before it.
-            setSelected(
-              edit.clips.filter((c) => c.trim_start <= rally.start).length,
-            )
-          }}
-          trim={trim}
         >
           <EditTools
             edit={edit}
-            clip={clip}
-            clipLabel={clipLabel}
-            caption={clip ? captionOfClip(edit, clip)?.text : undefined}
-            onNudge={(edge, delta) =>
-              selectedClip !== undefined &&
-              trim.onNudge(selectedClip, edge, delta)
+            piece={selectedPiece}
+            pieceLabel={pieceLabel}
+            part={
+              selected && selectedClip
+                ? [selected.pieceIndex + 1, selectedClip.pieces.length]
+                : undefined
             }
+            canCut={canCut(edit, selected, time)}
+            loop={loop}
+            caption={
+              selectedPiece ? captionOf(edit, selectedPiece)?.text : undefined
+            }
+            onCut={onCut}
+            onDelete={onDelete}
             onToggleSlowMo={() =>
-              selectedClip !== undefined &&
-              dispatch({ type: "toggle-slow-mo", clipIndex: selectedClip })
+              selected && dispatch({ type: "toggle-slow-mo", piece: selected })
             }
-            onSetTrail={(on) => dispatch({ type: "set-trail", on })}
+            onToggleLoop={() => setLoop((on) => !on)}
             onSetCaption={(text) =>
-              selectedClip !== undefined &&
-              dispatch({ type: "set-caption", clipIndex: selectedClip, text })
+              selectedPiece &&
+              dispatch({ type: "set-caption", span: selectedPiece, text })
             }
             onToggleFormat={() =>
               dispatch({
@@ -585,13 +815,21 @@ export function ReelEditor({
                 format: edit.format === "16:9" ? "9:16" : "16:9",
               })
             }
-            onRemove={() =>
-              selectedClip !== undefined &&
-              dispatch({ type: "remove-clip", clipIndex: selectedClip })
-            }
           />
         </EditPanel>
       )}
+
+      <RallyFixDialog
+        request={fixRequest}
+        duration={duration}
+        now={player.currentTime}
+        onPreview={(t) => {
+          player.pause()
+          player.seek(t)
+        }}
+        onSubmit={submitFix}
+        onClose={() => setFixRequest(null)}
+      />
     </div>
   )
 }
@@ -704,25 +942,33 @@ function FormatChip({
 }
 
 /** ⌘Z / Ctrl+Z undo, ⇧⌘Z / Ctrl+Y redo (not while typing). */
-function useUndoKeys({ undo, redo }: { undo: () => void; redo: () => void }) {
+function useUndoKeys({
+  undo,
+  redo,
+}: {
+  undo: () => Promise<void>
+  redo: () => Promise<void>
+}) {
+  const latest = useRef({ undo, redo })
+  latest.current = { undo, redo }
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey) return
       const target = event.target as HTMLElement
       if (target.closest("input, textarea, [contenteditable='true']")) return
+      if (target.closest("[role='dialog']")) return
       const key = event.key.toLowerCase()
       if (key === "z") {
         event.preventDefault()
-        if (event.shiftKey) redo()
-        else undo()
+        void (event.shiftKey ? latest.current.redo() : latest.current.undo())
       } else if (key === "y") {
         event.preventDefault()
-        redo()
+        void latest.current.redo()
       }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [undo, redo])
+  }, [])
 }
 
 /** Edit + "Rallies only": a static pill saying the breaks are already cut. */

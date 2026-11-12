@@ -247,42 +247,62 @@ sideways is wide but short, so it keeps the phone layout.
     play · undo · redo · format chip · full screen; 44px targets, so play sits right of
     the time instead of centered as in the prototype), Highlights | Edit tabs (`bg-card`
     track, selected = foreground fill).
-  - Highlights: filter chips (All 73 / Picked 6 / Longest = longest first), rally rows
-    (round check in a 44px target: `bg-chapter` filled when picked, `border-muted-
-    foreground` ring when not; 72×40 court thumbnail with the length; "Rally 19" 14/700,
-    "at 7:48" 12 muted; "Longest" tag `bg-success-soft`, "Playing" tag on the current row
-    `bg-highlight/16 text-highlight-text-strong`), current row = `bg-card` + 2px pink
-    inset ring, 14px radius. Bottom bar (top border `border-track`): "6 picked" 14/800,
-    "1:24 reel" 12 muted, **Edit reel ›** (foreground fill, 44px).
+  - Highlights: filter chips (All 73 / Picked 6 / Longest = longest first) and a
+    dashed "+ Missed rally" chip on the right, rally rows (round check in a 44px target:
+    `bg-chapter` filled when picked, `border-muted-foreground` ring when not; 72×40
+    thumbnail, a real frame from the sprite sheet 1 s into the rally (court drawing
+    until it loads / when the match has no strip) with the length; "Rally 19" 14/700,
+    "at 7:48" 12 muted, plus "· 0:06.5 kept" in `text-success-text` when the rally is
+    cut in this reel; "Longest" tag `bg-success-soft`, "Playing" tag on the current row
+    `bg-highlight/16 text-highlight-text-strong`; ⋮ at the end), current row =
+    `bg-card` + 2px pink inset ring, 14px radius. Bottom bar (top border
+    `border-track`): "6 picked" 14/800, "1:24 reel" 12 muted, **Edit reel ›**
+    (foreground fill, 44px).
+  - Rally fix menu (⋮, "Fix rally 19"): `bg-card` popover, 14px radius, 44px items
+    with an icon: Fix start and end, Split into two rallies, Merge with next rally,
+    **Not a rally, delete it** (`text-highlight-text`), then the 11px muted note
+    "Fixes change this rally everywhere, including the player's chapters. To shorten
+    it just for this reel, use Cut in Edit mode." Fixes change the match's rallies on
+    the server; a toast says what changed ("Rally 5 split into 5 and 6", what happened
+    to this and other reels) with an Undo action.
+  - Fix dialog (Fix start and end / Split / + Missed rally): on phones at the bottom
+    of the screen over a clear overlay, so the video above stays visible and shows
+    each new time. Per time: label + value (17/800, tenths) and five 44px
+    `secondary` buttons: −1 s, −0.1, ⌖ at the playhead, +0.1, +1 s. The backend's
+    refusal (overlaps) shows inline in `text-highlight-text`.
   - Edit: "Rallies only | Full video" (radio pills in a bordered track, selected =
-    `bg-chapter text-chapter-foreground`) with the hint next to it (11px muted). The
-    timeline: fixed center playhead (2px foreground, ringed), native horizontal scroll
-    (mouse: click and drag), 6 px per second of reel time, 2px between items. Ruler ticks
-    every 10 s (Rallies only) / 60 s (Full video), 10px muted. Clip track 60px: clips
-    `bg-court` with faint `--chapter` stripes and an "R19 · 0:09" chip
-    (`bg-court-ink/85`), selected clip = 2px pink inset ring; collapsed gap = 40px
-    `bg-sheet` marker with a ⟷ icon and the hidden length; breaks striped
-    (`--card`/`--secondary`), "Break 0:35"; unpicked rallies `bg-court/45` with a
-    `--chapter` ring, "R7" and "+ add". In Edit + Rallies only the video's pill is a
-    static "✓ Breaks cut" (`text-court-accent`, `--chapter` border), elsewhere the skip
-    toggle. The time row shows reel time ("0:12 / 1:24").
-  - Selected clip: pink trim handles (12px `bg-highlight`, ink grip) on its edges,
-    inside the clip when it's at least 40px wide, outside it (like brackets) when it's
-    narrower. Drag (snaps to 0.1 s, stops at the neighbors and the video's ends, 0.5 s
-    minimum) or ←/→ when focused. Below the timeline: "**Rally 19** selected · drag the
-    pink edges to trim" (12px muted, the rally in `text-highlight-text`), then the tool
-    row (72×64 tiles, 14px radius, `bg-card`; active = `bg-success-soft
-    text-success-text` with a 1.5px `--chapter` ring): Trim (opens Start/End −/+ rows),
-    Slow-mo, Trail, Text (caption dialog, 80 characters), Format, Remove. Overlay
-    tracks under the clip track: "Shuttle trail" (`bg-success-soft`) across the reel,
-    caption bars "Aa …" (`bg-secondary`) under their clips. On the video: "Slow-mo" tag
-    top-right and the caption bottom center (`bg-court-ink/75`).
-  - Shuttle trail (Trail tool): a canvas over the video with the last 0.6 s of the
-    shuttle's path, fading out (`--court-foreground` line with a soft glow), and the
-    shuttle now as a mint dot ringed in `--highlight`. Matches analyzed before trails
-    existed: no trail, a small note on the video ("No shuttle trail for this match ·
-    re-analyze to enable it", `bg-court-ink/85`) and a muted "Shuttle trail · not
-    available" track.
+    `bg-chapter text-chapter-foreground`), the **Lead ±1 s** chip on the right (opens
+    "Before and after each rally": lead-in and lead-out steppers, 0–3 s in 0.5 s steps,
+    at the bottom on phones so the timeline shows the change), then the hint under them
+    (11px muted). The timeline: fixed center playhead (2px foreground, ringed) with the
+    reel time in a bubble above it (`bg-foreground text-background`, 11/800, tenths),
+    native horizontal scroll (mouse: click and drag), 6 px per second of reel time, 2px
+    between items. Ruler ticks every 10 s (Rallies only) / 60 s (Full video), 10px
+    muted. Clip track 60px: pieces show frames from the sprite sheet (one per 60px,
+    only near the view) with an "R19 · 0:09" chip (`bg-court-ink/85`; a rally cut into
+    pieces is R19a, R19b...) and a "Slow-mo" chip (`bg-court-foreground`) at the bottom;
+    without a strip, `bg-court` with faint `--chapter` stripes. Selected piece = 3px pink
+    inset ring over the frames. Collapsed gap = 40px `bg-sheet` marker with a ⟷ icon and
+    the hidden length (tenths under 10 s); in Rallies only it stands for the breaks AND
+    the cut parts there, and a tap brings all of it back. Restored breaks show dimmed
+    frames with "Break 0:35", tap to hide again; in Full video breaks are striped
+    (`--card`/`--secondary`) and cut parts are pink stripes (`--highlight` 22% on
+    `--card`, at least 14px) labeled "Cut 0:02": tap to put the part back (the pieces
+    join again). Unpicked rallies: frames at 35% (or `bg-court/45` with a `--chapter`
+    ring), "R7" and "+ add". In Edit + Rallies only the video's pill is a static "✓
+    Breaks cut" (`text-court-accent`, `--chapter` border), elsewhere the skip toggle.
+    The time row shows reel time ("0:12 / 1:24").
+  - Cutting: the selected piece is the one under the playhead (or the last one
+    tapped; tapping a piece also puts the playhead where you tapped). Below the
+    timeline: "**Rally 19, part 2 of 3** selected. Cut at the playhead, then delete
+    the part you don't want." (12px muted, the name in `text-highlight-text`), then the
+    tool row (68×64 tiles, 14px radius): **Cut** (primary: `bg-foreground
+    text-background`; disabled within 0.3 s of the piece's edges), Delete (the last
+    piece takes the rally out), Slow-mo (per piece), Loop (preview repeats the piece),
+    Text (caption dialog, 80 characters), Format. Others `bg-card`; active =
+    `bg-success-soft text-success-text` with a 1.5px `--chapter` ring. Caption bars "Aa
+    …" (`bg-secondary`) under their pieces. On the video: "Slow-mo" tag top-right while a
+    slow piece plays, and the caption bottom center (`bg-court-ink/75`).
   - "Make a highlight" sits in the player header (clapperboard icon; "Highlight" on
     phones).
 - **How to record** (`/recording-tips`, linked from Upload and Profile): side-view and

@@ -1,17 +1,21 @@
+import type { ReactNode } from "react"
+
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
 
 /**
  * Stand-in for a video thumbnail: a court seen from behind the baseline (DESIGN.md
  * "Video row"), with a length in a chip. `md` 96×54 (video rows), `sm` 72×40
- * (rally rows in the highlight editor).
+ * (rally rows in the highlight editor). `frame`: a real frame drawn over it.
  */
 export function CourtThumbnail({
   duration,
   size = "md",
+  frame,
 }: {
   duration: number | null
   size?: "md" | "sm"
+  frame?: ReactNode
 }) {
   const small = size === "sm"
   return (
@@ -49,6 +53,7 @@ export function CourtThumbnail({
           <path d="M24 27 L72 27" className="stroke-court-foreground" />
         </svg>
       )}
+      {frame}
       {duration != null && (
         <span
           className={cn(

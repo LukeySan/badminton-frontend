@@ -12,11 +12,13 @@ const API_URL = import.meta.env.VITE_API_URL ?? ""
 /**
  * What plays: only these stretches of the video, in order (null: all of it), and
  * how fast at each moment (slow-mo). The player's skip-breaks is spans = rallies; the
- * highlight editor's preview is spans = the reel's clips (and kept footage).
+ * highlight editor's preview is spans = the reel's clips (and kept footage). `loop`:
+ * after the last span, start the first again (the editor's Loop tool).
  */
 export type PlaybackRule = {
   spans: { start: number; end: number }[] | null
   rateAt?: (t: number) => number
+  loop?: boolean
 }
 
 /**
@@ -113,14 +115,15 @@ export function useVideoPlayer(
   const enforcePlayback = (t: number) => {
     const element = videoRef.current
     if (!element || element.paused) return
-    const { spans, rateAt } = rule.current()
+    const { spans, rateAt, loop } = rule.current()
     const rate = rateAt?.(t) ?? 1
     if (element.playbackRate !== rate) element.playbackRate = rate
     if (!spans || scrubbingRef.current) return
     const target = skipTarget(spans, t)
     if (target === undefined) return
-    if (target === null) element.pause()
-    else seek(target)
+    if (target !== null) seek(target)
+    else if (loop && spans.length) seek(spans[0].start)
+    else element.pause()
   }
   const enforceRef = useRef(enforcePlayback)
   enforceRef.current = enforcePlayback
