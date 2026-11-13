@@ -6,6 +6,7 @@ import {
   MoveHorizontal,
   SquareSplitHorizontal,
   Trash2,
+  X,
 } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 
@@ -30,9 +31,10 @@ type Filter = "all" | "picked" | "longest"
 export type FixKind = "edit" | "split" | "merge" | "delete"
 
 /**
- * Highlights mode: every rally of the match with a check to put it in the reel or
- * take it out. Tap a row to watch it; ⋮ fixes the rally itself (everywhere, not just
- * this reel). The bar at the bottom sums up the reel and leads to the timeline.
+ * Highlights mode (the player's rally list): every rally of the match with a check to
+ * put it in the reel or take it out. Tap a row to watch it; ⋮ fixes the rally itself
+ * (everywhere, not just the reel). The bar at the bottom sums up the reel and leads
+ * to the timeline.
  */
 export function HighlightsPanel({
   segments,
@@ -48,6 +50,9 @@ export function HighlightsPanel({
   onFix,
   onAddMissed,
   onEditReel,
+  pickHint,
+  onDismissHint,
+  notice,
 }: {
   /** Every rally, numbered in match order (as in the player). */
   segments: Segment[]
@@ -65,6 +70,11 @@ export function HighlightsPanel({
   onFix: (kind: FixKind, segment: Segment) => void
   onAddMissed: () => void
   onEditReel: () => void
+  /** "Pick from the list" (Edit's empty state): explain the circles and Picked. */
+  pickHint: boolean
+  onDismissHint: () => void
+  /** Above the list (e.g. the court-out-of-frame warning). */
+  notice?: ReactNode
 }) {
   const [filter, setFilter] = useState<Filter>("all")
   const longest = useMemo(
@@ -127,6 +137,10 @@ export function HighlightsPanel({
               className={cn(
                 // 44 px tall touch target around the 30 px pill
                 "relative h-[30px] rounded-full px-3 text-xs after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']",
+                // The hint points here: what you pick shows under Picked
+                pickHint &&
+                  option.value === "picked" &&
+                  "ring-2 ring-highlight ring-offset-2 ring-offset-background",
                 "data-[state=off]:border data-[state=off]:bg-transparent data-[state=off]:font-semibold data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
                 "data-[state=on]:bg-foreground data-[state=on]:font-extrabold data-[state=on]:text-background data-[state=on]:hover:bg-foreground data-[state=on]:hover:text-background",
               )}
@@ -145,6 +159,30 @@ export function HighlightsPanel({
           + Missed rally
         </button>
       </div>
+
+      {pickHint && (
+        <div
+          role="note"
+          data-testid="pick-hint"
+          className="mx-4 mb-2 flex items-start gap-2 rounded-[14px] bg-card py-2.5 pr-1 pl-3 text-[13px] leading-[1.35] md:mx-0"
+        >
+          <p className="min-w-0 flex-1">
+            Tap the circle next to a rally to put it in your reel.{" "}
+            <span className="font-extrabold text-highlight-text">Picked</span>{" "}
+            shows the ones you chose.
+          </p>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="-my-1.5 size-9 shrink-0"
+            aria-label="Hide the hint"
+            onClick={onDismissHint}
+          >
+            <X className="size-4" />
+          </Button>
+        </div>
+      )}
+      {notice}
 
       {rows.length === 0 ? (
         <p className="flex-1 px-4 py-6 text-center text-[13px] text-muted-foreground">
@@ -336,8 +374,8 @@ function RallyRow({
             Not a rally, delete it
           </FixItem>
           <p className="mx-3 mt-1 mb-1.5 text-[11px] leading-[1.35] text-muted-foreground">
-            Fixes change this rally everywhere, including the player's chapters.
-            To shorten it just for this reel, use Cut in Edit mode.
+            Fixes change this rally everywhere: its chapter and your reel. To
+            shorten it just for this reel, use Cut in Edit mode.
           </p>
         </DropdownMenuContent>
       </DropdownMenu>

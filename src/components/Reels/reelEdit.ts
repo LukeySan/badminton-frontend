@@ -379,26 +379,27 @@ export function setCaption(edit: Edit, span: Span, text: string): Edit {
   }
 }
 
-// --- A new reel ---------------------------------------------------------------------------
+// --- Quick starts -------------------------------------------------------------------------
 
-/** How many rallies "Make a highlight" picks to start with. */
-export const STARTER_PICKS = 5
+/** How many rallies the "Longest 5" quick start picks. */
+export const QUICK_PICKS = 5
 
-/** A new reel: the longest few rallies, in match order, each its whole window. */
-export function starterEdit(rallies: RallyPublic[], duration: number): Edit {
-  const edit = normalizeEdit(undefined)
-  const windows = rallyWindows(rallies, edit, duration)
-  const longest = [...rallies]
+/** The `count` longest rallies, in match order. */
+export const longestRallies = (rallies: RallyPublic[], count = QUICK_PICKS) =>
+  [...rallies]
     .sort((a, b) => b.duration - a.duration)
-    .slice(0, STARTER_PICKS)
+    .slice(0, count)
     .sort((a, b) => a.start - b.start)
-  return {
-    ...edit,
-    clips: longest.flatMap((rally) => {
-      const window = windows.get(rally.id)
-      return window ? [clipFromWindow(rally.id, window)] : []
-    }),
-  }
+
+/** Add several rallies at once (each its whole window), in match order. */
+export function pickMany(
+  edit: Edit,
+  picks: { rallyId: number; window: Span }[],
+): Edit {
+  return picks.reduce(
+    (next, pick) => pickRally(next, pick.rallyId, pick.window),
+    edit,
+  )
 }
 
 // --- Rally ids --------------------------------------------------------------------------
@@ -449,6 +450,8 @@ export type EditAction =
       duration: number
     }
   | { type: "pick-rally"; rallyId: number; window: Span }
+  /** Quick starts (Longest 5, All rallies): one undo step. */
+  | { type: "pick-many"; picks: { rallyId: number; window: Span }[] }
   | { type: "unpick-rally"; rallyId: number }
   | { type: "restore-hidden"; hidden: Hidden }
   | { type: "hide-region"; region: Span }
@@ -572,6 +575,8 @@ export function editReducer(
       )
     case "pick-rally":
       return commit(history, pickRally(edit, action.rallyId, action.window))
+    case "pick-many":
+      return commit(history, pickMany(edit, action.picks))
     case "unpick-rally":
       return commit(history, unpickRally(edit, action.rallyId))
     case "restore-hidden":

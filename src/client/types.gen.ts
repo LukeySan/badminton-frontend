@@ -94,7 +94,7 @@ export type CourtUpdate = {
 /**
  * ErrorCode
  */
-export type ErrorCode = 'trajectory_missing' | 'reel_changed' | 'thumbnails_missing';
+export type ErrorCode = 'trajectory_missing' | 'reel_changed' | 'reel_missing' | 'thumbnails_missing';
 
 /**
  * ErrorWithCode
@@ -228,6 +228,12 @@ export type PrivateAnalysis = {
         number
     ]>;
     trajectory?: PrivateTrajectory | null;
+    /**
+     * Thumbnails
+     *
+     * Make the thumbnail strip from the uploaded file (needs ffmpeg)
+     */
+    thumbnails?: boolean;
 };
 
 /**
@@ -557,6 +563,26 @@ export type ReelPublic = {
      * Updated At
      */
     updated_at: string;
+};
+
+/**
+ * ReelSave
+ *
+ * PUT /videos/{id}/reel: create the video's reel, or replace its title and edit
+ * list.
+ */
+export type ReelSave = {
+    /**
+     * Title
+     */
+    title: string;
+    edit: ReelEdit;
+    /**
+     * Updated At
+     *
+     * null: create the reel (the video has none yet). Otherwise the reel's updated_at as you loaded it. If the reel changed since (saved, created or deleted elsewhere), nothing is saved: 409, code reel_changed
+     */
+    updated_at?: string | null;
 };
 
 /**
@@ -2243,6 +2269,78 @@ export type ralliesMergeRalliesResponses = {
 
 export type ralliesMergeRalliesResponse = ralliesMergeRalliesResponses[keyof ralliesMergeRalliesResponses];
 
+export type reelsReadVideoReelData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/reel';
+};
+
+export type reelsReadVideoReelErrors = {
+    /**
+     * code `reel_missing`: the video has no reel yet (create it with PUT). A video that doesn't exist gives a plain 404 without a code.
+     */
+    404: ErrorWithCode;
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reelsReadVideoReelError = reelsReadVideoReelErrors[keyof reelsReadVideoReelErrors];
+
+export type reelsReadVideoReelResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReelPublic;
+};
+
+export type reelsReadVideoReelResponse = reelsReadVideoReelResponses[keyof reelsReadVideoReelResponses];
+
+export type reelsSaveVideoReelData = {
+    body: ReelSave;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/reel';
+};
+
+export type reelsSaveVideoReelErrors = {
+    /**
+     * code `reel_changed`: saved, created or deleted elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.
+     */
+    409: ErrorWithCode;
+    /**
+     * Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. ["body", "edit", "clips", 2, "pieces", 0, "end"]
+     */
+    422: unknown;
+};
+
+export type reelsSaveVideoReelError = reelsSaveVideoReelErrors[keyof reelsSaveVideoReelErrors];
+
+export type reelsSaveVideoReelResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReelPublic;
+    /**
+     * Created (updated_at was null)
+     */
+    201: ReelPublic;
+};
+
+export type reelsSaveVideoReelResponse = reelsSaveVideoReelResponses[keyof reelsSaveVideoReelResponses];
+
 export type reelsReadReelsData = {
     body?: never;
     path: {
@@ -2302,6 +2400,10 @@ export type reelsCreateReelErrors = {
 };
 
 export type reelsCreateReelResponses = {
+    /**
+     * The video's existing reel
+     */
+    200: ReelPublic;
     /**
      * Successful Response
      */
@@ -2384,7 +2486,7 @@ export type reelsUpdateReelData = {
 
 export type reelsUpdateReelErrors = {
     /**
-     * code `reel_changed`: saved elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.
+     * code `reel_changed`: saved, created or deleted elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.
      */
     409: ErrorWithCode;
     /**

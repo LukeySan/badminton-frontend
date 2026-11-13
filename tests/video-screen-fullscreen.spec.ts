@@ -7,19 +7,21 @@ import {
   apiToken,
   deleteVideo,
   PLAYABLE_CLIP,
+  seedAnalysis,
   uploadVideo,
 } from "./utils/videos"
 
-// The player's own full screen (never the browser's native video player). Runs in
-// Chromium, desktop WebKit and the iPhone project (playwright.config.ts).
+// The video screen's own full screen (never the browser's native video player), in
+// Highlights mode (the player). Runs in Chromium, desktop WebKit and the iPhone
+// project (playwright.config.ts).
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
 // Two rallies in the 12 s clip; with the player's 1 s padding: 1-4 s and 7-10 s,
 // so 4-7 s is a break.
-const RALLIES = [
-  { id: "00000000-0000-4000-8000-0000000000a1", start: 2, end: 3, duration: 1 },
-  { id: "00000000-0000-4000-8000-0000000000a2", start: 8, end: 9, duration: 1 },
+const RALLIES: [number, number][] = [
+  [2, 3],
+  [8, 9],
 ]
 
 let cleanup: (() => Promise<void>) | undefined
@@ -28,7 +30,7 @@ test.afterEach(async () => {
   cleanup = undefined
 })
 
-/** A fresh user with the playable clip, presented as analyzed, open in the player. */
+/** A fresh user with the playable clip, analyzed with RALLIES, open on its screen. */
 async function openPlayer(page: Page, projectName: string) {
   if (projectName === "iphone") {
     // iPhone Safari has no Fullscreen API for normal elements (only <video>): take
@@ -50,23 +52,9 @@ async function openPlayer(page: Page, projectName: string) {
   const id = await uploadVideo(token, `${name}.webm`, PLAYABLE_CLIP)
   cleanup = () => deleteVideo(token, id)
 
-  // The worker isn't part of the tests: present the clip as analyzed, with rallies.
-  await page.route(`**/api/v1/videos/${id}`, async (route) => {
-    if (route.request().method() !== "GET") return route.continue()
-    const response = await route.fetch()
-    await route.fulfill({
-      response,
-      json: {
-        ...(await response.json()),
-        status: "done",
-        rally_count: RALLIES.length,
-        play_seconds: 2,
-      },
-    })
-  })
-  await page.route(`**/api/v1/videos/${id}/rallies`, (route) =>
-    route.fulfill({ json: { data: RALLIES, count: RALLIES.length } }),
-  )
+  // The worker isn't part of the tests: finish the video with these rallies the way
+  // it would (backend's development-only fixture).
+  await seedAnalysis(id, RALLIES)
 
   await logInUser(page, email, password)
   await page.goto(`/videos/${id}`)

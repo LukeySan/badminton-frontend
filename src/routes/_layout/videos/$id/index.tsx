@@ -3,7 +3,8 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { ChevronLeft, MapPin, RotateCw } from "lucide-react"
 
 import type { VideoPublic } from "@/client"
-import { Player } from "@/components/Player/Player"
+import { videoReelQueryOptions } from "@/components/Reels/queries"
+import { type EditorMode, VideoScreen } from "@/components/Reels/VideoScreen"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -25,6 +26,9 @@ import { extractErrorMessage } from "@/utils"
 
 export const Route = createFileRoute("/_layout/videos/$id/")({
   component: VideoPage,
+  // The mode is in the URL (?mode=edit): a reload or a shared link keeps it.
+  validateSearch: (search: Record<string, unknown>): { mode?: "edit" } =>
+    search.mode === "edit" ? { mode: "edit" } : {},
   head: () => ({
     meta: [
       {
@@ -39,7 +43,8 @@ const PROCESSING_TIME_PER_VIDEO_SECOND = 0.5
 
 // One URL per video; what it shows follows the status the API reports. Polling (set
 // in videoQueryOptions) runs only while queued/processing, so this page switches from
-// the progress view to the result by itself.
+// the progress view to the result by itself. A finished video is the video screen
+// (Highlights = the player, Edit = the reel).
 function VideoPage() {
   const { id } = Route.useParams()
   const {
@@ -50,14 +55,7 @@ function VideoPage() {
     refetch,
   } = useQuery(videoQueryOptions(id))
 
-  // A finished video is the player screen, with its own header (back, title, menu).
-  if (video?.status === "done") {
-    return (
-      <div className="mx-auto w-full max-w-7xl">
-        <Player video={video} />
-      </div>
-    )
-  }
+  if (video?.status === "done") return <DoneVideo video={video} />
 
   return (
     <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
@@ -121,8 +119,61 @@ function VideoStatusView({ video }: { video: VideoPublic }) {
     case "failed":
       return <Failed video={video} />
     case "done":
-      return <Player video={video} />
+      return <DoneVideo video={video} />
   }
+}
+
+/** The video screen, once the video's reel (or the fact that it has none) is known. */
+function DoneVideo({ video }: { video: VideoPublic }) {
+  const { mode = "highlights" } = Route.useSearch()
+  const navigate = Route.useNavigate()
+  const reel = useQuery(videoReelQueryOptions(video.id))
+  const setMode = (next: EditorMode) =>
+    navigate({
+      search: next === "edit" ? { mode: "edit" } : {},
+      replace: true,
+      resetScroll: false,
+    })
+
+  if (reel.isError) {
+    return (
+      <Alert variant="destructive" className="mx-auto max-w-2xl">
+        <AlertTitle>Couldn't load this video's reel</AlertTitle>
+        <AlertDescription>
+          <p>{extractErrorMessage(reel.error)}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2"
+            onClick={() => reel.refetch()}
+          >
+            Try again
+          </Button>
+        </AlertDescription>
+      </Alert>
+    )
+  }
+  if (reel.isPending) {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-3">
+        <Skeleton className="h-10 w-2/3" />
+        <Skeleton className="aspect-video w-full rounded-xl" />
+        <Skeleton className="h-11 w-full" />
+      </div>
+    )
+  }
+  return (
+    <div className="mx-auto w-full max-w-3xl">
+      {/* Keyed by video only: creating the reel on the first change keeps the screen */}
+      <VideoScreen
+        key={video.id}
+        video={video}
+        reel={reel.data}
+        mode={mode}
+        onModeChange={setMode}
+      />
+    </div>
+  )
 }
 
 function NeedsCourt({ video }: { video: VideoPublic }) {

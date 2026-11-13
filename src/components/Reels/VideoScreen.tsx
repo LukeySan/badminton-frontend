@@ -1,6 +1,16 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import { Check, ChevronLeft, Redo2, Undo2, Upload } from "lucide-react"
+import {
+  Check,
+  ChevronLeft,
+  EllipsisVertical,
+  MapPin,
+  Redo2,
+  Trash2,
+  TriangleExclamationPoint,
+  Undo2,
+  Upload,
+} from "lucide-react"
 import {
   useCallback,
   useEffect,
@@ -33,6 +43,7 @@ import { RallyScrubber } from "@/components/Player/RallyScrubber"
 import {
   nextSegment,
   previousSegment,
+  rallyTime,
   type Segment,
   segmentAt,
   toSegments,
@@ -43,8 +54,16 @@ import {
   useVideoPlayer,
 } from "@/components/Player/useVideoPlayer"
 import { VideoStage } from "@/components/Player/VideoStage"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { DeleteVideoDialog } from "@/components/Videos/DeleteVideo"
 import {
   invalidateVideoLists,
   ralliesQueryOptions,
@@ -54,8 +73,9 @@ import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 import { EditPanel } from "./EditPanel"
 import { EditTools } from "./EditTools"
+import { EmptyReel } from "./EmptyReel"
 import { type FixKind, HighlightsPanel } from "./HighlightsPanel"
-import { reelQueryOptions } from "./queries"
+import { videoReelQueryOptions } from "./queries"
 import {
   type FixRequest,
   type FixValues,
@@ -82,6 +102,7 @@ import {
   initialHistory,
   joinTouching,
   keptLength,
+  longestRallies,
   MIN_SPAN,
   normalizeEdit,
   type PieceRef,
@@ -103,19 +124,24 @@ import { type SaveStatus, useReelAutosave } from "./useReelAutosave"
 export type EditorMode = "highlights" | "edit"
 
 /**
- * The highlight editor. Top half (shared by both modes): header, the video, the
- * time row and the Highlights | Edit toggle. The edit list lives in one reducer
- * with undo / redo, and is autosaved. Rally fixes (Highlights' ⋮ menu) change the
- * match's rallies on the server and are undone through the reverse endpoint.
+ * The one screen for an analyzed video, in two modes. Highlights is the player: the
+ * whole match with its rally chapters, stats and the rally list (pick rallies, fix
+ * them). Edit is the reel's timeline. Shared: header, the video, the mode toggle.
+ *
+ * The video's reel (one per video) is made on the first change: until then `reel`
+ * is null and the edit list is empty. The edit list lives in one reducer with undo /
+ * redo, and is autosaved. Rally fixes (⋮ in the list) change the match's rallies on
+ * the server and are undone through the reverse endpoint.
  */
-export function ReelEditor({
+export function VideoScreen({
   video,
   reel,
   mode,
   onModeChange,
 }: {
   video: VideoPublic
-  reel: ReelPublic
+  /** null: the video has no reel yet. */
+  reel: ReelPublic | null
   mode: EditorMode
   onModeChange: (mode: EditorMode) => void
 }) {
@@ -123,7 +149,7 @@ export function ReelEditor({
   const rallies = useQuery(ralliesQueryOptions(video.id))
   const rallyList = useMemo(() => rallies.data?.data ?? [], [rallies.data])
   const thumbs = useThumbnails(video.id)
-  const [history, dispatch] = useReducer(editReducer, reel.edit, (edit) =>
+  const [history, dispatch] = useReducer(editReducer, reel?.edit, (edit) =>
     initialHistory(normalizeEdit(edit)),
   )
   const edit = presentEdit(history)
@@ -134,7 +160,14 @@ export function ReelEditor({
     (fresh: Edit) => dispatch({ type: "load", edit: fresh }),
     [],
   )
-  const autosave = useReelAutosave({ reel, edit, onReload })
+  const title = video.filename.replace(/\.[^.]+$/, "")
+  const autosave = useReelAutosave({
+    videoId: video.id,
+    title: `${title} highlights`,
+    reel,
+    edit,
+    onReload,
+  })
 
   // A 9:16 reel shows the middle of the (landscape) footage, as it will be cut.
   const videoAspect =
@@ -322,14 +355,15 @@ export function ReelEditor({
       const fix = { ...pending, after: result.ids } as RallyFix
       applyRallies(result.change)
       let next = presentEdit(historyRef.current)
-      if (result.reels.some((r) => r.id === reel.id)) {
+      // A video has one reel: any reel the server adjusted is this one
+      if (result.reels.length > 0) {
         // The server adjusted this reel: start from its version
         const fresh = await queryClient.fetchQuery({
-          ...reelQueryOptions(video.id, reel.id),
+          ...videoReelQueryOptions(video.id),
           staleTime: 0,
         })
         autosave.adopt(fresh)
-        next = normalizeEdit(fresh.edit)
+        next = normalizeEdit(fresh?.edit)
       }
       // Clips follow their rallies' new windows (a longer rally = a longer clip)
       next = refit(
@@ -340,7 +374,7 @@ export function ReelEditor({
       if (fix.kind === "merge") next = joinTouching(next, fix.after[0])
       dispatch({ type: "fix", fix, edit: next })
       toast.success(describeFix(fix, result.change), {
-        description: describeImpact(result.reels, reel.id),
+        description: describeImpact(result.reels),
         action: {
           label: "Undo",
           onClick: () => {
@@ -428,11 +462,11 @@ export function ReelEditor({
     await exclusive(async () => {
       const result = await reverseFix(video.id, fix)
       applyRallies(result.change)
-      const mine = result.reels.find((r) => r.id === reel.id)
+      const [mine] = result.reels
       if (mine) autosave.rebase(mine.updated_at)
       dispatch({ type: "undo-fix", ids: result.ids })
       toast.success("Rally fix undone", {
-        description: "The player's chapters are updated too.",
+        description: "The chapters are updated too.",
       })
     }).catch(fixFailed("Couldn't undo the rally fix"))
   }
@@ -445,13 +479,13 @@ export function ReelEditor({
     await exclusive(async () => {
       const result = await applyFix(video.id, fix)
       applyRallies(result.change)
-      const mine = result.reels.find((r) => r.id === reel.id)
+      const [mine] = result.reels
       if (mine) autosave.rebase(mine.updated_at)
       dispatch({ type: "redo-fix", ids: result.ids })
       toast.success(
         describeFix({ ...fix, after: result.ids } as RallyFix, result.change),
         {
-          description: "Done again. The player's chapters are updated too.",
+          description: "Done again. The chapters are updated too.",
         },
       )
     }).catch(fixFailed("Couldn't redo the rally fix"))
@@ -489,8 +523,26 @@ export function ReelEditor({
     return edit.clips.filter((c) => c.pieces[0].start < window.start).length
   }
 
-  const title = reel.title
-  const rallyBadge = current && <RallyBadge number={current.number} />
+  // Quick starts (Edit with nothing picked): one undo step each
+  const pickAll = (list: RallyPublic[]) =>
+    dispatch({
+      type: "pick-many",
+      picks: list.flatMap((rally) => {
+        const window = windows.get(rally.id)
+        return window ? [{ rallyId: rally.id, window }] : []
+      }),
+    })
+  // "Pick from the list": Highlights, with a hint about the circles and Picked
+  const [pickHint, setPickHint] = useState(false)
+  useEffect(() => {
+    if (mode === "edit") setPickHint(false)
+  }, [mode])
+
+  // Stats over all rallies: what the recording contains
+  const playTime = rallyTime(segments)
+  const rallyBadge = current && (
+    <RallyBadge number={current.number} total={segments.length} />
+  )
   const inFullscreen = player.fullscreen.active
   // Edit + "Rallies only": the breaks are cut by the edit itself, so the pill says so
   // instead of offering to skip them.
@@ -527,12 +579,17 @@ export function ReelEditor({
         "max-md:portrait:-m-4 max-md:portrait:h-dvh",
       )}
     >
-      <EditorHeader
+      <ScreenHeader
         video={video}
         title={title}
-        clipCount={edit.clips.length}
-        reelSeconds={reelSeconds}
-        saveStatus={autosave.status}
+        rallyCount={segments.length}
+        playTime={playTime}
+        // Nothing to say about saving until there's a reel (or a change to save)
+        saveStatus={
+          autosave.exists || autosave.status !== "saved"
+            ? autosave.status
+            : undefined
+        }
         onRetrySave={autosave.retry}
       />
 
@@ -641,65 +698,129 @@ export function ReelEditor({
         />
       </div>
 
-      {/* Time row: time · play · undo · redo · format · full screen */}
-      <div
-        className={cn(
-          "flex items-center pt-1 pr-1.5 pl-4 md:px-0",
-          inFullscreen && "invisible",
-        )}
-      >
-        {/* Reel time: where the playhead is in the reel, and how long the reel is */}
-        <span
-          data-testid="reel-time"
-          className="min-w-0 flex-1 whitespace-nowrap text-[13px] tabular-nums"
-        >
-          {formatDuration(reelTime)}
-          <span className="text-muted-foreground">
-            {" "}
-            / {formatDuration(reelSeconds)}
-          </span>
-        </span>
-        <ControlButton
-          label={paused ? "Play" : "Pause"}
-          title={paused ? "Play (space)" : "Pause (space)"}
-          onClick={player.togglePlay}
-          disabled={!src}
-        >
-          {paused ? (
-            <PlayIcon className="size-[26px]" />
-          ) : (
-            <PauseIcon className="size-[26px]" />
+      {mode === "highlights" ? (
+        // The player: the match's chapters, the stats, rally controls. Hidden (not
+        // removed) in full screen, so the layout behind stays put.
+        <div className={cn(inFullscreen && "invisible")}>
+          <div className="px-4 pt-1.5 md:px-0">
+            <RallyScrubber
+              duration={duration}
+              time={time}
+              segments={segments}
+              visibleNumbers={new Set(segments.map((s) => s.number))}
+              currentNumber={current?.number}
+              onSeek={player.seek}
+              onScrubbingChange={player.setScrubbing}
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2 px-4 pt-1 pb-1.5 md:px-0">
+            <Stat
+              label="This rally"
+              value={current ? `${current.rally.duration.toFixed(1)}s` : "–"}
+            />
+            <Stat
+              label="Actual play"
+              value={formatDuration(playTime)}
+              valueClassName="text-success-text"
+            />
+            <Stat
+              label="Breaks cut"
+              value={formatDuration(Math.max(0, duration - playTime))}
+            />
+          </div>
+          <ControlRow
+            time={time}
+            duration={duration}
+            paused={paused}
+            canPlay={Boolean(src)}
+            canNavigate={Boolean(src) && segments.length > 0}
+            onPrevious={goPrevious}
+            onTogglePlay={player.togglePlay}
+            onNext={goNext}
+            className="pr-1.5 pl-4 md:px-0"
+            trailing={
+              <>
+                <ControlButton
+                  label="Undo"
+                  title="Undo (⌘Z)"
+                  onClick={() => void undo()}
+                  disabled={!canUndo(history) || fixBusy}
+                >
+                  <Undo2 className="size-5" />
+                </ControlButton>
+                <ControlButton
+                  ref={player.fullscreen.triggerRef}
+                  label="Full screen"
+                  onClick={player.fullscreen.enter}
+                  disabled={!src}
+                >
+                  <FullscreenIcon className="size-5" />
+                </ControlButton>
+              </>
+            }
+          />
+        </div>
+      ) : (
+        /* Edit: the time row (reel time · play · undo · redo · format · full screen) */
+        <div
+          className={cn(
+            "flex items-center pt-1 pr-1.5 pl-4 md:px-0",
+            inFullscreen && "invisible",
           )}
-        </ControlButton>
-        <ControlButton
-          label="Undo"
-          title="Undo (⌘Z)"
-          onClick={() => void undo()}
-          disabled={!canUndo(history) || fixBusy}
         >
-          <Undo2 className="size-5" />
-        </ControlButton>
-        <ControlButton
-          label="Redo"
-          title="Redo (⇧⌘Z)"
-          onClick={() => void redo()}
-          disabled={!canRedo(history) || fixBusy}
-        >
-          <Redo2 className="size-5" />
-        </ControlButton>
-        <FormatChip
-          format={edit.format}
-          onChange={(format) => dispatch({ type: "set-format", format })}
-        />
-        <ControlButton
-          ref={player.fullscreen.triggerRef}
-          label="Full screen"
-          onClick={player.fullscreen.enter}
-          disabled={!src}
-        >
-          <FullscreenIcon className="size-5" />
-        </ControlButton>
-      </div>
+          {/* Reel time: where the playhead is in the reel, and how long the reel is */}
+          <span
+            data-testid="reel-time"
+            className="min-w-0 flex-1 whitespace-nowrap text-[13px] tabular-nums"
+          >
+            {formatDuration(reelTime)}
+            <span className="text-muted-foreground">
+              {" "}
+              / {formatDuration(reelSeconds)}
+            </span>
+          </span>
+          <ControlButton
+            label={paused ? "Play" : "Pause"}
+            title={paused ? "Play (space)" : "Pause (space)"}
+            onClick={player.togglePlay}
+            disabled={!src}
+          >
+            {paused ? (
+              <PlayIcon className="size-[26px]" />
+            ) : (
+              <PauseIcon className="size-[26px]" />
+            )}
+          </ControlButton>
+          <ControlButton
+            label="Undo"
+            title="Undo (⌘Z)"
+            onClick={() => void undo()}
+            disabled={!canUndo(history) || fixBusy}
+          >
+            <Undo2 className="size-5" />
+          </ControlButton>
+          <ControlButton
+            label="Redo"
+            title="Redo (⇧⌘Z)"
+            onClick={() => void redo()}
+            disabled={!canRedo(history) || fixBusy}
+          >
+            <Redo2 className="size-5" />
+          </ControlButton>
+          <FormatChip
+            format={edit.format}
+            onChange={(format) => dispatch({ type: "set-format", format })}
+          />
+          <ControlButton
+            ref={player.fullscreen.triggerRef}
+            label="Full screen"
+            onClick={player.fullscreen.enter}
+            disabled={!src}
+          >
+            <FullscreenIcon className="size-5" />
+          </ControlButton>
+        </div>
+      )}
 
       {/* Highlights | Edit */}
       <div className="px-4 pt-0.5 pb-2.5 md:px-0">
@@ -751,6 +872,60 @@ export function ReelEditor({
           onFix={onFix}
           onAddMissed={onAddMissed}
           onEditReel={() => onModeChange("edit")}
+          pickHint={pickHint}
+          onDismissHint={() => setPickHint(false)}
+          notice={
+            <>
+              {rallies.isError && (
+                <Alert
+                  variant="destructive"
+                  className="mx-4 mb-2 w-auto md:mx-0"
+                >
+                  <AlertTitle>Couldn't load the rallies</AlertTitle>
+                  <AlertDescription>
+                    <p>{extractErrorMessage(rallies.error)}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => rallies.refetch()}
+                    >
+                      Try again
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {video.court_out_of_frame && (
+                <Alert className="mx-4 mb-2 w-auto px-3 py-2 md:mx-0">
+                  <TriangleExclamationPoint />
+                  <AlertTitle>Part of your court was out of frame</AlertTitle>
+                  <AlertDescription>
+                    <p>
+                      Some rallies may be missed or cut short.{" "}
+                      <Link
+                        to="/videos/$id/court"
+                        params={{ id: video.id }}
+                        className="underline underline-offset-4"
+                      >
+                        Re-mark the court
+                      </Link>{" "}
+                      if a corner was mis-tapped.
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              )}
+            </>
+          }
+        />
+      ) : edit.clips.length === 0 ? (
+        <EmptyReel
+          rallyCount={segments.length}
+          onLongest={() => pickAll(longestRallies(rallyList))}
+          onAll={() => pickAll(rallyList)}
+          onPickFromList={() => {
+            setPickHint(true)
+            onModeChange("highlights")
+          }}
         />
       ) : (
         <EditPanel
@@ -834,35 +1009,35 @@ export function ReelEditor({
   )
 }
 
-/** Back to the match, title, reel length + save state, Export (not yet). */
-function EditorHeader({
+/**
+ * Back to Home, the video's title, "73 rallies · 18:20 play" (+ the reel's save
+ * state once there is one), Export (not yet) and a menu (re-mark court, delete).
+ */
+function ScreenHeader({
   video,
   title,
-  clipCount,
-  reelSeconds,
+  rallyCount,
+  playTime,
   saveStatus,
   onRetrySave,
 }: {
   video: VideoPublic
   title: string
-  clipCount: number
-  reelSeconds: number
-  saveStatus: SaveStatus
+  rallyCount: number
+  playTime: number
+  saveStatus: SaveStatus | undefined
   onRetrySave: () => void
 }) {
+  const [deleting, setDeleting] = useState(false)
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 py-2 pr-3 pl-1 md:mb-4 md:h-auto md:p-0">
+    <header className="flex h-14 shrink-0 items-center gap-1.5 py-2 pr-1 pl-1 md:mb-4 md:h-auto md:p-0">
       <Button
         asChild
         variant="ghost"
         size="icon"
         className="size-11 shrink-0 rounded-md md:-ml-3"
       >
-        <Link
-          to="/videos/$id"
-          params={{ id: video.id }}
-          aria-label="Back to the match"
-        >
+        <Link to="/" aria-label="Back to Home">
           <ChevronLeft className="size-[22px]" />
         </Link>
       </Button>
@@ -871,9 +1046,16 @@ function EditorHeader({
           {title}
         </h1>
         <p className="truncate text-xs text-muted-foreground tabular-nums md:text-[13px]">
-          {clipCount} {clipCount === 1 ? "rally" : "rallies"} ·{" "}
-          <span data-testid="reel-length">{formatDuration(reelSeconds)}</span> ·{" "}
-          <SaveIndicator status={saveStatus} onRetry={onRetrySave} />
+          <span data-testid="match-summary">
+            {rallyCount} {rallyCount === 1 ? "rally" : "rallies"} ·{" "}
+            {formatDuration(playTime)} play
+          </span>
+          {saveStatus && (
+            <>
+              {" · "}
+              <SaveIndicator status={saveStatus} onRetry={onRetrySave} />
+            </>
+          )}
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-center gap-0.5">
@@ -888,7 +1070,63 @@ function EditorHeader({
           Coming soon
         </span>
       </div>
+      <DropdownMenu modal={false}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-11 shrink-0 rounded-md text-muted-foreground"
+            aria-label="More options"
+          >
+            <EllipsisVertical className="size-5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem asChild>
+            <Link to="/videos/$id/court" params={{ id: video.id }}>
+              <MapPin />
+              Re-mark court
+            </Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            variant="destructive"
+            onSelect={() => setDeleting(true)}
+          >
+            <Trash2 />
+            Delete video
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <DeleteVideoDialog
+        video={video}
+        open={deleting}
+        onOpenChange={setDeleting}
+      />
     </header>
+  )
+}
+
+/** One box of the stats strip under the chapters. */
+function Stat({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string
+  value: string
+  valueClassName?: string
+}) {
+  return (
+    <div className="flex min-w-0 flex-col rounded-md bg-card px-2.5 py-1.5">
+      <span className="truncate text-[11px] font-bold text-muted-foreground">
+        {label}
+      </span>
+      <span
+        className={cn("text-lg font-extrabold tabular-nums", valueClassName)}
+      >
+        {value}
+      </span>
+    </div>
   )
 }
 

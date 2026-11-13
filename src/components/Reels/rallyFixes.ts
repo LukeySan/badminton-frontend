@@ -209,24 +209,21 @@ export function describeFix(fix: RallyFix, change: RallyChange): string {
   }
 }
 
-/** "This highlight: 1 part trimmed · 2 other highlights updated" */
-export function describeImpact(reels: ReelImpact[], reelId: string): string {
+/**
+ * "Your reel: 1 part trimmed · The chapters…". A video has one reel, so
+ * every reel the server adjusted is this one.
+ */
+export function describeImpact(reels: ReelImpact[]): string {
   const parts: string[] = []
-  const mine = reels.find((r) => r.id === reelId)
-  if (mine) {
+  for (const reel of reels) {
     const changes = [
-      plural(mine.clips_removed, "clip removed", "clips removed"),
-      plural(mine.pieces_trimmed, "part trimmed", "parts trimmed"),
-      plural(mine.pieces_removed, "part removed", "parts removed"),
+      plural(reel.clips_removed, "clip removed", "clips removed"),
+      plural(reel.pieces_trimmed, "part trimmed", "parts trimmed"),
+      plural(reel.pieces_removed, "part removed", "parts removed"),
     ].filter(Boolean)
-    if (changes.length) parts.push(`This highlight: ${changes.join(", ")}`)
+    if (changes.length) parts.push(`Your reel: ${changes.join(", ")}`)
   }
-  const others = reels.filter((r) => r.id !== reelId).length
-  if (others > 0)
-    parts.push(
-      `${others} other ${others === 1 ? "highlight" : "highlights"} updated`,
-    )
-  parts.push("The player's chapters are updated too.")
+  parts.push("The chapters are updated too.")
   return parts.join(" · ")
 }
 

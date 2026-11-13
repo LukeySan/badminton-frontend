@@ -59,55 +59,68 @@ export async function deleteVideo(token: string, id: string) {
   })
 }
 
-/** A reel on a video (empty edit list unless given); returns its id. */
+export type TestPiece = { start: number; end: number; slow_mo?: boolean }
+
+export type TestReel = {
+  id: string
+  title: string
+  updated_at: string
+  edit: Record<string, unknown> & {
+    format?: string
+    view?: string
+    lead_in: number
+    lead_out: number
+    clips: { rally_id: number; pieces: TestPiece[] }[]
+    restored_gaps: { start: number; end: number }[]
+    overlays: { captions: { start: number; end: number; text: string }[] }
+  }
+}
+
+/** Creates the video's reel (one per video) with this edit list (PUT, updated_at null). */
 export async function createReel(
   token: string,
   videoId: string,
-  title = "Test highlight",
   edit: Record<string, unknown> = {},
+  title = "Test highlights",
 ) {
-  const response = await fetch(`${API}/videos/${videoId}/reels`, {
-    method: "POST",
+  const response = await fetch(`${API}/videos/${videoId}/reel`, {
+    method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ title, edit }),
+    body: JSON.stringify({ title, edit, updated_at: null }),
   })
   if (!response.ok) throw new Error(`Create reel failed: ${response.status}`)
-  return ((await response.json()) as { id: string }).id
 }
 
-export type TestPiece = { start: number; end: number; slow_mo?: boolean }
-
-/** GET /reels/{id} as JSON (edit list v2: clips are rallies cut into pieces). */
-export async function readReel(token: string, reelId: string) {
-  const response = await fetch(`${API}/reels/${reelId}`, {
+/** GET /videos/{id}/reel as JSON, or null while the video has no reel. */
+export async function readReel(
+  token: string,
+  videoId: string,
+): Promise<TestReel | null> {
+  const response = await fetch(`${API}/videos/${videoId}/reel`, {
     headers: { Authorization: `Bearer ${token}` },
   })
-  return (await response.json()) as {
-    title: string
-    updated_at: string
-    edit: Record<string, unknown> & {
-      format?: string
-      view?: string
-      lead_in: number
-      lead_out: number
-      clips: { rally_id: number; pieces: TestPiece[] }[]
-      restored_gaps: { start: number; end: number }[]
-      overlays: { captions: { start: number; end: number; text: string }[] }
-    }
-  }
+  if (response.status === 404) return null
+  return (await response.json()) as TestReel
 }
 
-/** Saves a reel the way another tab or device would (full replace). */
+/** The video's reel, which the test expects to exist by now. */
+export async function reelOf(token: string, videoId: string) {
+  const reel = await readReel(token, videoId)
+  if (!reel) throw new Error("The video has no reel")
+  return reel
+}
+
+/** Saves the reel the way another tab or device would (full replace). */
 export async function saveReelElsewhere(
   token: string,
-  reelId: string,
+  videoId: string,
   edit: Record<string, unknown>,
 ) {
-  const current = await readReel(token, reelId)
-  const response = await fetch(`${API}/reels/${reelId}`, {
+  const current = await reelOf(token, videoId)
+  const response = await fetch(`${API}/videos/${videoId}/reel`, {
     method: "PUT",
     headers: {
       Authorization: `Bearer ${token}`,

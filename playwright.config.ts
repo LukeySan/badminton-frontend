@@ -70,7 +70,7 @@ export default defineConfig({
             },
             dependencies: ['setup'],
           },
-          // iPhone: WebKit, touch, phone screen. Only the player and editor specs: the rest of
+          // iPhone: WebKit, touch, phone screen. Only the video screen specs: the rest of
           // the suite drives the desktop layout. These specs remove the element
           // Fullscreen API here, like iPhone Safari, so the fallback is what's tested.
           {
@@ -79,7 +79,7 @@ export default defineConfig({
               ...devices['iPhone 15'],
               storageState: 'playwright/.auth/user.json',
             },
-            testMatch: /(player|reel-editor).*\.spec\.ts/,
+            testMatch: /video-screen.*\.spec\.ts/,
             dependencies: ['setup'],
           },
         ]

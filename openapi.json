@@ -1728,12 +1728,138 @@
         }
       }
     },
+    "/api/v1/videos/{id}/reel": {
+      "get": {
+        "tags": ["reels"],
+        "summary": "Read Video Reel",
+        "description": "The video's reel with its edit list.",
+        "operationId": "reels-read_video_reel",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReelPublic"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "code `reel_missing`: the video has no reel yet (create it with PUT). A video that doesn't exist gives a plain 404 without a code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorWithCode"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["reels"],
+        "summary": "Save Video Reel",
+        "description": "Create or save the video's reel: replaces the title and the whole edit list\n(clips without pieces are dropped). Send `updated_at: null` to create it (201),\nor the `updated_at` you loaded to update it (200). If it isn't as you last saw it\n(it now exists, changed, or was deleted), nothing is saved: 409, reload.\nThe reel belongs to the video's owner, also when a superuser saves it.",
+        "operationId": "reels-save_video_reel",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReelSave"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReelPublic"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Created (updated_at was null)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReelPublic"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "code `reel_changed`: saved, created or deleted elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorWithCode"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. [\"body\", \"edit\", \"clips\", 2, \"pieces\", 0, \"end\"]"
+          }
+        }
+      }
+    },
     "/api/v1/videos/{id}/reels": {
       "get": {
         "tags": ["reels"],
         "summary": "Read Reels",
-        "description": "A video's reels, most recently saved first.",
+        "description": "Deprecated: use GET /videos/{id}/reel. The video's reel (at most one now).",
         "operationId": "reels-read_reels",
+        "deprecated": true,
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -1797,8 +1923,9 @@
       "post": {
         "tags": ["reels"],
         "summary": "Create Reel",
-        "description": "Create a reel for a video. It belongs to the video's owner. Clips without\npieces are dropped.",
+        "description": "Deprecated: use PUT /videos/{id}/reel. Get-or-create: creates the video's reel\n(201), or, if it already has one, returns that one unchanged (200; the body is\nignored), so the old \"make a highlight\" flow opens the existing reel.",
         "operationId": "reels-create_reel",
+        "deprecated": true,
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -1837,6 +1964,16 @@
               }
             }
           },
+          "200": {
+            "description": "The video's existing reel",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReelPublic"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. [\"body\", \"edit\", \"clips\", 2, \"pieces\", 0, \"end\"]"
           }
@@ -1847,8 +1984,9 @@
       "get": {
         "tags": ["reels"],
         "summary": "Read Reel",
-        "description": "Get a reel with its edit list.",
+        "description": "Deprecated: use GET /videos/{id}/reel. Get a reel with its edit list.",
         "operationId": "reels-read_reel",
+        "deprecated": true,
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -1892,8 +2030,9 @@
       "put": {
         "tags": ["reels"],
         "summary": "Update Reel",
-        "description": "Save a reel: replaces the title and the whole edit list (clips without pieces\nare dropped). Send the `updated_at` you loaded; if the reel was saved since,\nnothing changes and you get 409.",
+        "description": "Deprecated: use PUT /videos/{id}/reel. Save a reel: replaces the title and the\nwhole edit list. Send the `updated_at` you loaded; 409 if it was saved since.",
         "operationId": "reels-update_reel",
+        "deprecated": true,
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -1933,7 +2072,7 @@
             }
           },
           "409": {
-            "description": "code `reel_changed`: saved elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.",
+            "description": "code `reel_changed`: saved, created or deleted elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1950,8 +2089,9 @@
       "delete": {
         "tags": ["reels"],
         "summary": "Delete Reel",
-        "description": "Delete a reel. The video and its rallies are not affected.",
+        "description": "Deprecated (no replacement yet). Delete a reel (soft); the video and its\nrallies are not affected. The video can then get a new reel.",
         "operationId": "reels-delete_reel",
+        "deprecated": true,
         "security": [
           {
             "OAuth2PasswordBearer": []
@@ -2037,7 +2177,7 @@
       "post": {
         "tags": ["private"],
         "summary": "Set Analysis",
-        "description": "Test fixture: finish a video as the worker would, with these rallies (and\noptionally a shuttle trajectory), without running the ML pipeline. Goes through\ncrud.finish_video like a real worker, so reel clips are re-linked the same way.",
+        "description": "Test fixture: finish a video as the worker would, with these rallies (and\noptionally a shuttle trajectory and the thumbnail strip), without running the ML\npipeline. Goes through crud.finish_video like a real worker, so reel clips are\nre-linked the same way.",
         "operationId": "private-set_analysis",
         "parameters": [
           {
@@ -2216,7 +2356,12 @@
       },
       "ErrorCode": {
         "type": "string",
-        "enum": ["trajectory_missing", "reel_changed", "thumbnails_missing"],
+        "enum": [
+          "trajectory_missing",
+          "reel_changed",
+          "reel_missing",
+          "thumbnails_missing"
+        ],
         "title": "ErrorCode"
       },
       "ErrorWithCode": {
@@ -2406,6 +2551,12 @@
                 "type": "null"
               }
             ]
+          },
+          "thumbnails": {
+            "type": "boolean",
+            "title": "Thumbnails",
+            "description": "Make the thumbnail strip from the uploaded file (needs ffmpeg)",
+            "default": false
           }
         },
         "type": "object",
@@ -2842,6 +2993,36 @@
           "updated_at"
         ],
         "title": "ReelPublic"
+      },
+      "ReelSave": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "edit": {
+            "$ref": "#/components/schemas/ReelEdit"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updated At",
+            "description": "null: create the reel (the video has none yet). Otherwise the reel's updated_at as you loaded it. If the reel changed since (saved, created or deleted elsewhere), nothing is saved: 409, code reel_changed"
+          }
+        },
+        "type": "object",
+        "required": ["title", "edit"],
+        "title": "ReelSave",
+        "description": "PUT /videos/{id}/reel: create the video's reel, or replace its title and edit\nlist."
       },
       "ReelUpdate": {
         "properties": {

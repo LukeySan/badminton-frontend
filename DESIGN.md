@@ -202,7 +202,7 @@ thumb, on = `bg-primary` with a `bg-primary-foreground` thumb (the pale `--input
 was invisible on white cards); put it in a row-sized `<label>` for a big tap target.
 
 **Video menu (⋮):** 44px ghost icon button, on each video row (beside the row's link,
-never inside it) and in the player header. "Delete video" is a destructive menu item;
+never inside it) and in the video screen header. "Delete video" is a destructive menu item;
 it opens a confirm dialog whose action is a destructive button (ink on pink) and whose
 errors (the backend's message) show in a destructive alert inside the dialog.
 
@@ -234,19 +234,34 @@ sideways is wide but short, so it keeps the phone layout.
 - **Home / Matches** (`/`): header (logo mark + "Rally Analyzer", avatar), "Your matches"
   - summary line, featured Last match card, "Recent" + filters (All / Ready / To do),
     video rows, bottom tab bar. See `home-*.mockup.html`.
-- **Player** (`/videos/$id` when done): header (back, title, "21:24 · 73 rallies", more),
-  video with rally badge + skip pill, scrubber, control row, stat strip, rally list sheet.
-  See `player-*.mockup.html`.
-- **Highlight editor** (`/videos/$id/reels/$reelId`): see `EditorHighlights` /
+- **Video screen** (`/videos/$id` once analyzed; `?mode=edit` for Edit): ONE screen
+  per video in two modes. Highlights is the player (watch the match, pick and fix
+  rallies), Edit is the video's reel (one per video). See `EditorHighlights` /
   `EditorEdit` / `EditorFull.dc.html` (one template; they differ only in the starting
-  mode and view). Phones: one screen (`h-dvh`), the top half stays, the bottom half
-  scrolls by itself.
-  - Top half: header (back to the match, reel title, "6 rallies · 1:24 · Saved", Export
-    disabled with "Coming soon" under it), the video (max 40% of the screen; "Rally 19"
-    badge without "of N"; a 9:16 reel shows the middle of the footage), time row (time ·
-    play · undo · redo · format chip · full screen; 44px targets, so play sits right of
-    the time instead of centered as in the prototype), Highlights | Edit tabs (`bg-card`
-    track, selected = foreground fill).
+  mode and view) and, for the player parts, `player-*.mockup.html`. Phones: one screen
+  (`h-dvh`), the top half stays, the bottom half scrolls by itself. Desktop: the same
+  single column (max 48rem), the page scrolls (the old side-panel player is gone).
+  - Shared top: header (back to Home, the video's title 15/800, "73 rallies · 18:20
+    play" 12 muted, plus "· Saved" once the video has a reel, Export disabled with
+    "Coming soon" under it, ⋮ More options: Re-mark court, Delete video), the video
+    (max 40% of the screen; pink "Rally 19 of 73" badge; skip pill bottom-right; a 9:16
+    reel shows the middle of the footage), then the mode's controls, then the
+    Highlights | Edit tabs (`bg-card` track, selected = foreground fill).
+  - Highlights controls (the player): the match's chapter scrubber, the stat strip
+    (This rally / Actual play in `text-success-text` / Breaks cut; `bg-card` boxes, 11px
+    labels, 18/800 values), the control row (time · previous / play / next centered ·
+    Undo and Full screen on the right). Keys: space, ←/→ previous/next rally, ⌘Z / ⇧⌘Z.
+  - Edit controls: the time row (reel time · play · undo · redo · format chip · full
+    screen; 44px targets, so play sits right of the time instead of centered as in the
+    prototype).
+  - Edit with nothing picked: "Your reel is empty" (clapperboard in a 48px `bg-card`
+    circle, 15/800 title, 13px muted line) and three quick starts, `bg-card` rows (14px
+    radius, 56px, icon in a `bg-success-soft` square, title 14/800, detail 12 muted, ›):
+    **Longest 5**, **All rallies**, **Pick from the list** (back to Highlights with a
+    `bg-card` hint "Tap the circle next to a rally to put it in your reel. **Picked**
+    shows the ones you chose." and a pink ring on the Picked chip until dismissed).
+    Nothing is picked by default, and the reel is only created by the first change
+    (a pick, a cut, a setting); watching never creates one.
   - Highlights: filter chips (All 73 / Picked 6 / Longest = longest first) and a
     dashed "+ Missed rally" chip on the right, rally rows (round check in a 44px target:
     `bg-chapter` filled when picked, `border-muted-foreground` ring when not; 72×40
@@ -261,7 +276,7 @@ sideways is wide but short, so it keeps the phone layout.
   - Rally fix menu (⋮, "Fix rally 19"): `bg-card` popover, 14px radius, 44px items
     with an icon: Fix start and end, Split into two rallies, Merge with next rally,
     **Not a rally, delete it** (`text-highlight-text`), then the 11px muted note
-    "Fixes change this rally everywhere, including the player's chapters. To shorten
+    "Fixes change this rally everywhere: its chapter and your reel. To shorten
     it just for this reel, use Cut in Edit mode." Fixes change the match's rallies on
     the server; a toast says what changed ("Rally 5 split into 5 and 6", what happened
     to this and other reels) with an Undo action.
@@ -303,8 +318,6 @@ sideways is wide but short, so it keeps the phone layout.
     `bg-success-soft text-success-text` with a 1.5px `--chapter` ring. Caption bars "Aa
     …" (`bg-secondary`) under their pieces. On the video: "Slow-mo" tag top-right while a
     slow piece plays, and the caption bottom center (`bg-court-ink/75`).
-  - "Make a highlight" sits in the player header (clapperboard icon; "Highlight" on
-    phones).
 - **How to record** (`/recording-tips`, linked from Upload and Profile): side-view and
   camera-view drawings on `bg-court` (court lines `--court-line`, labels
   `--court-foreground`, sight lines `--court-accent`), good/bad captions in
@@ -315,6 +328,6 @@ sideways is wide but short, so it keeps the phone layout.
 
 ## Desktop
 
-Same tokens. Player: video + scrubber + controls on the left, rally list as a right-hand
-panel (as built in M5). Home: video rows in a wider list or 2-column grid; featured card
-spans the top.
+Same tokens. Video screen: one column (max 48rem) like on phones, the page scrolls and
+the Highlights bottom bar sticks to the bottom. Home: video rows in a wider list or
+2-column grid; featured card spans the top.
