@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
+import type { healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, privateSetAnalysisData, privateSetAnalysisErrors, privateSetAnalysisResponses, ralliesAddRallyData, ralliesAddRallyErrors, ralliesAddRallyResponses, ralliesDeleteRallyData, ralliesDeleteRallyErrors, ralliesDeleteRallyResponses, ralliesEditRallyData, ralliesEditRallyErrors, ralliesEditRallyResponses, ralliesMergeRalliesData, ralliesMergeRalliesErrors, ralliesMergeRalliesResponses, ralliesSplitRallyData, ralliesSplitRallyErrors, ralliesSplitRallyResponses, reelsCreateReelData, reelsCreateReelErrors, reelsCreateReelResponses, reelsDeleteReelData, reelsDeleteReelErrors, reelsDeleteReelResponses, reelsReadReelData, reelsReadReelErrors, reelsReadReelResponses, reelsReadReelsData, reelsReadReelsErrors, reelsReadReelsResponses, reelsReadVideoReelData, reelsReadVideoReelErrors, reelsReadVideoReelResponses, reelsSaveVideoReelData, reelsSaveVideoReelErrors, reelsSaveVideoReelResponses, reelsUpdateReelData, reelsUpdateReelErrors, reelsUpdateReelResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosReadVideoThumbnailFileData, videosReadVideoThumbnailFileErrors, videosReadVideoThumbnailFileResponses, videosReadVideoThumbnailsUrlData, videosReadVideoThumbnailsUrlErrors, videosReadVideoThumbnailsUrlResponses, videosReadVideoTrajectoryData, videosReadVideoTrajectoryErrors, videosReadVideoTrajectoryResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -416,13 +416,30 @@ export class VideosService {
     /**
      * Read Video Rallies
      *
-     * Detected rallies, in seconds, ordered by start time.
+     * The video's rallies (detected, then corrected by the user), in seconds,
+     * numbered in time order.
      */
     public static readVideoRallies<ThrowOnError extends boolean = true>(options: Options<videosReadVideoRalliesData, ThrowOnError>) {
         return (options.client ?? client).get<videosReadVideoRalliesResponses, videosReadVideoRalliesErrors, ThrowOnError>({
             responseType: 'json',
             security: [{ scheme: 'bearer', type: 'http' }],
             url: '/api/v1/videos/{id}/rallies',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Video Trajectory
+     *
+     * Shuttle positions for every frame from `start` to `end` (seconds), as fractions
+     * of the frame like the court corners. For drawing the shuttle trail.
+     * At most 600 seconds per request.
+     */
+    public static readVideoTrajectory<ThrowOnError extends boolean = true>(options: Options<videosReadVideoTrajectoryData, ThrowOnError>) {
+        return (options.client ?? client).get<videosReadVideoTrajectoryResponses, videosReadVideoTrajectoryErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/trajectory',
             ...options
         });
     }
@@ -445,6 +462,35 @@ export class VideosService {
     }
     
     /**
+     * Read Video Thumbnails Url
+     *
+     * Temporary links (12 h) to the thumbnail strip: one small frame per second,
+     * packed into sprite sheets. Fetch `index_url` for the layout (interval, tile
+     * size, columns, rows, count), then the sheets as needed.
+     */
+    public static readVideoThumbnailsUrl<ThrowOnError extends boolean = true>(options: Options<videosReadVideoThumbnailsUrlData, ThrowOnError>) {
+        return (options.client ?? client).get<videosReadVideoThumbnailsUrlResponses, videosReadVideoThumbnailsUrlErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/thumbnails-url',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Video Thumbnail File
+     *
+     * One file of the thumbnail strip: `index.json` or a sheet (`sheet_000.jpg`...).
+     */
+    public static readVideoThumbnailFile<ThrowOnError extends boolean = true>(options: Options<videosReadVideoThumbnailFileData, ThrowOnError>) {
+        return (options.client ?? client).get<videosReadVideoThumbnailFileResponses, videosReadVideoThumbnailFileErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/videos/{id}/thumbnails/{name}',
+            ...options
+        });
+    }
+    
+    /**
      * Read Video File
      *
      * Stream the video file. Supports Range requests, which the browser's player
@@ -452,6 +498,227 @@ export class VideosService {
      */
     public static readVideoFile<ThrowOnError extends boolean = true>(options: Options<videosReadVideoFileData, ThrowOnError>) {
         return (options.client ?? client).get<videosReadVideoFileResponses, videosReadVideoFileErrors, ThrowOnError>({ url: '/api/v1/videos/{id}/file', ...options });
+    }
+}
+
+export class RalliesService {
+    /**
+     * Add Rally
+     *
+     * Add a rally the detector missed. It must not overlap another rally.
+     */
+    public static addRally<ThrowOnError extends boolean = true>(options: Options<ralliesAddRallyData, ThrowOnError>) {
+        return (options.client ?? client).post<ralliesAddRallyResponses, ralliesAddRallyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Rally
+     *
+     * Delete a rally (e.g. a false detection). Reel clips of it are dropped.
+     */
+    public static deleteRally<ThrowOnError extends boolean = true>(options: Options<ralliesDeleteRallyData, ThrowOnError>) {
+        return (options.client ?? client).delete<ralliesDeleteRallyResponses, ralliesDeleteRallyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies/{rally_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Edit Rally
+     *
+     * Set a rally's start and end. Reel pieces outside the new bounds (plus each
+     * reel's lead_in/lead_out) are trimmed.
+     */
+    public static editRally<ThrowOnError extends boolean = true>(options: Options<ralliesEditRallyData, ThrowOnError>) {
+        return (options.client ?? client).put<ralliesEditRallyResponses, ralliesEditRallyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies/{rally_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Split Rally
+     *
+     * Split a rally in two at `at` seconds. The first part keeps the id; the second
+     * is a new rally. Reel clips are split the same way.
+     */
+    public static splitRally<ThrowOnError extends boolean = true>(options: Options<ralliesSplitRallyData, ThrowOnError>) {
+        return (options.client ?? client).post<ralliesSplitRallyResponses, ralliesSplitRallyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies/{rally_id}/split',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Merge Rallies
+     *
+     * Merge two neighbouring rallies into one new rally (new id). Reel clips of
+     * either point at the new rally; back-to-back clips of the two become one.
+     */
+    public static mergeRallies<ThrowOnError extends boolean = true>(options: Options<ralliesMergeRalliesData, ThrowOnError>) {
+        return (options.client ?? client).post<ralliesMergeRalliesResponses, ralliesMergeRalliesErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies/merge',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+}
+
+export class ReelsService {
+    /**
+     * Read Video Reel
+     *
+     * The video's reel with its edit list.
+     */
+    public static readVideoReel<ThrowOnError extends boolean = true>(options: Options<reelsReadVideoReelData, ThrowOnError>) {
+        return (options.client ?? client).get<reelsReadVideoReelResponses, reelsReadVideoReelErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/reel',
+            ...options
+        });
+    }
+    
+    /**
+     * Save Video Reel
+     *
+     * Create or save the video's reel: replaces the title and the whole edit list
+     * (clips without pieces are dropped). Send `updated_at: null` to create it (201),
+     * or the `updated_at` you loaded to update it (200). If it isn't as you last saw it
+     * (it now exists, changed, or was deleted), nothing is saved: 409, reload.
+     * The reel belongs to the video's owner, also when a superuser saves it.
+     */
+    public static saveVideoReel<ThrowOnError extends boolean = true>(options: Options<reelsSaveVideoReelData, ThrowOnError>) {
+        return (options.client ?? client).put<reelsSaveVideoReelResponses, reelsSaveVideoReelErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/reel',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Read Reels
+     *
+     * Deprecated: use GET /videos/{id}/reel. The video's reel (at most one now).
+     *
+     * @deprecated
+     */
+    public static readReels<ThrowOnError extends boolean = true>(options: Options<reelsReadReelsData, ThrowOnError>) {
+        return (options.client ?? client).get<reelsReadReelsResponses, reelsReadReelsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/reels',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Reel
+     *
+     * Deprecated: use PUT /videos/{id}/reel. Get-or-create: creates the video's reel
+     * (201), or, if it already has one, returns that one unchanged (200; the body is
+     * ignored), so the old "make a highlight" flow opens the existing reel.
+     *
+     * @deprecated
+     */
+    public static createReel<ThrowOnError extends boolean = true>(options: Options<reelsCreateReelData, ThrowOnError>) {
+        return (options.client ?? client).post<reelsCreateReelResponses, reelsCreateReelErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/reels',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Reel
+     *
+     * Deprecated (no replacement yet). Delete a reel (soft); the video and its
+     * rallies are not affected. The video can then get a new reel.
+     *
+     * @deprecated
+     */
+    public static deleteReel<ThrowOnError extends boolean = true>(options: Options<reelsDeleteReelData, ThrowOnError>) {
+        return (options.client ?? client).delete<reelsDeleteReelResponses, reelsDeleteReelErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reels/{reel_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Reel
+     *
+     * Deprecated: use GET /videos/{id}/reel. Get a reel with its edit list.
+     *
+     * @deprecated
+     */
+    public static readReel<ThrowOnError extends boolean = true>(options: Options<reelsReadReelData, ThrowOnError>) {
+        return (options.client ?? client).get<reelsReadReelResponses, reelsReadReelErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reels/{reel_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Update Reel
+     *
+     * Deprecated: use PUT /videos/{id}/reel. Save a reel: replaces the title and the
+     * whole edit list. Send the `updated_at` you loaded; 409 if it was saved since.
+     *
+     * @deprecated
+     */
+    public static updateReel<ThrowOnError extends boolean = true>(options: Options<reelsUpdateReelData, ThrowOnError>) {
+        return (options.client ?? client).put<reelsUpdateReelResponses, reelsUpdateReelErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/reels/{reel_id}',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
     }
 }
 
@@ -465,6 +732,26 @@ export class PrivateService {
         return (options.client ?? client).post<privateCreateUserResponses, privateCreateUserErrors, ThrowOnError>({
             responseType: 'json',
             url: '/api/v1/private/users/',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Set Analysis
+     *
+     * Test fixture: finish a video as the worker would, with these rallies (and
+     * optionally a shuttle trajectory and the thumbnail strip), without running the ML
+     * pipeline. Goes through crud.finish_video like a real worker, so reel clips are
+     * re-linked the same way.
+     */
+    public static setAnalysis<ThrowOnError extends boolean = true>(options: Options<privateSetAnalysisData, ThrowOnError>) {
+        return (options.client ?? client).post<privateSetAnalysisResponses, privateSetAnalysisErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/private/videos/{id}/analysis',
             ...options,
             headers: {
                 'Content-Type': 'application/json',

@@ -79,11 +79,11 @@ export function previousSegment(
  * `null` = no rallies left (stop).
  */
 export function skipTarget(
-  segments: Segment[],
+  spans: { start: number; end: number }[],
   t: number,
 ): number | null | undefined {
-  if (segmentAt(segments, t)) return undefined
-  const next = segments.find((s) => s.start > t)
+  if (spans.some((s) => t >= s.start - EPSILON && t < s.end)) return undefined
+  const next = spans.find((s) => s.start > t)
   return next ? next.start : null
 }
 

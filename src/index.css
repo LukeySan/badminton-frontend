@@ -83,6 +83,7 @@
   --color-success-soft: var(--success-soft);
   --color-sheet: var(--sheet);
   --color-overlay: var(--overlay);
+  --color-letterbox: var(--letterbox);
 }
 
 /* Light */
@@ -130,6 +131,7 @@
   --success-soft: #c6f0d6;
   --sheet: #ffffff;
   --overlay: rgba(25, 25, 35, 0.45);
+  --letterbox: #000000;
 }
 
 /* Dark (the default: ThemeProvider) */
@@ -174,6 +176,7 @@
   --success-soft: rgba(57, 158, 90, 0.18);
   --sheet: #20202b;
   --overlay: rgba(25, 25, 35, 0.75);
+  --letterbox: #000000;
 }
 
 /* The desktop sidebar reuses the tokens above (no colors of its own). Declared for

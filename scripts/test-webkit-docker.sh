@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# WebKit (Safari's engine) tests on a Mac, in Linux WebKit inside Docker, like CI.
+# WebKit (Safari's engine) tests on a Mac (desktop Safari + iPhone projects), in Linux WebKit inside Docker, like CI.
 # Playwright's own macOS WebKit hangs opening pages on macOS 26.0 (Nov 2026).
 # Needs: the backend on :8000 (and Mailpit on :8025), Docker running.
 #   bun run test:webkit                       # whole suite
@@ -26,5 +26,5 @@ docker run --rm --ipc=host \
   -e PLAYWRIGHT_BASE_URL=http://localhost:5173 -e PW_WEBKIT=1 \
   "mcr.microsoft.com/playwright:v$PW_VERSION-noble" \
   sh -c 'node scripts/docker-forward.cjs & sleep 1;
-         node node_modules/@playwright/test/cli.js test --project=webkit \
+         node node_modules/@playwright/test/cli.js test --project=webkit --project=iphone \
            --output=/tmp/pw-results "$@"' -- "$@"

@@ -45,6 +45,24 @@ export type Body_videos_upload_video = {
 };
 
 /**
+ * Caption
+ */
+export type Caption = {
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+    /**
+     * Text
+     */
+    text: string;
+};
+
+/**
  * CourtUpdate
  */
 export type CourtUpdate = {
@@ -71,6 +89,24 @@ export type CourtUpdate = {
             number
         ]
     ];
+};
+
+/**
+ * ErrorCode
+ */
+export type ErrorCode = 'trajectory_missing' | 'reel_changed' | 'reel_missing' | 'thumbnails_missing';
+
+/**
+ * ErrorWithCode
+ *
+ * {"detail": "...", "code": "..."}: detail is for people, code for the app.
+ */
+export type ErrorWithCode = {
+    /**
+     * Detail
+     */
+    detail: string;
+    code: ErrorCode;
 };
 
 /**
@@ -163,6 +199,68 @@ export type NewPassword = {
 };
 
 /**
+ * Piece
+ */
+export type Piece = {
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+    /**
+     * Slow Mo
+     */
+    slow_mo?: boolean;
+};
+
+/**
+ * PrivateAnalysis
+ */
+export type PrivateAnalysis = {
+    /**
+     * Rallies
+     */
+    rallies: Array<[
+        number,
+        number
+    ]>;
+    trajectory?: PrivateTrajectory | null;
+    /**
+     * Thumbnails
+     *
+     * Make the thumbnail strip from the uploaded file (needs ffmpeg)
+     */
+    thumbnails?: boolean;
+};
+
+/**
+ * PrivateTrajectory
+ *
+ * The worker's trajectory file contents (see app/trajectory.py).
+ */
+export type PrivateTrajectory = {
+    /**
+     * Fps
+     */
+    fps: number;
+    /**
+     * Visible
+     */
+    visible: Array<number>;
+    /**
+     * X
+     */
+    x: Array<number | null>;
+    /**
+     * Y
+     */
+    y: Array<number | null>;
+};
+
+/**
  * PrivateUserCreate
  */
 export type PrivateUserCreate = {
@@ -199,6 +297,58 @@ export type RalliesPublic = {
 };
 
 /**
+ * RallyChange
+ *
+ * What a correction changed, so the app can update its list and tell the user
+ * (e.g. "Rally 5 split into 5 and 6; 1 reel updated").
+ */
+export type RallyChange = {
+    /**
+     * Added
+     */
+    added: Array<RallyPublic>;
+    /**
+     * Updated
+     *
+     * Rallies whose start/end changed
+     */
+    updated: Array<RallyPublic>;
+    /**
+     * Deleted
+     *
+     * Ids of rallies that no longer exist
+     */
+    deleted: Array<number>;
+    /**
+     * Rallies
+     *
+     * All the video's rallies after the change, numbered in time order
+     */
+    rallies: Array<RallyPublic>;
+    /**
+     * Reels
+     *
+     * Reels that had to be adjusted
+     */
+    reels: Array<ReelImpact>;
+};
+
+/**
+ * RallyMerge
+ */
+export type RallyMerge = {
+    /**
+     * Rally Ids
+     *
+     * Two rallies next to each other
+     */
+    rally_ids: [
+        number,
+        number
+    ];
+};
+
+/**
  * RallyPublic
  */
 export type RallyPublic = {
@@ -206,6 +356,12 @@ export type RallyPublic = {
      * Id
      */
     id: number;
+    /**
+     * Number
+     *
+     * 1, 2, 3... in time order; changes when rallies are added, split, merged or deleted before this one
+     */
+    number: number;
     /**
      * Start
      */
@@ -221,6 +377,286 @@ export type RallyPublic = {
 };
 
 /**
+ * RallySplit
+ */
+export type RallySplit = {
+    /**
+     * At
+     *
+     * Seconds; becomes the end of the first part and the start of the second
+     */
+    at: number;
+};
+
+/**
+ * RallyTimes
+ *
+ * Add a rally, or set an existing one's start/end (seconds).
+ */
+export type RallyTimes = {
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+};
+
+/**
+ * ReelClip
+ */
+export type ReelClip = {
+    /**
+     * Rally Id
+     *
+     * The rally this clip shows
+     */
+    rally_id: number;
+    /**
+     * Pieces
+     *
+     * The parts of the rally to show: sorted, not overlapping (they may touch, e.g. after a split), within the rally's bounds widened by the reel's lead_in/lead_out. A clip without pieces is dropped when saved.
+     */
+    pieces?: Array<Piece>;
+};
+
+/**
+ * ReelCreate
+ */
+export type ReelCreate = {
+    /**
+     * Title
+     */
+    title: string;
+    edit?: ReelEdit;
+};
+
+/**
+ * ReelEdit
+ *
+ * The edit list, stored as JSON. `version` changes when the format does; an
+ * Alembic migration converts stored reels, so the code only knows the current one.
+ * v2 (this): clips are rallies cut into pieces. v1 had one trim per clip.
+ */
+export type ReelEdit = {
+    /**
+     * Version
+     */
+    version?: 2;
+    /**
+     * View
+     */
+    view?: 'cut' | 'full';
+    /**
+     * Format
+     */
+    format?: '16:9' | '9:16';
+    /**
+     * Lead In
+     *
+     * Seconds a piece may start before its rally's detected start (0-3; the detector can be 1-2 s off)
+     */
+    lead_in?: number;
+    /**
+     * Lead Out
+     *
+     * Seconds a piece may end after its rally's detected end (0-3)
+     */
+    lead_out?: number;
+    /**
+     * Clips
+     *
+     * In reel order
+     */
+    clips?: Array<ReelClip>;
+    /**
+     * Restored Gaps
+     *
+     * Breaks between rallies shown again in cut view
+     */
+    restored_gaps?: Array<TimeRange>;
+    overlays?: ReelOverlays;
+};
+
+/**
+ * ReelImpact
+ *
+ * How a reel was adjusted to a rally change.
+ */
+export type ReelImpact = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Updated At
+     *
+     * New version: an open editor must reload
+     */
+    updated_at: string;
+    /**
+     * Clips Removed
+     *
+     * Clips dropped (their rally is gone, or nothing of them was left inside the new bounds)
+     */
+    clips_removed: number;
+    /**
+     * Pieces Trimmed
+     *
+     * Pieces cut back to the new bounds
+     */
+    pieces_trimmed: number;
+    /**
+     * Pieces Removed
+     *
+     * Pieces entirely outside the new bounds
+     */
+    pieces_removed: number;
+};
+
+/**
+ * ReelOverlays
+ */
+export type ReelOverlays = {
+    /**
+     * Trail
+     */
+    trail?: boolean;
+    /**
+     * Captions
+     */
+    captions?: Array<Caption>;
+};
+
+/**
+ * ReelPublic
+ */
+export type ReelPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Video Id
+     */
+    video_id: string;
+    /**
+     * Owner Id
+     */
+    owner_id: string;
+    /**
+     * Title
+     */
+    title: string;
+    edit: ReelEdit;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+};
+
+/**
+ * ReelSave
+ *
+ * PUT /videos/{id}/reel: create the video's reel, or replace its title and edit
+ * list.
+ */
+export type ReelSave = {
+    /**
+     * Title
+     */
+    title: string;
+    edit: ReelEdit;
+    /**
+     * Updated At
+     *
+     * null: create the reel (the video has none yet). Otherwise the reel's updated_at as you loaded it. If the reel changed since (saved, created or deleted elsewhere), nothing is saved: 409, code reel_changed
+     */
+    updated_at?: string | null;
+};
+
+/**
+ * ReelUpdate
+ *
+ * Full replace of the title and edit list.
+ */
+export type ReelUpdate = {
+    /**
+     * Title
+     */
+    title: string;
+    edit: ReelEdit;
+    /**
+     * Updated At
+     *
+     * The reel's updated_at as you loaded it. If it was saved elsewhere since then, the save is refused (409, code reel_changed)
+     */
+    updated_at: string;
+};
+
+/**
+ * ReelsPublic
+ */
+export type ReelsPublic = {
+    /**
+     * Data
+     */
+    data: Array<ReelPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
+ * ThumbnailUrls
+ *
+ * Signed links (12 h) to a video's thumbnail strip. The index says where each
+ * second's tile is: tile i (time i * interval) is in sheet i // (columns * rows),
+ * at column i % columns and row (i // columns) % rows.
+ */
+export type ThumbnailUrls = {
+    /**
+     * Index Url
+     */
+    index_url: string;
+    /**
+     * Sheet Urls
+     *
+     * In the order of the index's `sheets`
+     */
+    sheet_urls: Array<string>;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+};
+
+/**
+ * TimeRange
+ */
+export type TimeRange = {
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+};
+
+/**
  * Token
  */
 export type Token = {
@@ -232,6 +668,66 @@ export type Token = {
      * Token Type
      */
     token_type?: string;
+};
+
+/**
+ * TrajectoryPoint
+ */
+export type TrajectoryPoint = {
+    /**
+     * Frame
+     *
+     * Frame index; the frame is at frame / fps seconds
+     */
+    frame: number;
+    /**
+     * T
+     *
+     * Seconds in the original video (frame / fps)
+     */
+    t: number;
+    /**
+     * Visible
+     *
+     * Shuttle seen in this frame
+     */
+    visible: boolean;
+    /**
+     * X
+     *
+     * Fraction of the frame width; null if not seen
+     */
+    x: number | null;
+    /**
+     * Y
+     *
+     * Fraction of the frame height; null if not seen
+     */
+    y: number | null;
+};
+
+/**
+ * TrajectoryPublic
+ */
+export type TrajectoryPublic = {
+    /**
+     * Fps
+     */
+    fps: number;
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+    /**
+     * Points
+     *
+     * Every frame between start and end, in order
+     */
+    points: Array<TrajectoryPoint>;
 };
 
 /**
@@ -514,6 +1010,43 @@ export type RalliesPublicWritable = {
 };
 
 /**
+ * RallyChange
+ *
+ * What a correction changed, so the app can update its list and tell the user
+ * (e.g. "Rally 5 split into 5 and 6; 1 reel updated").
+ */
+export type RallyChangeWritable = {
+    /**
+     * Added
+     */
+    added: Array<RallyPublicWritable>;
+    /**
+     * Updated
+     *
+     * Rallies whose start/end changed
+     */
+    updated: Array<RallyPublicWritable>;
+    /**
+     * Deleted
+     *
+     * Ids of rallies that no longer exist
+     */
+    deleted: Array<number>;
+    /**
+     * Rallies
+     *
+     * All the video's rallies after the change, numbered in time order
+     */
+    rallies: Array<RallyPublicWritable>;
+    /**
+     * Reels
+     *
+     * Reels that had to be adjusted
+     */
+    reels: Array<ReelImpact>;
+};
+
+/**
  * RallyPublic
  */
 export type RallyPublicWritable = {
@@ -521,6 +1054,12 @@ export type RallyPublicWritable = {
      * Id
      */
     id: number;
+    /**
+     * Number
+     *
+     * 1, 2, 3... in time order; changes when rallies are added, split, merged or deleted before this one
+     */
+    number: number;
     /**
      * Start
      */
@@ -1349,6 +1888,89 @@ export type videosReadVideoRalliesResponses = {
 
 export type videosReadVideoRalliesResponse = videosReadVideoRalliesResponses[keyof videosReadVideoRalliesResponses];
 
+export type ralliesAddRallyData = {
+    body: RallyTimes;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/rallies';
+};
+
+export type ralliesAddRallyErrors = {
+    /**
+     * Video or rally not found
+     */
+    404: unknown;
+    /**
+     * The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours
+     */
+    409: unknown;
+    /**
+     * Invalid times (e.g. past the end of the video)
+     */
+    422: unknown;
+};
+
+export type ralliesAddRallyResponses = {
+    /**
+     * Successful Response
+     */
+    201: RallyChange;
+};
+
+export type ralliesAddRallyResponse = ralliesAddRallyResponses[keyof ralliesAddRallyResponses];
+
+export type videosReadVideoTrajectoryData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query: {
+        /**
+         * Start
+         *
+         * Seconds
+         */
+        start: number;
+        /**
+         * End
+         *
+         * Seconds
+         */
+        end: number;
+    };
+    url: '/api/v1/videos/{id}/trajectory';
+};
+
+export type videosReadVideoTrajectoryErrors = {
+    /**
+     * code `trajectory_missing`: the video was analyzed before trajectories were saved (or not analyzed yet); re-analyzing it adds one. A video that doesn't exist gives a plain 404 without a code.
+     */
+    404: ErrorWithCode;
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type videosReadVideoTrajectoryError = videosReadVideoTrajectoryErrors[keyof videosReadVideoTrajectoryErrors];
+
+export type videosReadVideoTrajectoryResponses = {
+    /**
+     * Successful Response
+     */
+    200: TrajectoryPublic;
+};
+
+export type videosReadVideoTrajectoryResponse = videosReadVideoTrajectoryResponses[keyof videosReadVideoTrajectoryResponses];
+
 export type videosReadVideoFileUrlData = {
     body?: never;
     path: {
@@ -1378,6 +2000,83 @@ export type videosReadVideoFileUrlResponses = {
 };
 
 export type videosReadVideoFileUrlResponse = videosReadVideoFileUrlResponses[keyof videosReadVideoFileUrlResponses];
+
+export type videosReadVideoThumbnailsUrlData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/thumbnails-url';
+};
+
+export type videosReadVideoThumbnailsUrlErrors = {
+    /**
+     * code `thumbnails_missing`: analyzed before thumbnails existed, or not analyzed yet (see the backfill command). A video that doesn't exist gives a plain 404 without a code.
+     */
+    404: ErrorWithCode;
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type videosReadVideoThumbnailsUrlError = videosReadVideoThumbnailsUrlErrors[keyof videosReadVideoThumbnailsUrlErrors];
+
+export type videosReadVideoThumbnailsUrlResponses = {
+    /**
+     * Successful Response
+     */
+    200: ThumbnailUrls;
+};
+
+export type videosReadVideoThumbnailsUrlResponse = videosReadVideoThumbnailsUrlResponses[keyof videosReadVideoThumbnailsUrlResponses];
+
+export type videosReadVideoThumbnailFileData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+        /**
+         * Name
+         */
+        name: string;
+    };
+    query: {
+        /**
+         * Token
+         *
+         * From GET /videos/{id}/thumbnails-url
+         */
+        token: string;
+    };
+    url: '/api/v1/videos/{id}/thumbnails/{name}';
+};
+
+export type videosReadVideoThumbnailFileErrors = {
+    /**
+     * Invalid or expired link
+     */
+    403: unknown;
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type videosReadVideoThumbnailFileError = videosReadVideoThumbnailFileErrors[keyof videosReadVideoThumbnailFileErrors];
+
+export type videosReadVideoThumbnailFileResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
 
 export type videosReadVideoFileData = {
     body?: never;
@@ -1414,6 +2113,399 @@ export type videosReadVideoFileResponses = {
     200: unknown;
 };
 
+export type ralliesDeleteRallyData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+        /**
+         * Rally Id
+         */
+        rally_id: number;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/rallies/{rally_id}';
+};
+
+export type ralliesDeleteRallyErrors = {
+    /**
+     * Video or rally not found
+     */
+    404: unknown;
+    /**
+     * The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours
+     */
+    409: unknown;
+    /**
+     * Invalid times (e.g. past the end of the video)
+     */
+    422: unknown;
+};
+
+export type ralliesDeleteRallyResponses = {
+    /**
+     * Successful Response
+     */
+    200: RallyChange;
+};
+
+export type ralliesDeleteRallyResponse = ralliesDeleteRallyResponses[keyof ralliesDeleteRallyResponses];
+
+export type ralliesEditRallyData = {
+    body: RallyTimes;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+        /**
+         * Rally Id
+         */
+        rally_id: number;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/rallies/{rally_id}';
+};
+
+export type ralliesEditRallyErrors = {
+    /**
+     * Video or rally not found
+     */
+    404: unknown;
+    /**
+     * The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours
+     */
+    409: unknown;
+    /**
+     * Invalid times (e.g. past the end of the video)
+     */
+    422: unknown;
+};
+
+export type ralliesEditRallyResponses = {
+    /**
+     * Successful Response
+     */
+    200: RallyChange;
+};
+
+export type ralliesEditRallyResponse = ralliesEditRallyResponses[keyof ralliesEditRallyResponses];
+
+export type ralliesSplitRallyData = {
+    body: RallySplit;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+        /**
+         * Rally Id
+         */
+        rally_id: number;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/rallies/{rally_id}/split';
+};
+
+export type ralliesSplitRallyErrors = {
+    /**
+     * Video or rally not found
+     */
+    404: unknown;
+    /**
+     * The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours
+     */
+    409: unknown;
+    /**
+     * Invalid times (e.g. past the end of the video)
+     */
+    422: unknown;
+};
+
+export type ralliesSplitRallyResponses = {
+    /**
+     * Successful Response
+     */
+    200: RallyChange;
+};
+
+export type ralliesSplitRallyResponse = ralliesSplitRallyResponses[keyof ralliesSplitRallyResponses];
+
+export type ralliesMergeRalliesData = {
+    body: RallyMerge;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/rallies/merge';
+};
+
+export type ralliesMergeRalliesErrors = {
+    /**
+     * Video or rally not found
+     */
+    404: unknown;
+    /**
+     * The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours
+     */
+    409: unknown;
+    /**
+     * Invalid times (e.g. past the end of the video)
+     */
+    422: unknown;
+};
+
+export type ralliesMergeRalliesResponses = {
+    /**
+     * Successful Response
+     */
+    200: RallyChange;
+};
+
+export type ralliesMergeRalliesResponse = ralliesMergeRalliesResponses[keyof ralliesMergeRalliesResponses];
+
+export type reelsReadVideoReelData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/reel';
+};
+
+export type reelsReadVideoReelErrors = {
+    /**
+     * code `reel_missing`: the video has no reel yet (create it with PUT). A video that doesn't exist gives a plain 404 without a code.
+     */
+    404: ErrorWithCode;
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reelsReadVideoReelError = reelsReadVideoReelErrors[keyof reelsReadVideoReelErrors];
+
+export type reelsReadVideoReelResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReelPublic;
+};
+
+export type reelsReadVideoReelResponse = reelsReadVideoReelResponses[keyof reelsReadVideoReelResponses];
+
+export type reelsSaveVideoReelData = {
+    body: ReelSave;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/reel';
+};
+
+export type reelsSaveVideoReelErrors = {
+    /**
+     * code `reel_changed`: saved, created or deleted elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.
+     */
+    409: ErrorWithCode;
+    /**
+     * Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. ["body", "edit", "clips", 2, "pieces", 0, "end"]
+     */
+    422: unknown;
+};
+
+export type reelsSaveVideoReelError = reelsSaveVideoReelErrors[keyof reelsSaveVideoReelErrors];
+
+export type reelsSaveVideoReelResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReelPublic;
+    /**
+     * Created (updated_at was null)
+     */
+    201: ReelPublic;
+};
+
+export type reelsSaveVideoReelResponse = reelsSaveVideoReelResponses[keyof reelsSaveVideoReelResponses];
+
+export type reelsReadReelsData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: {
+        /**
+         * Skip
+         */
+        skip?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/api/v1/videos/{id}/reels';
+};
+
+export type reelsReadReelsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reelsReadReelsError = reelsReadReelsErrors[keyof reelsReadReelsErrors];
+
+export type reelsReadReelsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReelsPublic;
+};
+
+export type reelsReadReelsResponse = reelsReadReelsResponses[keyof reelsReadReelsResponses];
+
+export type reelsCreateReelData = {
+    body: ReelCreate;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/reels';
+};
+
+export type reelsCreateReelErrors = {
+    /**
+     * Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. ["body", "edit", "clips", 2, "pieces", 0, "end"]
+     */
+    422: unknown;
+};
+
+export type reelsCreateReelResponses = {
+    /**
+     * The video's existing reel
+     */
+    200: ReelPublic;
+    /**
+     * Successful Response
+     */
+    201: ReelPublic;
+};
+
+export type reelsCreateReelResponse = reelsCreateReelResponses[keyof reelsCreateReelResponses];
+
+export type reelsDeleteReelData = {
+    body?: never;
+    path: {
+        /**
+         * Reel Id
+         */
+        reel_id: string;
+    };
+    query?: never;
+    url: '/api/v1/reels/{reel_id}';
+};
+
+export type reelsDeleteReelErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reelsDeleteReelError = reelsDeleteReelErrors[keyof reelsDeleteReelErrors];
+
+export type reelsDeleteReelResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type reelsDeleteReelResponse = reelsDeleteReelResponses[keyof reelsDeleteReelResponses];
+
+export type reelsReadReelData = {
+    body?: never;
+    path: {
+        /**
+         * Reel Id
+         */
+        reel_id: string;
+    };
+    query?: never;
+    url: '/api/v1/reels/{reel_id}';
+};
+
+export type reelsReadReelErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type reelsReadReelError = reelsReadReelErrors[keyof reelsReadReelErrors];
+
+export type reelsReadReelResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReelPublic;
+};
+
+export type reelsReadReelResponse = reelsReadReelResponses[keyof reelsReadReelResponses];
+
+export type reelsUpdateReelData = {
+    body: ReelUpdate;
+    path: {
+        /**
+         * Reel Id
+         */
+        reel_id: string;
+    };
+    query?: never;
+    url: '/api/v1/reels/{reel_id}';
+};
+
+export type reelsUpdateReelErrors = {
+    /**
+     * code `reel_changed`: saved, created or deleted elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.
+     */
+    409: ErrorWithCode;
+    /**
+     * Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. ["body", "edit", "clips", 2, "pieces", 0, "end"]
+     */
+    422: unknown;
+};
+
+export type reelsUpdateReelError = reelsUpdateReelErrors[keyof reelsUpdateReelErrors];
+
+export type reelsUpdateReelResponses = {
+    /**
+     * Successful Response
+     */
+    200: ReelPublic;
+};
+
+export type reelsUpdateReelResponse = reelsUpdateReelResponses[keyof reelsUpdateReelResponses];
+
 export type privateCreateUserData = {
     body: PrivateUserCreate;
     path?: never;
@@ -1438,3 +2530,33 @@ export type privateCreateUserResponses = {
 };
 
 export type privateCreateUserResponse = privateCreateUserResponses[keyof privateCreateUserResponses];
+
+export type privateSetAnalysisData = {
+    body: PrivateAnalysis;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/private/videos/{id}/analysis';
+};
+
+export type privateSetAnalysisErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type privateSetAnalysisError = privateSetAnalysisErrors[keyof privateSetAnalysisErrors];
+
+export type privateSetAnalysisResponses = {
+    /**
+     * Successful Response
+     */
+    200: VideoPublic;
+};
+
+export type privateSetAnalysisResponse = privateSetAnalysisResponses[keyof privateSetAnalysisResponses];

@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Editor · Highlights</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#101017}
+button{font-family:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.noscroll::-webkit-scrollbar{display:none}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; box-sizing: border-box; display: flex; flex-direction: column; background: #191923; color: #DEFFF2; font-family: Manrope, system-ui, sans-serif; overflow: hidden">
+
+  <header style="display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 4px; height: 56px; box-sizing: border-box; flex-shrink: 0">
+    <button aria-label="Back to video" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: transparent; border: none; color: #DEFFF2; border-radius: 12px">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg>
+    </button>
+    <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+      <span style="font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">Saturday doubles</span>
+      <span style="font-size: 12px; color: #9DB8AC; font-variant-numeric: tabular-nums">Highlight reel · {{pickedCount}} rallies · {{reelLen}}</span>
+    </div>
+    <button style="height: 38px; padding: 0 16px; border: none; border-radius: 12px; background: #399E5A; color: #191923; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 6px">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="M7 8l5-5 5 5"></path><path d="M5 14v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5"></path></svg>
+      Export
+    </button>
+  </header>
+
+  <div style="position: relative; width: 390px; height: 219px; background: #0B0B10; flex-shrink: 0; overflow: hidden">
+    <div style="{{frameStyle}}">
+      <svg width="390" height="219" viewBox="0 0 390 219" fill="none" stroke="#399E5A" stroke-width="2" aria-hidden="true" style="position: absolute; left: 50%; top: 0; margin-left: -195px; background: #03440C">
+        <path d="M128 52 L262 52 L366 206 L24 206 Z"></path>
+        <path d="M100 110 L290 110"></path>
+        <path d="M195 52 L195 206"></path>
+        <path d="M86 120 L304 120" stroke="#DEFFF2" stroke-width="3"></path>
+        <sc-if value="{{trail}}" hint-placeholder-val="{{ true }}">
+          <g stroke-linecap="round" stroke-linejoin="round" fill="none">
+            <path d="M150 178 Q 182 40 228 70" stroke="#DEFFF2" stroke-opacity="0.12" stroke-width="12"></path>
+            <path d="M150 178 Q 182 40 228 70" stroke="#DEFFF2" stroke-opacity="0.25" stroke-width="6"></path>
+            <path d="M178 95 Q 200 52 228 70" stroke="#DEFFF2" stroke-width="3"></path>
+            <circle cx="228" cy="70" r="5" fill="#DEFFF2" stroke="#FF3366" stroke-width="2"></circle>
+          </g>
+        </sc-if>
+      </svg>
+      <div style="position: absolute; left: 10px; top: 10px; padding: 3px 9px; border-radius: 8px; background: #FF3366; color: #191923; font-size: 12px; font-weight: 800">Rally {{curRally}}</div>
+      <sc-if value="{{slowOn}}" hint-placeholder-val="{{ false }}">
+        <div style="position: absolute; right: 10px; top: 10px; padding: 3px 9px; border-radius: 8px; background: rgba(25,25,35,0.85); color: #DEFFF2; font-size: 12px; font-weight: 800">Slow-mo</div>
+      </sc-if>
+      <sc-if value="{{textOn}}" hint-placeholder-val="{{ true }}">
+        <div style="position: absolute; left: 0; right: 0; bottom: 46px; display: flex; justify-content: center">
+          <span style="padding: 4px 10px; border-radius: 8px; background: rgba(25,25,35,0.75); color: #DEFFF2; font-size: 14px; font-weight: 800">Longest rally of the night</span>
+        </div>
+      </sc-if>
+    </div>
+    <sc-if value="{{pillToggle}}" hint-placeholder-val="{{ true }}">
+      <button role="switch" aria-checked="{{skipAria}}" aria-label="Skip breaks" onClick="{{toggleSkip}}" style="position: absolute; right: 6px; bottom: 4px; height: 44px; padding: 0 6px; border: none; background: transparent; display: flex; align-items: center">
+        <sc-if value="{{skip}}" hint-placeholder-val="{{ true }}">
+          <span style="height: 30px; padding: 0 12px; border-radius: 999px; background: #399E5A; color: #191923; display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; white-space: nowrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l4 4L19 7"></path></svg>
+            Skipping breaks
+          </span>
+        </sc-if>
+        <sc-if value="{{noSkip}}" hint-placeholder-val="{{ false }}">
+          <span style="height: 30px; padding: 0 12px; border-radius: 999px; border: 1px solid rgba(222,255,242,0.35); background: rgba(25,25,35,0.8); color: #DEFFF2; display: flex; align-items: center; font-size: 12px; font-weight: 700; white-space: nowrap">Skip breaks</span>
+        </sc-if>
+      </button>
+    </sc-if>
+    <sc-if value="{{pillCut}}" hint-placeholder-val="{{ false }}">
+      <span style="position: absolute; right: 12px; bottom: 11px; height: 30px; padding: 0 12px; border-radius: 999px; background: rgba(25,25,35,0.8); border: 1px solid rgba(57,158,90,0.6); color: #7FD69B; display: flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; white-space: nowrap; box-sizing: border-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l4 4L19 7"></path></svg>
+        Breaks cut
+      </span>
+    </sc-if>
+  </div>
+
+  <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; padding: 4px 6px 0 16px; height: 48px; flex-shrink: 0">
+    <span style="font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap">{{nowAt}}<span style="color: #9DB8AC"> / {{reelLen}}</span></span>
+    <button aria-label="Play" style="width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: none; background: transparent; color: #DEFFF2">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+    </button>
+    <div style="display: flex; justify-content: flex-end; align-items: center">
+      <button aria-label="Undo" style="width: 36px; height: 44px; border: none; background: transparent; color: #DEFFF2; display: flex; align-items: center; justify-content: center">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14L4 9l5-5"></path><path d="M4 9h11a5 5 0 0 1 0 10h-3"></path></svg>
+      </button>
+      <button aria-label="Redo" style="width: 36px; height: 44px; border: none; background: transparent; color: #5E6E67; display: flex; align-items: center; justify-content: center">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 14l5-5-5-5"></path><path d="M20 9H9a5 5 0 0 0 0 10h3"></path></svg>
+      </button>
+      <button aria-label="Change format" onClick="{{toggleFormat}}" style="height: 44px; padding: 0 4px 0 6px; border: none; background: transparent; display: flex; align-items: center">
+        <span style="height: 26px; padding: 0 8px; border-radius: 8px; border: 1px solid #34343F; color: #DEFFF2; font-size: 12px; font-weight: 800; display: flex; align-items: center">{{formatLabel}}</span>
+      </button>
+      <button aria-label="Fullscreen" onClick="{{openFs}}" style="width: 40px; height: 44px; border: none; background: transparent; color: #DEFFF2; display: flex; align-items: center; justify-content: center">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg>
+      </button>
+    </div>
+  </div>
+
+  <div style="padding: 2px 16px 10px; flex-shrink: 0">
+    <div role="tablist" aria-label="Editor mode" style="display: grid; grid-template-columns: 1fr 1fr; padding: 3px; border-radius: 12px; background: #23232F">
+      <sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+        <sc-if value="{{m.on}}" hint-placeholder-val="{{ false }}">
+          <button role="tab" aria-selected="true" onClick="{{m.pick}}" style="height: 34px; border: none; border-radius: 9px; background: #DEFFF2; color: #191923; font-size: 13px; font-weight: 800">{{m.label}}</button>
+        </sc-if>
+        <sc-if value="{{m.off}}" hint-placeholder-val="{{ true }}">
+          <button role="tab" aria-selected="false" onClick="{{m.pick}}" style="height: 34px; border: none; border-radius: 9px; background: transparent; color: #9DB8AC; font-size: 13px; font-weight: 700">{{m.label}}</button>
+        </sc-if>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- HIGHLIGHTS MODE -->
+  <sc-if value="{{isList}}" hint-placeholder-val="{{ true }}">
+    <div style="flex: 1; min-height: 0; display: flex; flex-direction: column">
+      <div style="display: flex; gap: 6px; padding: 0 16px 8px">
+        <sc-for list="{{filters}}" as="f" hint-placeholder-count="3">
+          <sc-if value="{{f.on}}" hint-placeholder-val="{{ false }}">
+            <button aria-pressed="true" onClick="{{f.pick}}" style="height: 30px; padding: 0 12px; border: none; border-radius: 999px; background: #DEFFF2; color: #191923; font-size: 12px; font-weight: 800">{{f.label}}</button>
+          </sc-if>
+          <sc-if value="{{f.off}}" hint-placeholder-val="{{ true }}">
+            <button aria-pressed="false" onClick="{{f.pick}}" style="height: 30px; padding: 0 12px; border: 1px solid #34343F; border-radius: 999px; background: transparent; color: #9DB8AC; font-size: 12px; font-weight: 600">{{f.label}}</button>
+          </sc-if>
+        </sc-for>
+        <button onClick="{{addRally}}" style="margin-left: auto; height: 30px; padding: 0 10px; border: 1px dashed #5E6E67; border-radius: 999px; background: transparent; color: #DEFFF2; font-size: 12px; font-weight: 700; white-space: nowrap">+ Missed rally</button>
+      </div>
+      <div class="noscroll" style="flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 8px; display: flex; flex-direction: column; gap: 2px">
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="6">
+          <div style="{{r.style}}">
+            <button role="checkbox" aria-checked="{{r.aria}}" aria-label="{{r.checkLabel}}" onClick="{{r.toggle}}" style="width: 44px; height: 52px; flex-shrink: 0; border: none; background: transparent; display: flex; align-items: center; justify-content: center">
+              <sc-if value="{{r.picked}}" hint-placeholder-val="{{ true }}">
+                <span style="width: 24px; height: 24px; border-radius: 999px; background: #399E5A; color: #191923; display: flex; align-items: center; justify-content: center">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l4 4L19 7"></path></svg>
+                </span>
+              </sc-if>
+              <sc-if value="{{r.unpicked}}" hint-placeholder-val="{{ false }}">
+                <span style="width: 22px; height: 22px; border-radius: 999px; border: 2px solid #5E6E67"></span>
+              </sc-if>
+            </button>
+            <button onClick="{{r.go}}" style="flex: 1; min-width: 0; height: 56px; border: none; background: transparent; color: #DEFFF2; display: flex; align-items: center; gap: 10px; padding: 0 8px 0 0; text-align: left">
+              <span style="position: relative; width: 72px; height: 40px; border-radius: 8px; overflow: hidden; background: #03440C; flex-shrink: 0; display: block">
+                <svg width="72" height="40" viewBox="0 0 72 40" fill="none" stroke="#399E5A" stroke-width="1" aria-hidden="true"><path d="M24 9 L48 9 L68 37 L4 37 Z"></path><path d="M18 20 L54 20" stroke="#DEFFF2"></path></svg>
+                <span style="position: absolute; right: 3px; bottom: 3px; padding: 0 4px; border-radius: 4px; background: rgba(25,25,35,0.85); font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums">{{r.len}}</span>
+              </span>
+              <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px">
+                <span style="font-size: 14px; font-weight: 700">Rally {{r.n}}</span>
+                <span style="font-size: 12px; color: #9DB8AC; font-variant-numeric: tabular-nums">at {{r.at}}<sc-if value="{{r.trimmed}}" hint-placeholder-val="{{ false }}"> · <span style="color: #7FD69B">{{r.trimText}}</span></sc-if></span>
+              </span>
+              <sc-if value="{{r.longest}}" hint-placeholder-val="{{ false }}">
+                <span style="height: 22px; padding: 0 8px; border-radius: 999px; background: rgba(57,158,90,0.18); color: #7FD69B; display: flex; align-items: center; font-size: 11px; font-weight: 800; white-space: nowrap">Longest</span>
+              </sc-if>
+              <sc-if value="{{r.playing}}" hint-placeholder-val="{{ false }}">
+                <span style="height: 22px; padding: 0 8px; border-radius: 999px; background: rgba(255,51,102,0.16); color: #FF8FAB; display: flex; align-items: center; font-size: 11px; font-weight: 800; white-space: nowrap">Playing</span>
+              </sc-if>
+            </button>
+            <button aria-label="{{r.menuLabel}}" aria-expanded="{{r.menuAria}}" onClick="{{r.openMenu}}" style="width: 40px; height: 52px; flex-shrink: 0; border: none; background: transparent; color: #9DB8AC; display: flex; align-items: center; justify-content: center">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+            </button>
+          </div>
+          <sc-if value="{{r.menuOpen}}" hint-placeholder-val="{{ false }}">
+            <div role="menu" style="margin: 2px 8px 8px 52px; padding: 6px; border-radius: 14px; background: #23232F; box-shadow: 0 8px 24px rgba(0,0,0,0.4)">
+              <sc-for list="{{r.fixes}}" as="f" hint-placeholder-count="4">
+                <button role="menuitem" onClick="{{f.pick}}" style="{{f.style}}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{f.icon}}"></path></svg>
+                  {{f.label}}
+                </button>
+              </sc-for>
+              <p style="margin: 4px 12px 6px; font-size: 11px; color: #9DB8AC; line-height: 1.35">Fixes change this rally everywhere, including the player's chapters. To shorten it just for this reel, use Cut in Edit mode.</p>
+            </div>
+          </sc-if>
+        </sc-for>
+      </div>
+      <div style="flex-shrink: 0; display: flex; align-items: center; gap: 12px; padding: 10px 16px 22px; border-top: 1px solid #2A2A36">
+        <div style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+          <span style="font-size: 14px; font-weight: 800">{{pickedCount}} picked</span>
+          <span style="font-size: 12px; color: #9DB8AC; font-variant-numeric: tabular-nums">{{reelLen}} reel</span>
+        </div>
+        <button onClick="{{goEdit}}" style="height: 44px; padding: 0 18px; border: none; border-radius: 12px; background: #DEFFF2; color: #191923; font-size: 14px; font-weight: 800; display: flex; align-items: center; gap: 6px">
+          Edit reel
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"></path></svg>
+        </button>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- EDIT MODE -->
+  <sc-if value="{{isEdit}}" hint-placeholder-val="{{ false }}">
+    <div style="flex: 1; min-height: 0; display: flex; flex-direction: column">
+      <div style="flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding: 0 16px 8px">
+        <div role="radiogroup" aria-label="What the reel keeps" style="display: flex; padding: 2px; border-radius: 10px; border: 1px solid #34343F">
+          <sc-for list="{{views}}" as="v" hint-placeholder-count="2">
+            <sc-if value="{{v.on}}" hint-placeholder-val="{{ false }}">
+              <button role="radio" aria-checked="true" onClick="{{v.pick}}" style="height: 28px; padding: 0 10px; border: none; border-radius: 8px; background: #399E5A; color: #191923; font-size: 12px; font-weight: 800; white-space: nowrap">{{v.label}}</button>
+            </sc-if>
+            <sc-if value="{{v.off}}" hint-placeholder-val="{{ true }}">
+              <button role="radio" aria-checked="false" onClick="{{v.pick}}" style="height: 28px; padding: 0 10px; border: none; border-radius: 8px; background: transparent; color: #9DB8AC; font-size: 12px; font-weight: 700; white-space: nowrap">{{v.label}}</button>
+            </sc-if>
+          </sc-for>
+        </div>
+        <span style="flex: 1; min-width: 0; font-size: 11px; color: #9DB8AC; line-height: 1.3">{{viewHint}}</span>
+      </div>
+      <div style="position: relative; flex: 1; min-height: 0; overflow: hidden">
+        <div style="{{trackShift}}">
+          <div style="position: relative; height: 20px">
+            <sc-for list="{{ticks}}" as="t" hint-placeholder-count="12">
+              <span style="{{t.style}}">{{t.label}}</span>
+            </sc-for>
+          </div>
+          <div style="display: flex; gap: 2px; height: 60px; margin-top: 4px">
+            <sc-for list="{{clips}}" as="c" hint-placeholder-count="6">
+              <button onClick="{{c.pick}}" aria-label="{{c.label}}" style="{{c.style}}">
+                <sc-if value="{{c.isSliver}}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #9DB8AC; font-size: 10px; font-weight: 800; font-variant-numeric: tabular-nums">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"></path></svg>
+                    {{c.len}}
+                  </span>
+                </sc-if>
+                <sc-if value="{{c.isBreak}}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; left: 6px; top: 5px; color: #7C8C85; font-size: 10px; font-weight: 700; white-space: nowrap">{{c.text}}</span>
+                </sc-if>
+                <sc-if value="{{c.isMuted}}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; left: 6px; top: 5px; color: #9DB8AC; font-size: 10px; font-weight: 800; white-space: nowrap">{{c.text}}</span>
+                  <span style="position: absolute; left: 6px; bottom: 5px; color: #9DB8AC; font-size: 10px; font-weight: 700; white-space: nowrap">+ add</span>
+                </sc-if>
+                <sc-if value="{{c.isClip}}" hint-placeholder-val="{{ true }}">
+                                <span style="position: absolute; left: 6px; top: 5px; padding: 1px 5px; border-radius: 5px; background: rgba(25,25,35,0.85); color: #DEFFF2; font-size: 10px; font-weight: 800; white-space: nowrap">{{c.tag}} · {{c.len}}</span>
+                </sc-if>
+                <sc-if value="{{c.slow}}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; left: 6px; bottom: 5px; padding: 1px 5px; border-radius: 5px; background: #DEFFF2; color: #191923; font-size: 10px; font-weight: 800">Slow-mo</span>
+                </sc-if>
+                <sc-if value="{{c.sel}}" hint-placeholder-val="{{ false }}">
+                  <span style="position: absolute; left: 0; top: 0; bottom: 0; width: 12px; background: #FF3366; display: flex; align-items: center; justify-content: center"><span style="width: 2px; height: 18px; border-radius: 1px; background: #191923"></span></span>
+                  <span style="position: absolute; right: 0; top: 0; bottom: 0; width: 12px; background: #FF3366; display: flex; align-items: center; justify-content: center"><span style="width: 2px; height: 18px; border-radius: 1px; background: #191923"></span></span>
+                </sc-if>
+              </button>
+            </sc-for>
+          </div>
+          <sc-if value="{{trail}}" hint-placeholder-val="{{ true }}">
+            <div style="{{trailBar}}">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M3 19 Q 9 3 21 7"></path></svg>
+              Shuttle trail
+            </div>
+          </sc-if>
+          <sc-if value="{{textOn}}" hint-placeholder-val="{{ true }}">
+            <div style="{{textBar}}">
+              <span style="font-weight: 800">Aa</span> Longest rally of the night
+            </div>
+          </sc-if>
+          <div style="{{soundBar}}">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 18V5l12-2v13" fill="none" stroke="currentColor" stroke-width="2.2"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg>
+            Add sound
+          </div>
+        </div>
+        <div style="position: absolute; left: 194px; top: 22px; bottom: 8px; width: 2px; border-radius: 1px; background: #DEFFF2; box-shadow: 0 0 0 1px #191923; pointer-events: none"></div>
+        <div style="position: absolute; left: 195px; top: 2px; transform: translateX(-50%); padding: 1px 7px; border-radius: 6px; background: #DEFFF2; color: #191923; font-size: 11px; font-weight: 800; font-variant-numeric: tabular-nums; pointer-events: none; white-space: nowrap">{{nowAt}}</div>
+      </div>
+      <div style="flex-shrink: 0; min-height: 34px; padding: 2px 16px; display: flex; align-items: center; font-size: 12px; color: #9DB8AC">
+        <span style="line-height: 1.3">{{hint}}</span>
+      </div>
+      <div class="noscroll" style="flex-shrink: 0; display: flex; gap: 8px; overflow-x: auto; padding: 4px 12px 22px; border-top: 1px solid #2A2A36">
+        <sc-for list="{{tools}}" as="t" hint-placeholder-count="7">
+          <button aria-pressed="{{t.aria}}" onClick="{{t.pick}}" style="{{t.style}}">
+            <span style="width: 22px; height: 22px; display: flex; align-items: center; justify-content: center">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{t.icon}}"></path></svg>
+            </span>
+            {{t.label}}
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+  <sc-if value="{{fs}}" hint-placeholder-val="{{ false }}">
+    <div style="position: absolute; inset: 0; background: #000; z-index: 10; overflow: hidden">
+      <div style="position: absolute; left: 50%; top: 50%; width: 844px; height: 390px; margin-left: -422px; margin-top: -195px; transform: rotate(90deg); background: #03440C; overflow: hidden">
+        <svg width="844" height="390" viewBox="0 0 390 219" preserveAspectRatio="xMidYMid slice" fill="none" stroke="#399E5A" stroke-width="1.6" aria-hidden="true" style="position: absolute; inset: 0">
+          <path d="M128 52 L262 52 L366 206 L24 206 Z"></path><path d="M100 110 L290 110"></path><path d="M195 52 L195 206"></path><path d="M86 120 L304 120" stroke="#DEFFF2" stroke-width="2.4"></path>
+          <sc-if value="{{trail}}" hint-placeholder-val="{{ true }}">
+            <g stroke-linecap="round" fill="none"><path d="M150 178 Q 182 40 228 70" stroke="#DEFFF2" stroke-opacity="0.18" stroke-width="8"></path><path d="M178 95 Q 200 52 228 70" stroke="#DEFFF2" stroke-width="2.4"></path><circle cx="228" cy="70" r="4" fill="#DEFFF2" stroke="#FF3366" stroke-width="1.6"></circle></g>
+          </sc-if>
+        </svg>
+        <div style="position: absolute; left: 0; right: 0; top: 0; height: 64px; background: linear-gradient(180deg, rgba(0,0,0,0.55), transparent); display: flex; align-items: center; gap: 10px; padding: 0 16px">
+          <button aria-label="Exit fullscreen" onClick="{{closeFs}}" style="width: 44px; height: 44px; border: none; border-radius: 12px; background: rgba(25,25,35,0.7); color: #DEFFF2; display: flex; align-items: center; justify-content: center">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"></path></svg>
+          </button>
+          <span style="padding: 3px 9px; border-radius: 8px; background: #FF3366; color: #191923; font-size: 13px; font-weight: 800">Rally {{curRally}}</span>
+        </div>
+        <div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 30px 16px 14px; background: linear-gradient(0deg, rgba(0,0,0,0.65), transparent)">
+          <div style="position: relative; height: 8px; border-radius: 4px; background: rgba(222,255,242,0.2); margin-bottom: 8px">
+            <sc-for list="{{fsChapters}}" as="c" hint-placeholder-count="6"><div style="{{c}}"></div></sc-for>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px">
+            <button aria-label="Play" style="width: 44px; height: 44px; border: none; background: transparent; color: #DEFFF2; display: flex; align-items: center; justify-content: center">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"></path></svg>
+            </button>
+            <span style="flex: 1; font-size: 13px; color: #DEFFF2; font-variant-numeric: tabular-nums">{{nowAt}}<span style="color: #9DB8AC"> / {{reelLen}}</span></span>
+            <sc-if value="{{pillToggle}}" hint-placeholder-val="{{ true }}">
+              <button role="switch" aria-checked="{{skipAria}}" aria-label="Skip breaks" onClick="{{toggleSkip}}" style="{{fsPill}}">{{fsPillText}}</button>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { mode: 'list', filter: 'all', picked: { 3: 1, 12: 1, 19: 1, 27: 1, 41: 1, 58: 1 }, segs: { 19: [[0, 3], [5, 9]] }, current: 19, sel: { n: 19, i: 1 }, ph: 1.5, trail: false, text: true, slow: {}, vertical: false, view: 'cut', restored: {}, skip: true, fs: false, menu: 0, removed: {}, loop: false };
+  }
+  renderVals() {
+    var self = this, st = this.state;
+    var PX = 6;
+    var all = [
+      { n: 3, at: '1:12', s: 21 }, { n: 7, at: '3:40', s: 6 }, { n: 12, at: '5:02', s: 18 },
+      { n: 15, at: '6:15', s: 11 }, { n: 19, at: '7:48', s: 9 }, { n: 22, at: '8:57', s: 4 },
+      { n: 27, at: '10:31', s: 31 }, { n: 33, at: '12:20', s: 7 }, { n: 41, at: '14:46', s: 14 },
+      { n: 46, at: '16:02', s: 12 }, { n: 58, at: '18:35', s: 15 }, { n: 64, at: '19:50', s: 8 }
+    ].filter(function (r) { return !st.removed[r.n]; });
+    function fmt(s) { s = Math.round(s * 10) / 10; var m = Math.floor(s / 60), r = s - m * 60, w = Math.floor(r), f = Math.round((r - w) * 10); return m + ':' + (w < 10 ? '0' : '') + w + (f ? '.' + f : ''); }
+    function fmtW(s) { s = Math.round(s); var m = Math.floor(s / 60), r = s % 60; return m + ':' + (r < 10 ? '0' : '') + r; }
+    function sec(a) { var p = a.split(':'); return (+p[0]) * 60 + (+p[1]); }
+    function segsOf(r) { return st.segs[r.n] || [[0, r.s]]; }
+    function keepLen(r) { return segsOf(r).reduce(function (a, p) { return a + p[1] - p[0]; }, 0); }
+    function setSegs(n, arr, extra) { var s = Object.assign({}, st.segs); s[n] = arr; self.setState(Object.assign({ segs: s }, extra || {})); }
+    var longestN = 27;
+    var picked = all.filter(function (r) { return st.picked[r.n]; });
+
+    // ---------- Highlights mode ----------
+    var list = all.filter(function (r) {
+      if (st.filter === 'picked') return st.picked[r.n];
+      if (st.filter === 'long') return r.s >= 12;
+      return true;
+    });
+    if (st.filter === 'long') list = list.slice().sort(function (a, b) { return b.s - a.s; });
+    var rows = list.map(function (r) {
+      var on = !!st.picked[r.n], cur = r.n === st.current, open = st.menu === r.n;
+      var kl = keepLen(r), trimmed = on && kl < r.s;
+      return {
+        n: r.n, at: r.at, len: fmtW(r.s), checkLabel: 'Add rally ' + r.n + ' to the reel', picked: on, unpicked: !on, aria: on ? 'true' : 'false',
+        longest: r.n === longestN && !cur, playing: cur, trimmed: trimmed, trimText: fmt(kl) + ' kept',
+        menuOpen: open, menuAria: open ? 'true' : 'false', menuLabel: 'Fix rally ' + r.n,
+        style: 'display:flex;align-items:center;border-radius:14px;' + (cur ? 'background:#23232F;box-shadow:inset 0 0 0 2px #FF3366;' : ''),
+        toggle: function () { var p = Object.assign({}, st.picked); if (p[r.n]) delete p[r.n]; else p[r.n] = 1; self.setState({ picked: p }); },
+        go: function () { self.setState({ current: r.n, sel: { n: r.n, i: 0 }, menu: 0 }); },
+        openMenu: function () { self.setState({ menu: open ? 0 : r.n }); },
+        fixes: [
+          { label: 'Fix start and end', icon: 'M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4', danger: false },
+          { label: 'Split into two rallies', icon: 'M12 3v18M7 8l-4 4 4 4M17 8l4 4-4 4', danger: false },
+          { label: 'Merge with next rally', icon: 'M4 7h6l4 5-4 5H4M20 12h-6', danger: false },
+          { label: 'Not a rally, delete it', icon: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3', danger: true }
+        ].map(function (f, k) {
+          return { label: f.label, icon: f.icon,
+            style: 'width:100%;height:44px;border:none;background:transparent;display:flex;align-items:center;gap:10px;padding:0 12px;font-size:13px;font-weight:700;text-align:left;border-radius:10px;color:' + (f.danger ? '#FF8FAB' : '#DEFFF2'),
+            pick: function () {
+              if (k === 3) { var rm = Object.assign({}, st.removed); rm[r.n] = 1; var p = Object.assign({}, st.picked); delete p[r.n]; self.setState({ removed: rm, picked: p, menu: 0 }); }
+              else self.setState({ menu: 0 });
+            } };
+        })
+      };
+    });
+
+    // ---------- Timeline ----------
+    var full = st.view === 'full';
+    var BASE = 'position:relative;flex-shrink:0;height:60px;border:none;padding:0;border-radius:8px;overflow:hidden;';
+    var THUMB = "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='60'><rect width='40' height='60' fill='%2303440C'/><path d='M13 14 L27 14 L38 56 L2 56 Z' fill='none' stroke='%23399E5A' stroke-width='1'/><path d='M7 33 L33 33' stroke='%23DEFFF2' stroke-width='1.2'/><circle cx='15' cy='46' r='2.4' fill='%23DEFFF2'/><circle cx='24' cy='22' r='1.8' fill='%239DB8AC'/></svg>\")";
+    var items = [], region = [], prevEnd = null, lastKey = 'lead';
+    function flush(key) {
+      if (!region.length) return;
+      if (full || st.restored[key]) region.forEach(function (it) { items.push(it); });
+      else {
+        var d = region.reduce(function (a, it) { return a + it.d; }, 0);
+        items.push({ kind: 'sliver', d: 0, w: 40, label: 'Show ' + fmtW(d) + ' of hidden footage', text: fmtW(d),
+          style: BASE + 'width:40px;background:#1F1F29;box-shadow:inset 0 0 0 1px #5E6E67;',
+          pick: function () { var r = Object.assign({}, st.restored); r[key] = 1; self.setState({ restored: r }); } });
+      }
+      region = [];
+    }
+    function hideAgain(key) { return function () { if (full) return; var x = Object.assign({}, st.restored); delete x[key]; self.setState({ restored: x }); }; }
+    all.forEach(function (r) {
+      var start = sec(r.at), end = start + r.s;
+      if (prevEnd !== null && start > prevEnd) {
+        var bd = start - prevEnd;
+        region.push({ kind: 'break', d: bd, w: bd * PX, text: 'Break ' + fmtW(bd), label: 'Break, ' + fmtW(bd),
+          style: BASE + 'width:' + (bd * PX) + 'px;background:repeating-linear-gradient(135deg,#23232F 0 6px,#1D1D27 6px 12px);',
+          pick: hideAgain(lastKey) });
+      }
+      if (st.picked[r.n]) {
+        var pcs = segsOf(r), pos = 0;
+        pcs.forEach(function (p, i) {
+          if (p[0] > pos) pushCut(r, pos, p[0]);
+          flush(lastKey);
+          var sel = st.sel.n === r.n && st.sel.i === i, d = p[1] - p[0];
+          items.push({ kind: 'clip', n: r.n, i: i, d: d, w: d * PX, len: fmt(d), label: 'Rally ' + r.n + (pcs.length > 1 ? ' part ' + (i + 1) : '') + ', ' + fmt(d), sel: sel, slow: !!st.slow[r.n + ':' + i],
+            tag: 'R' + r.n + (pcs.length > 1 ? String.fromCharCode(97 + i) : ''),
+            style: BASE + 'width:' + (d * PX) + 'px;background:' + THUMB + ' repeat-x left center / 40px 60px;' + (sel ? 'box-shadow:inset 0 0 0 3px #FF3366;' : ''),
+            pick: function () { self.setState({ sel: { n: r.n, i: i }, current: r.n, ph: Math.min(2, d / 2) }); } });
+          lastKey = 'g' + r.n + '_' + i;
+          pos = p[1];
+        });
+        if (pos < r.s) pushCut(r, pos, r.s);
+      } else {
+        region.push({ kind: 'muted', n: r.n, d: r.s, w: r.s * PX, text: 'R' + r.n, label: 'Rally ' + r.n + ', not in the reel. Tap to add',
+          style: BASE + 'width:' + (r.s * PX) + 'px;background:' + THUMB + ' repeat-x left center / 40px 60px;opacity:0.35;',
+          pick: function () { var p = Object.assign({}, st.picked); p[r.n] = 1; self.setState({ picked: p, sel: { n: r.n, i: 0 }, current: r.n, ph: 2 }); } });
+      }
+      prevEnd = end;
+    });
+    flush(lastKey);
+    function pushCut(r, a, b) {
+      var d = b - a;
+      region.push({ kind: 'cut', d: d, w: Math.max(d * PX, 14), text: 'Cut ' + fmt(d), label: 'Cut part of rally ' + r.n + ', ' + fmt(d) + '. Tap to put it back',
+        style: BASE + 'width:' + Math.max(d * PX, 14) + 'px;background:repeating-linear-gradient(135deg,rgba(255,51,102,0.22) 0 4px,#1D1D27 4px 9px);',
+        pick: function () {
+          var arr = segsOf(r).concat([[a, b]]).sort(function (x, y) { return x[0] - y[0]; }), out = [];
+          arr.forEach(function (p) { var l = out[out.length - 1]; if (l && p[0] <= l[1] + 1e-6) l[1] = Math.max(l[1], p[1]); else out.push([p[0], p[1]]); });
+          setSegs(r.n, out, { sel: { n: r.n, i: 0 } });
+        } });
+    }
+
+    var x = 0, tsec = 0, selX = 0, selT = 0, selD = 0, selItem = null, textX = -1, textW = 0, ticks = [];
+    var step = full ? 60 : 10;
+    var clips = items.map(function (it) {
+      var d = it.d;
+      if (it.kind !== 'sliver') {
+        var first = Math.ceil(tsec / step) * step;
+        for (var T = first; T < tsec + d; T += step) ticks.push({ label: fmtW(T), style: 'position:absolute;top:2px;left:' + Math.round(x + (T - tsec) * PX) + 'px;font-size:10px;color:#5E6E67;font-variant-numeric:tabular-nums;border-left:1px solid #34343F;padding-left:3px;height:14px;line-height:14px;white-space:nowrap' });
+      }
+      if (it.kind === 'clip' && it.sel) { selX = x; selT = tsec; selD = d; selItem = it; }
+      if (it.kind === 'clip' && it.n === 27 && textX < 0) { textX = x; textW = it.w; }
+      var c = { n: it.n, len: it.len || it.text, text: it.text, tag: it.tag, label: it.label, style: it.style, pick: it.pick,
+        isClip: it.kind === 'clip', isSliver: it.kind === 'sliver', isBreak: it.kind === 'break' || it.kind === 'cut', isMuted: it.kind === 'muted',
+        sel: false, slow: !!it.slow };
+      x += it.w + 2; tsec += d;
+      return c;
+    });
+    var total = tsec;
+    var trackW = Math.max(x - 2, 60);
+    var ph = selItem ? Math.min(Math.max(st.ph, 0.3), selD - 0.3) : 0;
+    var playheadX = selX + ph * PX, playheadT = selT + ph;
+
+    // ---------- Tools ----------
+    var I = {
+      split: 'M6 4a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM6 15a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM8 8l12 10M8 16L20 6',
+      del: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+      slow: 'M12 6v6l4 2M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z',
+      loop: 'M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4',
+      text: 'M4 7V5h16v2M12 5v14M9 19h6',
+      format: 'M7 3h10a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z'
+    };
+    function tool(key, label, active, fn, accent) {
+      return {
+        label: label, icon: I[key], aria: active ? 'true' : 'false', pick: fn,
+        style: 'flex-shrink:0;width:68px;height:64px;border-radius:14px;border:none;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;font-size:12px;font-weight:700;' +
+          (accent ? 'background:#DEFFF2;color:#191923;' : active ? 'background:rgba(57,158,90,0.18);color:#7FD69B;box-shadow:inset 0 0 0 1.5px #399E5A;' : 'background:#23232F;color:#DEFFF2;')
+      };
+    }
+    var selKey = st.sel.n + ':' + st.sel.i;
+    function doSplit() {
+      if (!selItem) return;
+      var r = all.filter(function (q) { return q.n === st.sel.n; })[0], pcs = segsOf(r).map(function (p) { return p.slice(); });
+      var p = pcs[st.sel.i], at = p[0] + ph;
+      if (at - p[0] < 0.3 || p[1] - at < 0.3) return;
+      pcs.splice(st.sel.i, 1, [p[0], at], [at, p[1]]);
+      setSegs(r.n, pcs, { sel: { n: r.n, i: st.sel.i + 1 }, ph: Math.min(1.5, (p[1] - at) / 2) });
+    }
+    function doDelete() {
+      if (!selItem) return;
+      var r = all.filter(function (q) { return q.n === st.sel.n; })[0], pcs = segsOf(r).slice();
+      pcs.splice(st.sel.i, 1);
+      if (!pcs.length) { var pk = Object.assign({}, st.picked); delete pk[r.n]; var s2 = Object.assign({}, st.segs); delete s2[r.n]; self.setState({ picked: pk, segs: s2 }); }
+      else setSegs(r.n, pcs, { sel: { n: r.n, i: Math.max(0, st.sel.i - 1) }, ph: 1 });
+    }
+    var tools = [
+      tool('split', 'Cut', false, doSplit, true),
+      tool('del', 'Delete', false, doDelete),
+      tool('slow', 'Slow-mo', !!st.slow[selKey], function () { var p = Object.assign({}, st.slow); if (p[selKey]) delete p[selKey]; else p[selKey] = 1; self.setState({ slow: p }); }),
+      tool('loop', 'Loop', st.loop, function () { self.setState({ loop: !st.loop }); }),
+      tool('text', 'Text', st.text, function () { self.setState({ text: !st.text }); }),
+      tool('format', st.vertical ? '9:16' : '16:9', false, function () { self.setState({ vertical: !st.vertical }); })
+    ];
+    var selPcs = selItem ? segsOf(all.filter(function (q) { return q.n === st.sel.n; })[0]).length : 0;
+    var hint = selItem
+      ? 'Rally ' + st.sel.n + (selPcs > 1 ? ', part ' + (st.sel.i + 1) + ' of ' + selPcs : '') + ' selected. Cut at the playhead, then delete the part you don’t want.'
+      : 'Tap a clip to select it.';
+
+    var filters = [{ v: 'all', label: 'All ' + (73 - Object.keys(st.removed).length) }, { v: 'picked', label: 'Picked ' + picked.length }, { v: 'long', label: 'Longest' }].map(function (f) {
+      var on = st.filter === f.v;
+      return { label: f.label, on: on, off: !on, pick: function () { self.setState({ filter: f.v }); } };
+    });
+    var modes = [{ v: 'list', label: 'Highlights' }, { v: 'edit', label: 'Edit' }].map(function (m) {
+      var on = st.mode === m.v;
+      return { label: m.label, on: on, off: !on, pick: function () { self.setState({ mode: m.v, menu: 0 }); } };
+    });
+    var reelTotal = picked.reduce(function (a, r) { return a + keepLen(r); }, 0);
+
+    return {
+      modes: modes, isList: st.mode === 'list', isEdit: st.mode === 'edit',
+      filters: filters, rows: rows, clips: clips, ticks: ticks, tools: tools, trackW: trackW,
+      pickedCount: picked.length, reelLen: fmt(full ? total : reelTotal),
+      curRally: st.current, selRally: st.sel.n, hint: hint,
+      trail: false, textOn: st.text, slowOn: !!st.slow[selKey] && st.mode === 'edit',
+      formatLabel: st.vertical ? '9:16' : '16:9',
+      toggleFormat: function () { self.setState({ vertical: !st.vertical }); },
+      goEdit: function () { self.setState({ mode: 'edit', menu: 0 }); },
+      addRally: function () {},
+      frameStyle: st.vertical
+        ? 'position:absolute;left:50%;top:0;width:123px;height:219px;margin-left:-61px;overflow:hidden;box-shadow:0 0 0 1px #34343F'
+        : 'position:absolute;inset:0;overflow:hidden',
+      trackShift: 'position:absolute;top:0;left:0;padding-top:4px;transform:translateX(' + (195 - playheadX) + 'px)',
+      nowAt: fmt(playheadT),
+      pillToggle: st.mode === 'list' || full, pillCut: st.mode === 'edit' && !full,
+      skip: st.skip, noSkip: !st.skip, skipAria: st.skip ? 'true' : 'false',
+      toggleSkip: function () { self.setState({ skip: !st.skip }); },
+      fs: st.fs, openFs: function () { self.setState({ fs: true }); }, closeFs: function () { self.setState({ fs: false }); },
+      fsPill: 'height:32px;padding:0 12px;border-radius:999px;font-family:inherit;font-size:12px;font-weight:800;white-space:nowrap;' + (st.skip ? 'border:none;background:#399E5A;color:#191923;' : 'border:1px solid rgba(222,255,242,0.35);background:rgba(25,25,35,0.8);color:#DEFFF2;'),
+      fsPillText: st.skip ? 'Skipping breaks' : 'Skip breaks',
+      fsChapters: items.filter(function (it) { return it.kind === 'clip'; }).map(function (it) {
+        var acc = 0; items.some(function (j) { if (j === it) return true; acc += j.d; return false; });
+        return 'position:absolute;top:0;bottom:0;border-radius:4px;left:' + (acc / Math.max(total, 1) * 100) + '%;width:max(3px,' + (it.d / Math.max(total, 1) * 100) + '%);background:' + (it.sel ? '#FF3366' : '#399E5A');
+      }),
+      views: [{ v: 'cut', label: 'Rallies only' }, { v: 'full', label: 'Full video' }].map(function (v) {
+        var on = st.view === v.v;
+        return { label: v.label, on: on, off: !on, pick: function () { self.setState({ view: v.v }); } };
+      }),
+      viewHint: full ? 'Everything stays. Picked rallies are highlighted.' : 'Breaks and cut parts are hidden, not deleted. Tap a gap to bring it back.',
+      textBar: textX < 0 ? 'display:none' : 'margin-top:4px;margin-left:' + textX + 'px;width:' + textW + 'px;height:24px;border-radius:6px;background:#3A3A4A;color:#DEFFF2;display:flex;align-items:center;gap:6px;padding:0 8px;box-sizing:border-box;font-size:11px;font-weight:700;white-space:nowrap;overflow:hidden',
+      soundBar: 'display:none',
+      trailBar: 'display:none'
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -84,10 +84,10 @@ test.describe("Deleting a video", () => {
     await deleteVideo(token, id)
   })
 
-  test("from the player page goes back Home", async ({ page }) => {
+  test("from the video screen goes back Home", async ({ page }) => {
     const { token, id, name } = await userWithVideo(page)
-    // Only analyzed videos open the player; the worker isn't part of these tests,
-    // so present the uploaded clip as done (no rallies).
+    // Only analyzed videos open the video screen; the worker isn't part of these
+    // tests, so present the uploaded clip as done (no rallies).
     await page.route(`**/api/v1/videos/${id}`, async (route) => {
       if (route.request().method() !== "GET") return route.continue()
       const response = await route.fetch()

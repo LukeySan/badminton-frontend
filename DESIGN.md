@@ -91,6 +91,7 @@ Custom tokens (add with `@theme inline` mappings so `bg-*` / `text-*` classes wo
 | `--success-soft`          | `rgba(57,158,90,0.18)`  | `#C6F0D6`             | "Ready" badge background                                               |
 | `--sheet`                 | `#20202B`               | `#FFFFFF`             | bottom sheet behind the rally list                                     |
 | `--overlay`               | `rgba(25,25,35,0.75)`   | `rgba(25,25,35,0.45)` | dimmed page behind dialogs and sheets (ink)                            |
+| `--letterbox`             | `#000000`               | `#000000`             | full-screen player background and its control gradients                |
 
 `--subtle-foreground` is the softer text between foreground and muted: unselected sort
 buttons, rally lengths in the list. `shadow-sheet` (utility in `index.css`) is the light
@@ -145,11 +146,23 @@ Play time = sum of the most recent done video's rally durations.
 3px taller above and below, min 4px wide. Playhead 4px bar in foreground color with a
 2px background-colored ring, 7px taller than the track.
 
-**Full screen:** the video box goes full screen with its own controls (the page's are
-out of view): a round exit button top-right (`bg-court-ink/70`, 44px) and a bottom bar
-(`bg-court-ink/80`) with the scrubber, time, previous/play/next and the skip pill. Always
-the dark theme (`dark` class on the controls). They fade out after 3 s of playback
-(cursor hidden too) and come back on a mouse move or tap; the first tap only shows them.
+**Full screen (our own, never the browser's video player):** a layer over the whole
+viewport (`fixed inset-0`, `bg-letterbox` black), portaled to `<body>`, with OUR player:
+
+- the video centered and as big as fits, keeping its shape (black bars around it);
+  overlays that must line up with the picture live in the video frame
+- top: gradient (`from-letterbox/75`), the rally badge top-left (stays while playing:
+  it says what you're watching), the skip-breaks pill top-right
+- bottom: gradient (`from-letterbox/90`), the chapter bar, then the same control row as
+  inline (time · previous / play / next) ending in **Exit full screen** where the
+  Full screen button was
+- always the dark theme (`dark` class on the layer re-points the tokens)
+- every bar keeps clear of the notch and home indicator in both orientations:
+  `env(safe-area-inset-*)` paddings (`viewport-fit=cover` in index.html)
+- controls fade out after 3 s of playback (cursor too) and come back on a tap or mouse
+  move; the first tap on the video only shows them; tapping the black bars toggles them
+- exit: the button, Escape, or Back (a history entry is pushed on entering); the page
+  behind is scroll-locked and `inert`; focus returns to the Full screen button
 
 **Portrait only on phones:** a phone held sideways gets a full-page "Turn your phone
 upright" message (phone icon in a `bg-success-soft` tile, 15/800 title, 13px muted
@@ -189,7 +202,7 @@ thumb, on = `bg-primary` with a `bg-primary-foreground` thumb (the pale `--input
 was invisible on white cards); put it in a row-sized `<label>` for a big tap target.
 
 **Video menu (⋮):** 44px ghost icon button, on each video row (beside the row's link,
-never inside it) and in the player header. "Delete video" is a destructive menu item;
+never inside it) and in the video screen header. "Delete video" is a destructive menu item;
 it opens a confirm dialog whose action is a destructive button (ink on pink) and whose
 errors (the backend's message) show in a destructive alert inside the dialog.
 
@@ -221,9 +234,90 @@ sideways is wide but short, so it keeps the phone layout.
 - **Home / Matches** (`/`): header (logo mark + "Rally Analyzer", avatar), "Your matches"
   - summary line, featured Last match card, "Recent" + filters (All / Ready / To do),
     video rows, bottom tab bar. See `home-*.mockup.html`.
-- **Player** (`/videos/$id` when done): header (back, title, "21:24 · 73 rallies", more),
-  video with rally badge + skip pill, scrubber, control row, stat strip, rally list sheet.
-  See `player-*.mockup.html`.
+- **Video screen** (`/videos/$id` once analyzed; `?mode=edit` for Edit): ONE screen
+  per video in two modes. Highlights is the player (watch the match, pick and fix
+  rallies), Edit is the video's reel (one per video). See `EditorHighlights` /
+  `EditorEdit` / `EditorFull.dc.html` (one template; they differ only in the starting
+  mode and view) and, for the player parts, `player-*.mockup.html`. Phones: one screen
+  (`h-dvh`), the top half stays, the bottom half scrolls by itself. Desktop: the same
+  single column (max 48rem), the page scrolls (the old side-panel player is gone).
+  - Shared top: header (back to Home, the video's title 15/800, "73 rallies · 18:20
+    play" 12 muted, plus "· Saved" once the video has a reel, Export disabled with
+    "Coming soon" under it, ⋮ More options: Re-mark court, Delete video), the video
+    (max 40% of the screen; pink "Rally 19 of 73" badge; skip pill bottom-right; a 9:16
+    reel shows the middle of the footage), then the mode's controls, then the
+    Highlights | Edit tabs (`bg-card` track, selected = foreground fill).
+  - Highlights controls (the player): the match's chapter scrubber, the stat strip
+    (This rally / Actual play in `text-success-text` / Breaks cut; `bg-card` boxes, 11px
+    labels, 18/800 values), the control row (time · previous / play / next centered ·
+    Undo and Full screen on the right). Keys: space, ←/→ previous/next rally, ⌘Z / ⇧⌘Z.
+  - Edit controls: the time row (reel time · play · undo · redo · format chip · full
+    screen; 44px targets, so play sits right of the time instead of centered as in the
+    prototype).
+  - Edit with nothing picked: "Your reel is empty" (clapperboard in a 48px `bg-card`
+    circle, 15/800 title, 13px muted line) and three quick starts, `bg-card` rows (14px
+    radius, 56px, icon in a `bg-success-soft` square, title 14/800, detail 12 muted, ›):
+    **Longest 5**, **All rallies**, **Pick from the list** (back to Highlights with a
+    `bg-card` hint "Tap the circle next to a rally to put it in your reel. **Picked**
+    shows the ones you chose." and a pink ring on the Picked chip until dismissed).
+    Nothing is picked by default, and the reel is only created by the first change
+    (a pick, a cut, a setting); watching never creates one.
+  - Highlights: filter chips (All 73 / Picked 6 / Longest = longest first) and a
+    dashed "+ Missed rally" chip on the right, rally rows (round check in a 44px target:
+    `bg-chapter` filled when picked, `border-muted-foreground` ring when not; 72×40
+    thumbnail, a real frame from the sprite sheet 1 s into the rally (court drawing
+    until it loads / when the match has no strip) with the length; "Rally 19" 14/700,
+    "at 7:48" 12 muted, plus "· 0:06.5 kept" in `text-success-text` when the rally is
+    cut in this reel; "Longest" tag `bg-success-soft`, "Playing" tag on the current row
+    `bg-highlight/16 text-highlight-text-strong`; ⋮ at the end), current row =
+    `bg-card` + 2px pink inset ring, 14px radius. Bottom bar (top border
+    `border-track`): "6 picked" 14/800, "1:24 reel" 12 muted, **Edit reel ›**
+    (foreground fill, 44px).
+  - Rally fix menu (⋮, "Fix rally 19"): `bg-card` popover, 14px radius, 44px items
+    with an icon: Fix start and end, Split into two rallies, Merge with next rally,
+    **Not a rally, delete it** (`text-highlight-text`), then the 11px muted note
+    "Fixes change this rally everywhere: its chapter and your reel. To shorten
+    it just for this reel, use Cut in Edit mode." Fixes change the match's rallies on
+    the server; a toast says what changed ("Rally 5 split into 5 and 6", what happened
+    to this and other reels) with an Undo action.
+  - Fix dialog (Fix start and end / Split / + Missed rally): on phones at the bottom
+    of the screen over a clear overlay, so the video above stays visible and shows
+    each new time. Per time: label + value (17/800, tenths) and five 44px
+    `secondary` buttons: −1 s, −0.1, ⌖ at the playhead, +0.1, +1 s. The backend's
+    refusal (overlaps) shows inline in `text-highlight-text`.
+  - Edit: "Rallies only | Full video" (radio pills in a bordered track, selected =
+    `bg-chapter text-chapter-foreground`), the **Lead ±1 s** chip on the right (opens
+    "Before and after each rally": lead-in and lead-out steppers, 0–3 s in 0.5 s steps,
+    at the bottom on phones so the timeline shows the change), then the hint under them
+    (11px muted). The timeline: fixed center playhead (2px foreground, ringed) with the
+    reel time in a bubble above it (`bg-foreground text-background`, 11/800, tenths),
+    native horizontal scroll (mouse: click and drag), 6 px per second of reel time, 2px
+    between items. Ruler ticks every 10 s (Rallies only) / 60 s (Full video), 10px
+    muted. Clip track 60px: pieces show frames from the sprite sheet (one per 60px,
+    only near the view) with an "R19 · 0:09" chip (`bg-court-ink/85`; a rally cut into
+    pieces is R19a, R19b...) and a "Slow-mo" chip (`bg-court-foreground`) at the bottom;
+    without a strip, `bg-court` with faint `--chapter` stripes. Selected piece = 3px pink
+    inset ring over the frames. Collapsed gap = 40px `bg-sheet` marker with a ⟷ icon and
+    the hidden length (tenths under 10 s); in Rallies only it stands for the breaks AND
+    the cut parts there, and a tap brings all of it back. Restored breaks show dimmed
+    frames with "Break 0:35", tap to hide again; in Full video breaks are striped
+    (`--card`/`--secondary`) and cut parts are pink stripes (`--highlight` 22% on
+    `--card`, at least 14px) labeled "Cut 0:02": tap to put the part back (the pieces
+    join again). Unpicked rallies: frames at 35% (or `bg-court/45` with a `--chapter`
+    ring), "R7" and "+ add". In Edit + Rallies only the video's pill is a static "✓
+    Breaks cut" (`text-court-accent`, `--chapter` border), elsewhere the skip toggle.
+    The time row shows reel time ("0:12 / 1:24").
+  - Cutting: the selected piece is the one under the playhead (or the last one
+    tapped; tapping a piece also puts the playhead where you tapped). Below the
+    timeline: "**Rally 19, part 2 of 3** selected. Cut at the playhead, then delete
+    the part you don't want." (12px muted, the name in `text-highlight-text`), then the
+    tool row (68×64 tiles, 14px radius): **Cut** (primary: `bg-foreground
+    text-background`; disabled within 0.3 s of the piece's edges), Delete (the last
+    piece takes the rally out), Slow-mo (per piece), Loop (preview repeats the piece),
+    Text (caption dialog, 80 characters), Format. Others `bg-card`; active =
+    `bg-success-soft text-success-text` with a 1.5px `--chapter` ring. Caption bars "Aa
+    …" (`bg-secondary`) under their pieces. On the video: "Slow-mo" tag top-right while a
+    slow piece plays, and the caption bottom center (`bg-court-ink/75`).
 - **How to record** (`/recording-tips`, linked from Upload and Profile): side-view and
   camera-view drawings on `bg-court` (court lines `--court-line`, labels
   `--court-foreground`, sight lines `--court-accent`), good/bad captions in
@@ -234,6 +328,6 @@ sideways is wide but short, so it keeps the phone layout.
 
 ## Desktop
 
-Same tokens. Player: video + scrubber + controls on the left, rally list as a right-hand
-panel (as built in M5). Home: video rows in a wider list or 2-column grid; featured card
-spans the top.
+Same tokens. Video screen: one column (max 48rem) like on phones, the page scrolls and
+the Highlights bottom bar sticks to the bottom. Home: video rows in a wider list or
+2-column grid; featured card spans the top.

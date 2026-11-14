@@ -121,8 +121,9 @@ export function ralliesQueryOptions(id: string) {
     queryKey: ["videos", id, "rallies"],
     queryFn: async () =>
       (await VideosService.readVideoRallies({ path: { id } })).data,
-    // Rallies only change when a video is analyzed again, which removes them from
-    // the cache (CourtEditor), so the player can reuse them without refetching.
+    // Rallies change when a video is analyzed again (which removes them from the
+    // cache, CourtEditor) or fixed in the highlight editor (which writes the new list
+    // here), so the player can reuse them without refetching.
     staleTime: 5 * 60_000,
   })
 }
