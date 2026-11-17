@@ -11,6 +11,7 @@ import {
 } from "react"
 
 import type { RallyPublic } from "@/client"
+import { isMaybe } from "@/components/Player/rallies"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { formatDuration, formatPlayhead } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -453,6 +454,7 @@ function TrackItem({
   switch (item.kind) {
     case "piece": {
       const number = item.segment?.number
+      const maybe = item.segment ? isMaybe(item.segment.rally) : false
       const reelLength = item.reel.end - item.reel.start
       const part =
         item.pieceCount > 1
@@ -474,8 +476,9 @@ function TrackItem({
         <button
           type="button"
           data-testid="clip"
-          aria-label={`${number ? `Rally ${number}` : "Clip"}${part}, ${formatPlayhead(reelLength)}`}
+          aria-label={`${number ? `Rally ${number}` : "Clip"}${maybe ? " (maybe)" : ""}${part}, ${formatPlayhead(reelLength)}`}
           aria-pressed={selected}
+          data-maybe={maybe || undefined}
           onClick={onClick}
           className={cn(base, "bg-court")}
           style={{
@@ -486,7 +489,8 @@ function TrackItem({
             }),
           }}
         >
-          {frames()}
+          {frames(maybe ? "opacity-55" : undefined)}
+          {maybe && <MaybeOutline className="border-court-foreground/80" />}
           {wide && (
             <span
               className={cn(
@@ -607,22 +611,28 @@ function TrackItem({
         </div>
       )
     }
-    case "unpicked":
+    case "unpicked": {
+      const maybe = isMaybe(item.segment.rally)
       return (
         <button
           type="button"
           data-testid="unpicked"
-          aria-label={`Rally ${item.segment.number}, not in the reel. Tap to add`}
+          data-maybe={maybe || undefined}
+          aria-label={`Rally ${item.segment.number}${maybe ? " (maybe)" : ""}, not in the reel. Tap to add`}
           onClick={() => onPick(item.segment.rally)}
           className={cn(
             base,
             thumbs
               ? "bg-card text-foreground"
-              : "bg-court/45 text-foreground ring-1 ring-chapter/50 ring-inset",
+              : cn(
+                  "bg-court/45 text-foreground",
+                  !maybe && "ring-1 ring-chapter/50 ring-inset",
+                ),
           )}
           style={position}
         >
-          {frames("opacity-35")}
+          {frames(maybe ? "opacity-20" : "opacity-35")}
+          {maybe && <MaybeOutline className="border-foreground/55" />}
           {wide && (
             <>
               <span className={cn(label, "top-[5px] font-extrabold")}>
@@ -633,5 +643,22 @@ function TrackItem({
           )}
         </button>
       )
+    }
   }
+}
+
+/**
+ * A "maybe" rally (the detector was unsure) on the timeline: a dashed outline over
+ * its faded frames, like its chapter on the scrubber. Its color depends on what's
+ * under it: mint over the court-green clips, the text color over unpicked rallies.
+ */
+function MaybeOutline({ className }: { className: string }) {
+  return (
+    <span
+      className={cn(
+        "pointer-events-none absolute inset-0 rounded-[8px] border-[1.5px] border-dashed",
+        className,
+      )}
+    />
+  )
 }

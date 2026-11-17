@@ -144,7 +144,32 @@ Play time = sum of the most recent done video's rally durations.
 **Chapter scrubber:** 12px track (`bg-track`, 6px radius), segments `bg-chapter`
 (min 2px wide), filtered-out `bg-chapter-dim`, **current** segment `bg-highlight`,
 3px taller above and below, min 4px wide. Playhead 4px bar in foreground color with a
-2px background-colored ring, 7px taller than the track.
+2px background-colored ring, 7px taller than the track. Maybe rallies: see below.
+
+**Maybe rallies** (detector v1.1+: `is_maybe`, the detector was unsure). The style is
+**faded + dashed**, never a different color alone: the same hue as a sure rally at
+lower opacity, inside a dashed outline of that hue at full strength. No new tokens.
+
+- Scrubber chapter: `bg-chapter/30` + 1px dashed `border-chapter`; current
+  `bg-highlight/40` + dashed `border-highlight` (still taller); filtered-out a dashed
+  `border-chapter-dim` with no fill.
+- Timeline: a picked piece's frames at 55% with a 1.5px dashed
+  `border-court-foreground/80` inset outline (mint on the court-green clip); an
+  unpicked maybe's frames at 20% with a dashed `border-foreground/55` (instead of the
+  `--chapter` ring). Labels and aria-labels say "(maybe)".
+- Rally list: a **Maybe** tag (the 22px tag, 1px dashed `border-muted-foreground`,
+  `text-subtle-foreground`, no fill) instead of "Longest"; "Playing" still shows. Under
+  the row (aligned with the thumbnail): "Is this a rally?" (12 muted) and two 30px pills
+  in 44px targets, icon + label, 12/800: **Keep** (`bg-success-soft text-success-text`,
+  ✓) and **Delete** (`bg-highlight/16 text-highlight-text-strong`, trash). Both are
+  rally fixes with a toast and Undo ("Rally 12 kept" / "Rally 12 deleted").
+- Filter chip **Maybe 5** after All, only while there are maybes (or while it's
+  selected: then "Maybe 0" with "All checked: no maybe rallies left."). Answered rows
+  leave the filter, so the user goes through them in a row.
+- Counts and play time (header, stat strip, quick starts) are over sure rallies; the
+  header adds "· 5 to check" (700, `text-subtle-foreground`). Skip-breaks still plays
+  maybes (a missed rally is worse than a fake one). The rally badge keeps counting all
+  rallies ("Rally 12 of 73"): numbers include maybes.
 
 **Full screen (our own, never the browser's video player):** a layer over the whole
 viewport (`fixed inset-0`, `bg-letterbox` black), portaled to `<body>`, with OUR player:
@@ -241,9 +266,13 @@ sideways is wide but short, so it keeps the phone layout.
   mode and view) and, for the player parts, `player-*.mockup.html`. Phones: one screen
   (`h-dvh`), the top half stays, the bottom half scrolls by itself. Desktop: the same
   single column (max 48rem), the page scrolls (the old side-panel player is gone).
-  - Shared top: header (back to Home, the video's title 15/800, "73 rallies · 18:20
-    play" 12 muted, plus "· Saved" once the video has a reel, Export disabled with
-    "Coming soon" under it, ⋮ More options: Re-mark court, Delete video), the video
+  - Shared top: header (back to Home, the video's title 15/800, "68 rallies · 18:20
+    play · 5 to check" 12 muted (sure rallies; "to check" only with maybes), plus "·
+    Saved" once the video has a reel (on a phone the summary truncates first, the save
+    state never), Export disabled with "Coming soon" under it, ⋮ More options:
+    **Re-analyze with the latest detector** (only when the API says
+    `detector_outdated`; a confirm dialog says the rally fixes are replaced, primary
+    "Re-analyze"), Re-mark court, Delete video), the video
     (max 40% of the screen; pink "Rally 19 of 73" badge; skip pill bottom-right; a 9:16
     reel shows the middle of the footage), then the mode's controls, then the
     Highlights | Edit tabs (`bg-card` track, selected = foreground fill).
@@ -257,13 +286,15 @@ sideways is wide but short, so it keeps the phone layout.
   - Edit with nothing picked: "Your reel is empty" (clapperboard in a 48px `bg-card`
     circle, 15/800 title, 13px muted line) and three quick starts, `bg-card` rows (14px
     radius, 56px, icon in a `bg-success-soft` square, title 14/800, detail 12 muted, ›):
-    **Longest 5**, **All rallies**, **Pick from the list** (back to Highlights with a
+    **Longest 5**, **All rallies** (both over sure rallies only; All says "Leaves out
+    the 5 to check"), **Pick from the list** (back to Highlights with a
     `bg-card` hint "Tap the circle next to a rally to put it in your reel. **Picked**
     shows the ones you chose." and a pink ring on the Picked chip until dismissed).
     Nothing is picked by default, and the reel is only created by the first change
     (a pick, a cut, a setting); watching never creates one.
-  - Highlights: filter chips (All 73 / Picked 6 / Longest = longest first) and a
-    dashed "+ Missed rally" chip on the right, rally rows (round check in a 44px target:
+  - Highlights: filter chips (All 73 / Maybe 5 / Picked 6 / Longest = longest first;
+    the chips scroll sideways in their own row when they don't fit, edges faded over
+    12px) and a dashed "+ Missed rally" chip on the right, rally rows (round check in a 44px target:
     `bg-chapter` filled when picked, `border-muted-foreground` ring when not; 72×40
     thumbnail, a real frame from the sprite sheet 1 s into the rally (court drawing
     until it loads / when the match has no strip) with the length; "Rally 19" 14/700,

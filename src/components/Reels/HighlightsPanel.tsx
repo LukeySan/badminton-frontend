@@ -11,7 +11,7 @@ import {
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 
 import type { RallyPublic } from "@/client"
-import type { Segment } from "@/components/Player/rallies"
+import { isMaybe, type Segment } from "@/components/Player/rallies"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -25,16 +25,20 @@ import { formatDuration, formatPlayhead } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { FrameThumb, type Thumbnails } from "./thumbnails"
 
-type Filter = "all" | "picked" | "longest"
+type Filter = "all" | "maybe" | "picked" | "longest"
 
-/** A rally fix from the ⋮ menu (the editor opens a dialog or calls the backend). */
-export type FixKind = "edit" | "split" | "merge" | "delete"
+/**
+ * A rally fix from the ⋮ menu, or a maybe row's Keep (confirm) / Delete (the editor
+ * opens a dialog or calls the backend).
+ */
+export type FixKind = "edit" | "split" | "merge" | "delete" | "confirm"
 
 /**
  * Highlights mode (the player's rally list): every rally of the match with a check to
  * put it in the reel or take it out. Tap a row to watch it; ⋮ fixes the rally itself
- * (everywhere, not just the reel). The bar at the bottom sums up the reel and leads
- * to the timeline.
+ * (everywhere, not just the reel). "Maybe" rallies (the detector was unsure) get a tag
+ * and Keep / Delete right on the row, and a filter to go through them in a row. The
+ * bar at the bottom sums up the reel and leads to the timeline.
  */
 export function HighlightsPanel({
   segments,
@@ -86,7 +90,12 @@ export function HighlightsPanel({
       ),
     [segments],
   )
+  const maybeCount = useMemo(
+    () => segments.filter((s) => isMaybe(s.rally)).length,
+    [segments],
+  )
   const rows = useMemo(() => {
+    if (filter === "maybe") return segments.filter((s) => isMaybe(s.rally))
     if (filter === "picked") return segments.filter((s) => isPicked(s.rally))
     if (filter === "longest")
       return [...segments].sort((a, b) => b.rally.duration - a.rally.duration)
@@ -114,47 +123,62 @@ export function HighlightsPanel({
 
   const filters: { value: Filter; label: string }[] = [
     { value: "all", label: `All ${segments.length}` },
+    // Only while there are maybes (or you're looking at them: "Maybe 0" when done)
+    ...(maybeCount > 0 || filter === "maybe"
+      ? [{ value: "maybe" as const, label: `Maybe ${maybeCount}` }]
+      : []),
     { value: "picked", label: `Picked ${pickedCount}` },
     { value: "longest", label: "Longest" },
   ]
+  const emptyText =
+    filter === "maybe"
+      ? "All checked: no maybe rallies left."
+      : filter === "picked"
+        ? "No rallies picked yet. Tap the circle next to a rally to add it."
+        : "No rallies in this match yet. Add one with + Missed rally."
   const last = segments[segments.length - 1]
 
   return (
     <section aria-label="Highlights" className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center gap-1.5 px-4 pb-2 md:px-0">
-        <ToggleGroup
-          type="single"
-          spacing={1}
-          value={filter}
-          onValueChange={(next) => next && setFilter(next as Filter)}
-          aria-label="Show rallies"
-          className="justify-start"
-        >
-          {filters.map((option) => (
-            <ToggleGroupItem
-              key={option.value}
-              value={option.value}
-              className={cn(
-                // 44 px tall touch target around the 30 px pill
-                "relative h-[30px] rounded-full px-3 text-xs after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']",
-                // The hint points here: what you pick shows under Picked
-                pickHint &&
-                  option.value === "picked" &&
-                  "ring-2 ring-highlight ring-offset-2 ring-offset-background",
-                "data-[state=off]:border data-[state=off]:bg-transparent data-[state=off]:font-semibold data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
-                "data-[state=on]:bg-foreground data-[state=on]:font-extrabold data-[state=on]:text-background data-[state=on]:hover:bg-foreground data-[state=on]:hover:text-background",
-              )}
-            >
-              {option.label}
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
+        {/* Scrolls sideways when the chips don't fit (a phone with maybes). Its
+            edges fade over 12 px of padding, so a chip cut off at either end shows
+            there's more; the vertical padding keeps the 44 px touch areas inside. */}
+        <div className="-my-[7px] -ml-3 flex min-w-0 flex-1 overflow-x-auto px-3 py-[7px] [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <ToggleGroup
+            type="single"
+            spacing={1}
+            value={filter}
+            onValueChange={(next) => next && setFilter(next as Filter)}
+            aria-label="Show rallies"
+            className="justify-start"
+          >
+            {filters.map((option) => (
+              <ToggleGroupItem
+                key={option.value}
+                value={option.value}
+                className={cn(
+                  // 44 px tall touch target around the 30 px pill
+                  "relative h-[30px] rounded-full px-3 text-xs after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-['']",
+                  // The hint points here: what you pick shows under Picked
+                  pickHint &&
+                    option.value === "picked" &&
+                    "ring-2 ring-highlight ring-offset-2 ring-offset-background",
+                  "data-[state=off]:border data-[state=off]:bg-transparent data-[state=off]:font-semibold data-[state=off]:text-muted-foreground data-[state=off]:hover:text-foreground",
+                  "data-[state=on]:bg-foreground data-[state=on]:font-extrabold data-[state=on]:text-background data-[state=on]:hover:bg-foreground data-[state=on]:hover:text-background",
+                )}
+              >
+                {option.label}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
         <button
           type="button"
           onClick={onAddMissed}
           disabled={fixBusy}
           aria-label="Add a missed rally here"
-          className="relative ml-auto h-[30px] shrink-0 whitespace-nowrap rounded-full border border-dashed border-muted-foreground px-2.5 text-xs font-bold outline-none after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+          className="relative h-[30px] shrink-0 whitespace-nowrap rounded-full border border-dashed border-muted-foreground px-2.5 text-xs font-bold outline-none after:absolute after:inset-x-0 after:-inset-y-[7px] after:content-[''] hover:bg-secondary focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
         >
           + Missed rally
         </button>
@@ -186,7 +210,7 @@ export function HighlightsPanel({
 
       {rows.length === 0 ? (
         <p className="flex-1 px-4 py-6 text-center text-[13px] text-muted-foreground">
-          No rallies picked yet. Tap the circle next to a rally to add it.
+          {emptyText}
         </p>
       ) : (
         <ul
@@ -261,11 +285,13 @@ function RallyRow({
   onFix: (kind: FixKind, segment: Segment) => void
 }) {
   const { rally, number } = segment
+  const maybe = isMaybe(rally)
   return (
     <div
       aria-current={current ? "true" : undefined}
+      data-maybe={maybe || undefined}
       className={cn(
-        "flex items-center rounded-[14px]",
+        "flex flex-wrap items-center rounded-[14px]",
         // Current: pink outline AND a surface (pink is never the only difference)
         current && "bg-card ring-2 ring-highlight ring-inset",
       )}
@@ -290,7 +316,7 @@ function RallyRow({
       <button
         type="button"
         onClick={() => onJump(segment)}
-        aria-label={`Play rally ${number}, at ${formatDuration(rally.start)}, ${formatDuration(rally.duration)} long`}
+        aria-label={`Play rally ${number}${maybe ? " (maybe)" : ""}, at ${formatDuration(rally.start)}, ${formatDuration(rally.duration)} long`}
         className="flex h-14 min-w-0 flex-1 items-center gap-2.5 rounded-[14px] pr-1 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <CourtThumbnail
@@ -322,12 +348,14 @@ function RallyRow({
             )}
           </span>
         </span>
+        {maybe && <MaybeTag />}
         {current ? (
           <Tag className="bg-highlight/16 text-highlight-text-strong">
             Playing
           </Tag>
         ) : (
-          longest && (
+          longest &&
+          !maybe && (
             <Tag className="bg-success-soft text-success-text">Longest</Tag>
           )
         )}
@@ -379,7 +407,80 @@ function RallyRow({
           </p>
         </DropdownMenuContent>
       </DropdownMenu>
+      {maybe && (
+        // The question and its two answers, under the rally (they'd squeeze its name
+        // on a phone). Both are rally fixes: undo puts the maybe back.
+        <div className="-mt-1.5 flex w-full items-center gap-1.5 pr-2 pl-11">
+          <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
+            Is this a rally?
+          </span>
+          <AnswerButton
+            label={`Keep rally ${number}`}
+            icon={<Check strokeWidth={3} />}
+            disabled={fixBusy}
+            onClick={() => onFix("confirm", segment)}
+            className="bg-success-soft text-success-text"
+          >
+            Keep
+          </AnswerButton>
+          <AnswerButton
+            label={`Delete rally ${number}`}
+            icon={<Trash2 />}
+            disabled={fixBusy}
+            onClick={() => onFix("delete", segment)}
+            className="bg-highlight/16 text-highlight-text-strong"
+          >
+            Delete
+          </AnswerButton>
+        </div>
+      )}
     </div>
+  )
+}
+
+/** "Maybe": the detector wasn't sure. Dashed, like its chapter (not color-only). */
+export function MaybeTag() {
+  return (
+    <Tag className="border border-dashed border-muted-foreground text-subtle-foreground">
+      Maybe
+    </Tag>
+  )
+}
+
+/** Keep / Delete on a maybe row: a 30 px pill in a 44 px tall target. */
+function AnswerButton({
+  label,
+  icon,
+  disabled,
+  onClick,
+  className,
+  children,
+}: {
+  label: string
+  icon: ReactNode
+  disabled: boolean
+  onClick: () => void
+  className: string
+  children: string
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      disabled={disabled}
+      onClick={onClick}
+      className="group flex h-11 shrink-0 items-center outline-none disabled:opacity-40"
+    >
+      <span
+        className={cn(
+          "flex h-[30px] items-center gap-1 rounded-full px-3 text-xs font-extrabold group-hover:brightness-110 group-focus-visible:ring-2 group-focus-visible:ring-ring [&_svg]:size-3.5",
+          className,
+        )}
+      >
+        {icon}
+        {children}
+      </span>
+    </button>
   )
 }
 

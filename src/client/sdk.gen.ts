@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, privateSetAnalysisData, privateSetAnalysisErrors, privateSetAnalysisResponses, ralliesAddRallyData, ralliesAddRallyErrors, ralliesAddRallyResponses, ralliesDeleteRallyData, ralliesDeleteRallyErrors, ralliesDeleteRallyResponses, ralliesEditRallyData, ralliesEditRallyErrors, ralliesEditRallyResponses, ralliesMergeRalliesData, ralliesMergeRalliesErrors, ralliesMergeRalliesResponses, ralliesSplitRallyData, ralliesSplitRallyErrors, ralliesSplitRallyResponses, reelsCreateReelData, reelsCreateReelErrors, reelsCreateReelResponses, reelsDeleteReelData, reelsDeleteReelErrors, reelsDeleteReelResponses, reelsReadReelData, reelsReadReelErrors, reelsReadReelResponses, reelsReadReelsData, reelsReadReelsErrors, reelsReadReelsResponses, reelsReadVideoReelData, reelsReadVideoReelErrors, reelsReadVideoReelResponses, reelsSaveVideoReelData, reelsSaveVideoReelErrors, reelsSaveVideoReelResponses, reelsUpdateReelData, reelsUpdateReelErrors, reelsUpdateReelResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosReadVideoThumbnailFileData, videosReadVideoThumbnailFileErrors, videosReadVideoThumbnailFileResponses, videosReadVideoThumbnailsUrlData, videosReadVideoThumbnailsUrlErrors, videosReadVideoThumbnailsUrlResponses, videosReadVideoTrajectoryData, videosReadVideoTrajectoryErrors, videosReadVideoTrajectoryResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
+import type { healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, privateSetAnalysisData, privateSetAnalysisErrors, privateSetAnalysisResponses, ralliesAddRallyData, ralliesAddRallyErrors, ralliesAddRallyResponses, ralliesConfirmRallyData, ralliesConfirmRallyErrors, ralliesConfirmRallyResponses, ralliesDeleteRallyData, ralliesDeleteRallyErrors, ralliesDeleteRallyResponses, ralliesEditRallyData, ralliesEditRallyErrors, ralliesEditRallyResponses, ralliesMergeRalliesData, ralliesMergeRalliesErrors, ralliesMergeRalliesResponses, ralliesSplitRallyData, ralliesSplitRallyErrors, ralliesSplitRallyResponses, ralliesUnconfirmRallyData, ralliesUnconfirmRallyErrors, ralliesUnconfirmRallyResponses, reelsCreateReelData, reelsCreateReelErrors, reelsCreateReelResponses, reelsDeleteReelData, reelsDeleteReelErrors, reelsDeleteReelResponses, reelsReadReelData, reelsReadReelErrors, reelsReadReelResponses, reelsReadReelsData, reelsReadReelsErrors, reelsReadReelsResponses, reelsReadVideoReelData, reelsReadVideoReelErrors, reelsReadVideoReelResponses, reelsSaveVideoReelData, reelsSaveVideoReelErrors, reelsSaveVideoReelResponses, reelsUpdateReelData, reelsUpdateReelErrors, reelsUpdateReelResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosReadVideoThumbnailFileData, videosReadVideoThumbnailFileErrors, videosReadVideoThumbnailFileResponses, videosReadVideoThumbnailsUrlData, videosReadVideoThumbnailsUrlErrors, videosReadVideoThumbnailsUrlResponses, videosReadVideoTrajectoryData, videosReadVideoTrajectoryErrors, videosReadVideoTrajectoryResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -550,6 +550,38 @@ export class RalliesService {
                 'Content-Type': 'application/json',
                 ...options.headers
             }
+        });
+    }
+    
+    /**
+     * Unconfirm Rally
+     *
+     * Undo a confirm: the rally is shown as a "maybe" again (`is_maybe` true). The
+     * app uses it to undo "Keep", and after re-adding a deleted maybe (undo of the
+     * delete). Logged as a correction. No-op for a rally that is already a maybe.
+     */
+    public static unconfirmRally<ThrowOnError extends boolean = true>(options: Options<ralliesUnconfirmRallyData, ThrowOnError>) {
+        return (options.client ?? client).delete<ralliesUnconfirmRallyResponses, ralliesUnconfirmRallyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies/{rally_id}/confirm',
+            ...options
+        });
+    }
+    
+    /**
+     * Confirm Rally
+     *
+     * "Yes, that's a rally": clears `is_maybe` on a rally the detector was unsure
+     * about. Logged as a correction (a training label). No-op for other rallies.
+     * To answer "no", delete the rally.
+     */
+    public static confirmRally<ThrowOnError extends boolean = true>(options: Options<ralliesConfirmRallyData, ThrowOnError>) {
+        return (options.client ?? client).post<ralliesConfirmRallyResponses, ralliesConfirmRallyErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/rallies/{rally_id}/confirm',
+            ...options
         });
     }
     
