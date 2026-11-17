@@ -6,6 +6,7 @@ import {
   EllipsisVertical,
   MapPin,
   Redo2,
+  Sparkles,
   Trash2,
   TriangleExclamationPoint,
   Undo2,
@@ -41,6 +42,7 @@ import {
 } from "@/components/Player/controls"
 import { RallyScrubber } from "@/components/Player/RallyScrubber"
 import {
+  isMaybe,
   nextSegment,
   previousSegment,
   rallyTime,
@@ -68,6 +70,7 @@ import {
   invalidateVideoLists,
   ralliesQueryOptions,
 } from "@/components/Videos/queries"
+import { ReanalyzeDialog } from "@/components/Videos/ReanalyzeDialog"
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
@@ -186,6 +189,13 @@ export function VideoScreen({
     () => toSegments(rallyList, duration),
     [rallyList, duration],
   )
+  // "Maybe" rallies (the detector was unsure) are drawn and played, but counted
+  // only once the user keeps them.
+  const sureRallies = useMemo(
+    () => rallyList.filter((rally) => !isMaybe(rally)),
+    [rallyList],
+  )
+  const maybeCount = rallyList.length - sureRallies.length
   const windows = useMemo(
     () =>
       rallyWindows(
@@ -291,6 +301,7 @@ export function VideoScreen({
               rally: {
                 id: (item.segment?.rally.id ?? -1 - i) * 1000 + item.pieceIndex,
                 number: item.segment?.number ?? i + 1,
+                is_maybe: item.segment?.rally.is_maybe,
                 start: item[time].start,
                 end: item[time].end,
                 duration: item[time].end - item[time].start,
@@ -398,8 +409,15 @@ export function VideoScreen({
       const middle = Math.round(((rally.start + rally.end) / 2) * 10) / 10
       setFixRequest({ kind: "split", rally, at: inside ? t : middle })
     } else if (kind === "delete") {
-      runFix({ kind: "delete", before: [rally.id], from }).catch(
-        fixFailed(`Couldn't delete rally ${segment.number}`),
+      runFix({
+        kind: "delete",
+        before: [rally.id],
+        from,
+        maybe: isMaybe(rally),
+      }).catch(fixFailed(`Couldn't delete rally ${segment.number}`))
+    } else if (kind === "confirm") {
+      runFix({ kind: "confirm", before: [rally.id] }).catch(
+        fixFailed(`Couldn't keep rally ${segment.number}`),
       )
     } else {
       const next = segments[segments.indexOf(segment) + 1]
@@ -538,8 +556,8 @@ export function VideoScreen({
     if (mode === "edit") setPickHint(false)
   }, [mode])
 
-  // Stats over all rallies: what the recording contains
-  const playTime = rallyTime(segments)
+  // Stats over the sure rallies (maybes count once kept)
+  const playTime = rallyTime(segments.filter((s) => !isMaybe(s.rally)))
   const rallyBadge = current && (
     <RallyBadge number={current.number} total={segments.length} />
   )
@@ -582,8 +600,10 @@ export function VideoScreen({
       <ScreenHeader
         video={video}
         title={title}
-        rallyCount={segments.length}
+        rallyCount={sureRallies.length}
+        maybeCount={maybeCount}
         playTime={playTime}
+        beforeReanalyze={autosave.flush}
         // Nothing to say about saving until there's a reel (or a change to save)
         saveStatus={
           autosave.exists || autosave.status !== "saved"
@@ -918,10 +938,13 @@ export function VideoScreen({
           }
         />
       ) : edit.clips.length === 0 ? (
+        // Quick starts take the sure rallies only: a maybe joins once it's kept (or
+        // picked by hand)
         <EmptyReel
-          rallyCount={segments.length}
-          onLongest={() => pickAll(longestRallies(rallyList))}
-          onAll={() => pickAll(rallyList)}
+          rallyCount={sureRallies.length}
+          maybeCount={maybeCount}
+          onLongest={() => pickAll(longestRallies(sureRallies))}
+          onAll={() => pickAll(sureRallies)}
           onPickFromList={() => {
             setPickHint(true)
             onModeChange("highlights")
@@ -1010,25 +1033,32 @@ export function VideoScreen({
 }
 
 /**
- * Back to Home, the video's title, "73 rallies · 18:20 play" (+ the reel's save
- * state once there is one), Export (not yet) and a menu (re-mark court, delete).
+ * Back to Home, the video's title, "68 rallies · 18:20 play · 5 to check" (+ the
+ * reel's save state once there is one), Export (not yet) and a menu (re-analyze with
+ * a newer detector, re-mark court, delete).
  */
 function ScreenHeader({
   video,
   title,
   rallyCount,
+  maybeCount,
   playTime,
   saveStatus,
   onRetrySave,
+  beforeReanalyze,
 }: {
   video: VideoPublic
   title: string
+  /** Sure rallies (maybes not counted until kept). */
   rallyCount: number
+  maybeCount: number
   playTime: number
   saveStatus: SaveStatus | undefined
   onRetrySave: () => void
+  beforeReanalyze: () => Promise<void>
 }) {
   const [deleting, setDeleting] = useState(false)
+  const [reanalyzing, setReanalyzing] = useState(false)
   return (
     <header className="flex h-14 shrink-0 items-center gap-1.5 py-2 pr-1 pl-1 md:mb-4 md:h-auto md:p-0">
       <Button
@@ -1045,16 +1075,26 @@ function ScreenHeader({
         <h1 className="truncate text-[15px] font-extrabold md:text-[26px] md:tracking-[-0.01em]">
           {title}
         </h1>
-        <p className="truncate text-xs text-muted-foreground tabular-nums md:text-[13px]">
-          <span data-testid="match-summary">
+        {/* On a phone the summary gives way first: the save state (and its Retry)
+            must stay visible */}
+        <p className="flex min-w-0 text-xs text-muted-foreground tabular-nums md:text-[13px]">
+          <span data-testid="match-summary" className="truncate">
             {rallyCount} {rallyCount === 1 ? "rally" : "rallies"} ·{" "}
             {formatDuration(playTime)} play
+            {maybeCount > 0 && (
+              <>
+                {" · "}
+                <span className="font-bold text-subtle-foreground">
+                  {maybeCount} to check
+                </span>
+              </>
+            )}
           </span>
           {saveStatus && (
-            <>
+            <span className="shrink-0 whitespace-pre">
               {" · "}
               <SaveIndicator status={saveStatus} onRetry={onRetrySave} />
-            </>
+            </span>
           )}
         </p>
       </div>
@@ -1082,6 +1122,12 @@ function ScreenHeader({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {video.detector_outdated && (
+            <DropdownMenuItem onSelect={() => setReanalyzing(true)}>
+              <Sparkles />
+              Re-analyze with the latest detector
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem asChild>
             <Link to="/videos/$id/court" params={{ id: video.id }}>
               <MapPin />
@@ -1101,6 +1147,12 @@ function ScreenHeader({
         video={video}
         open={deleting}
         onOpenChange={setDeleting}
+      />
+      <ReanalyzeDialog
+        video={video}
+        open={reanalyzing}
+        onOpenChange={setReanalyzing}
+        beforeReanalyze={beforeReanalyze}
       />
     </header>
   )

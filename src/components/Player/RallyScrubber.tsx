@@ -7,14 +7,15 @@ import {
 
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
-import { type Segment, segmentAt } from "./rallies"
+import { isMaybe, type Segment, segmentAt } from "./rallies"
 
 const KEY_STEP = 5 // seconds per arrow key press
 
 /**
  * Timeline with each rally drawn as a chapter segment (DESIGN.md "Chapter scrubber"):
  * 12 px track, rallies in green, filtered-out ones dimmed, the current one pink and
- * taller. Click, tap or drag to seek; arrow keys move 5 s when it has focus.
+ * taller, "maybe" rallies faded with a dashed outline (not color-only). Click, tap or
+ * drag to seek; arrow keys move 5 s when it has focus.
  */
 export function RallyScrubber({
   duration,
@@ -115,22 +116,36 @@ export function RallyScrubber({
       <div className="relative h-3 w-full rounded-[6px] bg-track">
         {segments.map((s) => {
           const isCurrent = s.number === currentNumber
+          const visible = visibleNumbers.has(s.number)
+          const maybe = isMaybe(s.rally)
           return (
             <div
               key={s.number}
               data-testid="chapter"
               data-current={isCurrent || undefined}
-              data-dimmed={!visibleNumbers.has(s.number) || undefined}
+              data-dimmed={!visible || undefined}
+              data-maybe={maybe || undefined}
               className={cn(
                 "absolute rounded-[3px]",
                 // Current: pink AND taller (pink is never the only difference)
                 isCurrent
-                  ? "-inset-y-[3px] z-10 min-w-1 bg-highlight"
+                  ? "-inset-y-[3px] z-10 min-w-1"
                   : "inset-y-0 min-w-0.5",
-                !isCurrent &&
-                  (visibleNumbers.has(s.number)
-                    ? "bg-chapter"
-                    : "bg-chapter-dim"),
+                // Maybe: a faded fill inside a dashed outline of the same color
+                maybe
+                  ? cn(
+                      "border border-dashed",
+                      isCurrent
+                        ? "border-highlight bg-highlight/40"
+                        : visible
+                          ? "border-chapter bg-chapter/30"
+                          : "border-chapter-dim",
+                    )
+                  : isCurrent
+                    ? "bg-highlight"
+                    : visible
+                      ? "bg-chapter"
+                      : "bg-chapter-dim",
               )}
               // A 1.5 s rally in a 20 min video is under 1 px on a phone: keep it visible.
               style={{
@@ -153,7 +168,9 @@ export function RallyScrubber({
           // Keep the label inside the bar at both ends.
           style={{ left: `clamp(3rem, ${percent(hover)}, calc(100% - 3rem))` }}
         >
-          {hoverSegment ? `Rally ${hoverSegment.number} · ` : ""}
+          {hoverSegment
+            ? `Rally ${hoverSegment.number}${isMaybe(hoverSegment.rally) ? " (maybe)" : ""} · `
+            : ""}
           {formatDuration(hover)}
         </div>
       )}

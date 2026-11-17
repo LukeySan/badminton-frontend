@@ -14,8 +14,10 @@ export type RallyFix =
   | { kind: "edit"; before: [number]; after: [number]; from: Span; to: Span }
   /** A rally the detector missed. */
   | { kind: "add"; before: []; after: [number]; to: Span }
-  /** Not a rally. */
-  | { kind: "delete"; before: [number]; after: []; from: Span }
+  /** Not a rally. `maybe`: it was a "maybe", so undo brings it back as one. */
+  | { kind: "delete"; before: [number]; after: []; from: Span; maybe?: boolean }
+  /** "Keep": a maybe is a rally (same id on both sides). */
+  | { kind: "confirm"; before: [number]; after: [number] }
   /** One rally became two at `at` (the first keeps the id). */
   | {
       kind: "split"
@@ -80,6 +82,13 @@ export async function applyFix(
       )
       return { ids: [], change, reels: change.reels }
     }
+    case "confirm": {
+      const [id] = fix.before
+      const change = await one(
+        RalliesService.confirmRally({ path: { ...path, rally_id: id } }),
+      )
+      return { ids: [id], change, reels: change.reels }
+    }
     case "split": {
       const [id] = fix.before
       const change = await one(
@@ -125,10 +134,25 @@ export async function reverseFix(
       return { ids: [], change, reels: change.reels }
     }
     case "delete": {
+      const added = await one(RalliesService.addRally({ path, body: fix.from }))
+      const id = added.added[0].id
+      if (!fix.maybe) return { ids: [id], change: added, reels: added.reels }
+      // Added rallies are sure ones: make it a maybe again, as it was
       const change = await one(
-        RalliesService.addRally({ path, body: fix.from }),
+        RalliesService.unconfirmRally({ path: { ...path, rally_id: id } }),
       )
-      return { ids: [change.added[0].id], change, reels: change.reels }
+      return {
+        ids: [id],
+        change,
+        reels: mergeImpacts(added.reels, change.reels),
+      }
+    }
+    case "confirm": {
+      const [id] = fix.after
+      const change = await one(
+        RalliesService.unconfirmRally({ path: { ...path, rally_id: id } }),
+      )
+      return { ids: [id], change, reels: change.reels }
     }
     case "split": {
       const change = await one(
@@ -198,6 +222,8 @@ export function describeFix(fix: RallyFix, change: RallyChange): string {
       const n = change.rallies.filter((r) => r.end <= fix.from.start).length + 1
       return `Rally ${n} deleted`
     }
+    case "confirm":
+      return `Rally ${number(fix.after[0])} kept`
     case "split": {
       const first = number(fix.after[0])
       return `Rally ${first} split into ${first} and ${number(fix.after[1])}`

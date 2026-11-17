@@ -1607,6 +1607,114 @@
         }
       }
     },
+    "/api/v1/videos/{id}/rallies/{rally_id}/confirm": {
+      "post": {
+        "tags": ["rallies"],
+        "summary": "Confirm Rally",
+        "description": "\"Yes, that's a rally\": clears `is_maybe` on a rally the detector was unsure\nabout. Logged as a correction (a training label). No-op for other rallies.\nTo answer \"no\", delete the rally.",
+        "operationId": "rallies-confirm_rally",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "rally_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rally Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RallyChange"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video or rally not found"
+          },
+          "409": {
+            "description": "The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours"
+          },
+          "422": {
+            "description": "Invalid times (e.g. past the end of the video)"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["rallies"],
+        "summary": "Unconfirm Rally",
+        "description": "Undo a confirm: the rally is shown as a \"maybe\" again (`is_maybe` true). The\napp uses it to undo \"Keep\", and after re-adding a deleted maybe (undo of the\ndelete). Logged as a correction. No-op for a rally that is already a maybe.",
+        "operationId": "rallies-unconfirm_rally",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "rally_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Rally Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RallyChange"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Video or rally not found"
+          },
+          "409": {
+            "description": "The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours"
+          },
+          "422": {
+            "description": "Invalid times (e.g. past the end of the video)"
+          }
+        }
+      }
+    },
     "/api/v1/videos/{id}/rallies/{rally_id}/split": {
       "post": {
         "tags": ["rallies"],
@@ -2527,20 +2635,40 @@
         "properties": {
           "rallies": {
             "items": {
-              "prefixItems": [
+              "anyOf": [
                 {
-                  "type": "number"
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array",
+                  "maxItems": 2,
+                  "minItems": 2
                 },
                 {
-                  "type": "number"
+                  "$ref": "#/components/schemas/PrivateRally"
                 }
-              ],
-              "type": "array",
-              "maxItems": 2,
-              "minItems": 2
+              ]
             },
             "type": "array",
-            "title": "Rallies"
+            "title": "Rallies",
+            "description": "[start, end] pairs, or objects with confidence / is_maybe"
+          },
+          "detector_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detector Version",
+            "default": "test-fixture"
           },
           "trajectory": {
             "anyOf": [
@@ -2562,6 +2690,37 @@
         "type": "object",
         "required": ["rallies"],
         "title": "PrivateAnalysis"
+      },
+      "PrivateRally": {
+        "properties": {
+          "start": {
+            "type": "number",
+            "title": "Start"
+          },
+          "end": {
+            "type": "number",
+            "title": "End"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "is_maybe": {
+            "type": "boolean",
+            "title": "Is Maybe",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": ["start", "end"],
+        "title": "PrivateRally"
       },
       "PrivateTrajectory": {
         "properties": {
@@ -2735,6 +2894,24 @@
           "end": {
             "type": "number",
             "title": "End"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence",
+            "description": "Detector's probability (0-1) that this is a real rally; null for the v1 detector and for rallies the user added"
+          },
+          "is_maybe": {
+            "type": "boolean",
+            "title": "Is Maybe",
+            "description": "The detector was unsure: show it as a 'maybe' the user confirms (POST /rallies/{id}/confirm) or deletes. Cleared by any edit.",
+            "default": false
           },
           "duration": {
             "type": "number",
@@ -3599,6 +3776,18 @@
             ],
             "title": "Court Corners"
           },
+          "detector_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detector Version",
+            "description": "Detector that made the rallies, e.g. 'v1' or 'v1.1-2026-11' (null until processed). Re-analyzing uses the current detector."
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -3624,6 +3813,12 @@
             "title": "Court Out Of Frame",
             "description": "Warning, not an error: part of the court is well outside the video, so\nresults may be less accurate. The app should tell the user and let them\ndecide. Computed here so the web and mobile apps can't disagree.",
             "readOnly": true
+          },
+          "detector_outdated": {
+            "type": "boolean",
+            "title": "Detector Outdated",
+            "description": "A newer detector than the one that made these rallies is in use, so the\napp can offer to re-analyze. False until processed, and after a rollback to\nan older detector (re-analyzing would make it worse).",
+            "readOnly": true
           }
         },
         "type": "object",
@@ -3639,11 +3834,13 @@
           "width",
           "height",
           "court_corners",
+          "detector_version",
           "created_at",
           "updated_at",
           "rally_count",
           "play_seconds",
-          "court_out_of_frame"
+          "court_out_of_frame",
+          "detector_outdated"
         ],
         "title": "VideoPublic"
       },

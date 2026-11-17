@@ -222,11 +222,17 @@ export type Piece = {
 export type PrivateAnalysis = {
     /**
      * Rallies
+     *
+     * [start, end] pairs, or objects with confidence / is_maybe
      */
     rallies: Array<[
         number,
         number
-    ]>;
+    ] | PrivateRally>;
+    /**
+     * Detector Version
+     */
+    detector_version?: string | null;
     trajectory?: PrivateTrajectory | null;
     /**
      * Thumbnails
@@ -234,6 +240,28 @@ export type PrivateAnalysis = {
      * Make the thumbnail strip from the uploaded file (needs ffmpeg)
      */
     thumbnails?: boolean;
+};
+
+/**
+ * PrivateRally
+ */
+export type PrivateRally = {
+    /**
+     * Start
+     */
+    start: number;
+    /**
+     * End
+     */
+    end: number;
+    /**
+     * Confidence
+     */
+    confidence?: number | null;
+    /**
+     * Is Maybe
+     */
+    is_maybe?: boolean;
 };
 
 /**
@@ -370,6 +398,18 @@ export type RallyPublic = {
      * End
      */
     end: number;
+    /**
+     * Confidence
+     *
+     * Detector's probability (0-1) that this is a real rally; null for the v1 detector and for rallies the user added
+     */
+    confidence?: number | null;
+    /**
+     * Is Maybe
+     *
+     * The detector was unsure: show it as a 'maybe' the user confirms (POST /rallies/{id}/confirm) or deletes. Cleared by any edit.
+     */
+    is_maybe?: boolean;
     /**
      * Duration
      */
@@ -952,6 +992,12 @@ export type VideoPublic = {
         number
     ]> | null;
     /**
+     * Detector Version
+     *
+     * Detector that made the rallies, e.g. 'v1' or 'v1.1-2026-11' (null until processed). Re-analyzing uses the current detector.
+     */
+    detector_version: string | null;
+    /**
      * Created At
      */
     created_at: string;
@@ -979,6 +1025,14 @@ export type VideoPublic = {
      * decide. Computed here so the web and mobile apps can't disagree.
      */
     readonly court_out_of_frame: boolean;
+    /**
+     * Detector Outdated
+     *
+     * A newer detector than the one that made these rallies is in use, so the
+     * app can offer to re-analyze. False until processed, and after a rollback to
+     * an older detector (re-analyzing would make it worse).
+     */
+    readonly detector_outdated: boolean;
 };
 
 /**
@@ -1068,6 +1122,18 @@ export type RallyPublicWritable = {
      * End
      */
     end: number;
+    /**
+     * Confidence
+     *
+     * Detector's probability (0-1) that this is a real rally; null for the v1 detector and for rallies the user added
+     */
+    confidence?: number | null;
+    /**
+     * Is Maybe
+     *
+     * The detector was unsure: show it as a 'maybe' the user confirms (POST /rallies/{id}/confirm) or deletes. Cleared by any edit.
+     */
+    is_maybe?: boolean;
 };
 
 /**
@@ -1121,6 +1187,12 @@ export type VideoPublicWritable = {
         number,
         number
     ]> | null;
+    /**
+     * Detector Version
+     *
+     * Detector that made the rallies, e.g. 'v1' or 'v1.1-2026-11' (null until processed). Re-analyzing uses the current detector.
+     */
+    detector_version: string | null;
     /**
      * Created At
      */
@@ -2192,6 +2264,86 @@ export type ralliesEditRallyResponses = {
 };
 
 export type ralliesEditRallyResponse = ralliesEditRallyResponses[keyof ralliesEditRallyResponses];
+
+export type ralliesUnconfirmRallyData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+        /**
+         * Rally Id
+         */
+        rally_id: number;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/rallies/{rally_id}/confirm';
+};
+
+export type ralliesUnconfirmRallyErrors = {
+    /**
+     * Video or rally not found
+     */
+    404: unknown;
+    /**
+     * The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours
+     */
+    409: unknown;
+    /**
+     * Invalid times (e.g. past the end of the video)
+     */
+    422: unknown;
+};
+
+export type ralliesUnconfirmRallyResponses = {
+    /**
+     * Successful Response
+     */
+    200: RallyChange;
+};
+
+export type ralliesUnconfirmRallyResponse = ralliesUnconfirmRallyResponses[keyof ralliesUnconfirmRallyResponses];
+
+export type ralliesConfirmRallyData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+        /**
+         * Rally Id
+         */
+        rally_id: number;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/rallies/{rally_id}/confirm';
+};
+
+export type ralliesConfirmRallyErrors = {
+    /**
+     * Video or rally not found
+     */
+    404: unknown;
+    /**
+     * The video is queued/processing, the times overlap another rally, or (merge) the rallies aren't neighbours
+     */
+    409: unknown;
+    /**
+     * Invalid times (e.g. past the end of the video)
+     */
+    422: unknown;
+};
+
+export type ralliesConfirmRallyResponses = {
+    /**
+     * Successful Response
+     */
+    200: RallyChange;
+};
+
+export type ralliesConfirmRallyResponse = ralliesConfirmRallyResponses[keyof ralliesConfirmRallyResponses];
 
 export type ralliesSplitRallyData = {
     body: RallySplit;

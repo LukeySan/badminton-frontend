@@ -149,20 +149,33 @@ export const SEEDED_RALLIES: [number, number][] = [
   [10.6, 11.6],
 ]
 
+/** A seeded rally: [start, end], or with the detector's confidence / "maybe" flag. */
+export type SeedRally =
+  | [number, number]
+  | { start: number; end: number; confidence?: number; is_maybe?: boolean }
+
 /**
  * Marks a video analyzed with real rallies through the backend's development-only
  * fixture, the same way the worker finishes a video. `thumbnails`: also make the
- * thumbnail strip from the uploaded file (ffmpeg, ~1 s).
+ * thumbnail strip from the uploaded file (ffmpeg, ~1 s). `detectorVersion`: which
+ * detector "made" them (the fixture's default, "test-fixture", is never outdated).
  */
 export async function seedAnalysis(
   videoId: string,
-  rallies: [number, number][] = SEEDED_RALLIES,
-  { thumbnails = false }: { thumbnails?: boolean } = {},
+  rallies: SeedRally[] = SEEDED_RALLIES,
+  {
+    thumbnails = false,
+    detectorVersion,
+  }: { thumbnails?: boolean; detectorVersion?: string } = {},
 ) {
   const response = await fetch(`${API}/private/videos/${videoId}/analysis`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ rallies, thumbnails }),
+    body: JSON.stringify({
+      rallies,
+      thumbnails,
+      ...(detectorVersion && { detector_version: detectorVersion }),
+    }),
   })
   if (!response.ok) throw new Error(`Seeding failed: ${response.status}`)
 }
@@ -174,7 +187,13 @@ export async function readRallies(token: string, videoId: string) {
   })
   return (
     (await response.json()) as {
-      data: { id: number; number: number; start: number; end: number }[]
+      data: {
+        id: number
+        number: number
+        start: number
+        end: number
+        is_maybe: boolean
+      }[]
     }
   ).data
 }

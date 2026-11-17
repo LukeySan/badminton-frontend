@@ -53,8 +53,9 @@ export function failureInfo(video: Pick<VideoPublic, "failure_reason">) {
 }
 
 /**
- * Queue a failed (or finished) video again. The backend may refuse: 409 (already
- * queued, no court) or 429 (two videos already in line); callers show its message.
+ * Queue a failed (or finished) video again (Try again, Re-analyze). The backend may
+ * refuse: 409 (already queued, no court) or 429 (two videos already in line);
+ * callers show its message.
  */
 export function useRetryVideo(video: VideoPublic) {
   const queryClient = useQueryClient()
@@ -68,6 +69,9 @@ export function useRetryVideo(video: VideoPublic) {
       queryClient.removeQueries({
         queryKey: ralliesQueryOptions(video.id).queryKey,
       })
+      // The server re-points the reel's clips when it's done (a new version): read
+      // it again then, or the first save would be refused as stale
+      queryClient.removeQueries({ queryKey: ["videos", video.id, "reel"] })
       invalidateVideoLists(queryClient)
     },
   })

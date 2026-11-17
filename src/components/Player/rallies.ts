@@ -91,3 +91,11 @@ export function skipTarget(
 export function rallyTime(segments: Segment[]): number {
   return segments.reduce((sum, s) => sum + s.rally.duration, 0)
 }
+
+/**
+ * A rally the detector was unsure about (v1.1+): shown faded and dashed until the
+ * user keeps or deletes it. Skip-breaks still plays it (a missed rally is worse than
+ * a fake one); counts, play time and quick starts leave it out.
+ */
+export const isMaybe = (rally: Pick<RallyPublic, "is_maybe">) =>
+  rally.is_maybe === true

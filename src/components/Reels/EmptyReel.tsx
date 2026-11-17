@@ -12,19 +12,26 @@ import { QUICK_PICKS } from "./reelEdit"
 /**
  * Edit mode with nothing picked: what a reel is, and three ways to start one. Picking
  * (here or in Highlights) is what creates the reel; just watching never does.
+ * Longest 5 and All rallies take sure rallies only: "maybe" rallies join a reel once
+ * they're kept, or when picked by hand.
  */
 export function EmptyReel({
   rallyCount,
+  maybeCount,
   onLongest,
   onAll,
   onPickFromList,
 }: {
+  /** Sure rallies (not the maybes). */
   rallyCount: number
+  maybeCount: number
   onLongest: () => void
   onAll: () => void
   onPickFromList: () => void
 }) {
   const none = rallyCount === 0
+  const toCheck =
+    maybeCount > 0 ? ` Leaves out the ${maybeCount} to check.` : ""
   return (
     <section
       aria-labelledby="empty-reel-title"
@@ -38,7 +45,9 @@ export function EmptyReel({
       </h2>
       <p className="mt-1 max-w-72 text-[13px] text-muted-foreground">
         {none
-          ? "No rallies were found in this match."
+          ? maybeCount > 0
+            ? `Only rallies to check were found. Keep the real ones in Highlights, or pick them from the list.`
+            : "No rallies were found in this match."
           : "Start with some rallies, then cut, slow down and caption them here."}
       </p>
       <div className="mt-4 flex w-full max-w-sm flex-col gap-2 text-left">
@@ -52,7 +61,7 @@ export function EmptyReel({
         <QuickStart
           icon={<Rows3 />}
           title="All rallies"
-          detail={`Every rally of the match (${rallyCount}), no breaks`}
+          detail={`Every rally of the match (${rallyCount}), no breaks.${toCheck}`}
           disabled={none}
           onClick={onAll}
         />
@@ -60,7 +69,7 @@ export function EmptyReel({
           icon={<ListChecks />}
           title="Pick from the list"
           detail="Choose rallies one by one in Highlights"
-          disabled={none}
+          disabled={none && maybeCount === 0}
           onClick={onPickFromList}
         />
       </div>
