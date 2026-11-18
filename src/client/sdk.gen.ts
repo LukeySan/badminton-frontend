@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { exportsCreateExportData, exportsCreateExportErrors, exportsCreateExportResponses, exportsDeleteExportData, exportsDeleteExportErrors, exportsDeleteExportResponses, exportsReadExportData, exportsReadExportDownloadData, exportsReadExportDownloadErrors, exportsReadExportDownloadResponses, exportsReadExportErrors, exportsReadExportFileData, exportsReadExportFileErrors, exportsReadExportFileResponses, exportsReadExportResponses, exportsReadVideoExportsData, exportsReadVideoExportsErrors, exportsReadVideoExportsResponses, healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, privateSetAnalysisData, privateSetAnalysisErrors, privateSetAnalysisResponses, ralliesAddRallyData, ralliesAddRallyErrors, ralliesAddRallyResponses, ralliesConfirmRallyData, ralliesConfirmRallyErrors, ralliesConfirmRallyResponses, ralliesDeleteRallyData, ralliesDeleteRallyErrors, ralliesDeleteRallyResponses, ralliesEditRallyData, ralliesEditRallyErrors, ralliesEditRallyResponses, ralliesMergeRalliesData, ralliesMergeRalliesErrors, ralliesMergeRalliesResponses, ralliesSplitRallyData, ralliesSplitRallyErrors, ralliesSplitRallyResponses, ralliesUnconfirmRallyData, ralliesUnconfirmRallyErrors, ralliesUnconfirmRallyResponses, reelsCreateReelData, reelsCreateReelErrors, reelsCreateReelResponses, reelsDeleteReelData, reelsDeleteReelErrors, reelsDeleteReelResponses, reelsReadReelData, reelsReadReelErrors, reelsReadReelResponses, reelsReadReelsData, reelsReadReelsErrors, reelsReadReelsResponses, reelsReadVideoReelData, reelsReadVideoReelErrors, reelsReadVideoReelResponses, reelsSaveVideoReelData, reelsSaveVideoReelErrors, reelsSaveVideoReelResponses, reelsUpdateReelData, reelsUpdateReelErrors, reelsUpdateReelResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosReadVideoThumbnailFileData, videosReadVideoThumbnailFileErrors, videosReadVideoThumbnailFileResponses, videosReadVideoThumbnailsUrlData, videosReadVideoThumbnailsUrlErrors, videosReadVideoThumbnailsUrlResponses, videosReadVideoTrajectoryData, videosReadVideoTrajectoryErrors, videosReadVideoTrajectoryResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
+import type { exportsCreateExportData, exportsCreateExportErrors, exportsCreateExportResponses, exportsDeleteExportData, exportsDeleteExportErrors, exportsDeleteExportResponses, exportsReadExportData, exportsReadExportDownloadData, exportsReadExportDownloadErrors, exportsReadExportDownloadResponses, exportsReadExportErrors, exportsReadExportFileData, exportsReadExportFileErrors, exportsReadExportFileResponses, exportsReadExportResponses, exportsReadVideoExportsData, exportsReadVideoExportsErrors, exportsReadVideoExportsResponses, exportsRetryExportData, exportsRetryExportErrors, exportsRetryExportResponses, healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, privateRenderExportNowData, privateRenderExportNowErrors, privateRenderExportNowResponses, privateSetAnalysisData, privateSetAnalysisErrors, privateSetAnalysisResponses, privateSetExportStateData, privateSetExportStateErrors, privateSetExportStateResponses, ralliesAddRallyData, ralliesAddRallyErrors, ralliesAddRallyResponses, ralliesConfirmRallyData, ralliesConfirmRallyErrors, ralliesConfirmRallyResponses, ralliesDeleteRallyData, ralliesDeleteRallyErrors, ralliesDeleteRallyResponses, ralliesEditRallyData, ralliesEditRallyErrors, ralliesEditRallyResponses, ralliesMergeRalliesData, ralliesMergeRalliesErrors, ralliesMergeRalliesResponses, ralliesSplitRallyData, ralliesSplitRallyErrors, ralliesSplitRallyResponses, ralliesUnconfirmRallyData, ralliesUnconfirmRallyErrors, ralliesUnconfirmRallyResponses, reelsCreateReelData, reelsCreateReelErrors, reelsCreateReelResponses, reelsDeleteReelData, reelsDeleteReelErrors, reelsDeleteReelResponses, reelsReadReelData, reelsReadReelErrors, reelsReadReelResponses, reelsReadReelsData, reelsReadReelsErrors, reelsReadReelsResponses, reelsReadVideoReelData, reelsReadVideoReelErrors, reelsReadVideoReelResponses, reelsSaveVideoReelData, reelsSaveVideoReelErrors, reelsSaveVideoReelResponses, reelsUpdateReelData, reelsUpdateReelErrors, reelsUpdateReelResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosReadVideoThumbnailFileData, videosReadVideoThumbnailFileErrors, videosReadVideoThumbnailFileResponses, videosReadVideoThumbnailsUrlData, videosReadVideoThumbnailsUrlErrors, videosReadVideoThumbnailsUrlResponses, videosReadVideoTrajectoryData, videosReadVideoTrajectoryErrors, videosReadVideoTrajectoryResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -823,6 +823,22 @@ export class ExportsService {
     }
     
     /**
+     * Retry Export
+     *
+     * Queue a failed export again ("Try again"). It renders the same snapshot: what
+     * the reel was when the export was requested, not what it is now. Keeps its
+     * created_at and expires_at.
+     */
+    public static retryExport<ThrowOnError extends boolean = true>(options: Options<exportsRetryExportData, ThrowOnError>) {
+        return (options.client ?? client).post<exportsRetryExportResponses, exportsRetryExportErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/exports/{export_id}/retry',
+            ...options
+        });
+    }
+    
+    /**
      * Read Export Download
      *
      * A temporary link to download the finished MP4 (saved as `filename`). The link
@@ -886,6 +902,40 @@ export class PrivateService {
                 'Content-Type': 'application/json',
                 ...options.headers
             }
+        });
+    }
+    
+    /**
+     * Set Export State
+     *
+     * Test fixture: put an export where a worker would (rendering at some progress,
+     * or failed with a reason), without rendering. Takes a new claim, so a real
+     * worker that has it stops writing to it (its writes check the claim).
+     */
+    public static setExportState<ThrowOnError extends boolean = true>(options: Options<privateSetExportStateData, ThrowOnError>) {
+        return (options.client ?? client).post<privateSetExportStateResponses, privateSetExportStateErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/private/exports/{id}/state',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Render Export Now
+     *
+     * Test fixture: render the export now, inside this request, with the worker's
+     * renderer (ffmpeg; a few seconds for a short clip), and finish it like a worker:
+     * a real MP4 behind GET /exports/{id}/download.
+     */
+    public static renderExportNow<ThrowOnError extends boolean = true>(options: Options<privateRenderExportNowData, ThrowOnError>) {
+        return (options.client ?? client).post<privateRenderExportNowResponses, privateRenderExportNowErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/private/exports/{id}/render',
+            ...options
         });
     }
 }

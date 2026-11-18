@@ -269,7 +269,9 @@ sideways is wide but short, so it keeps the phone layout.
   - Shared top: header (back to Home, the video's title 15/800, "68 rallies · 18:20
     play · 5 to check" 12 muted (sure rallies; "to check" only with maybes), plus "·
     Saved" once the video has a reel (on a phone the summary truncates first, the save
-    state never), Export disabled with "Coming soon" under it, ⋮ More options:
+    state never), **Export** (`size="sm"` primary; while an export renders, a
+    `bg-foreground text-background` 20px badge "42%" on its top-right corner with a
+    2px `ring-background`), ⋮ More options:
     **Re-analyze with the latest detector** (only when the API says
     `detector_outdated`; a confirm dialog says the rally fixes are replaced, primary
     "Re-analyze"), Re-mark court, Delete video), the video
@@ -349,6 +351,30 @@ sideways is wide but short, so it keeps the phone layout.
     `bg-success-soft text-success-text` with a 1.5px `--chapter` ring. Caption bars "Aa
     …" (`bg-secondary`) under their pieces. On the video: "Slow-mo" tag top-right while a
     slow piece plays, and the caption bottom center (`bg-court-ink/75`).
+  - **Export sheet** (header Export): a bottom sheet on phones (`bg-sheet shadow-sheet`,
+    22px top radius, max 90dvh, scrolls), a right side panel on desktop. Title 15/800
+    "Export highlight", 13px muted line. On the sheet, sections are `bg-background`
+    and tiles on them `bg-card` (`--sheet` and `--card` are both white in light).
+    - New export (18px radius): three fact tiles like the stat strip (Length / Clips
+      / Format; the **Rallies-only** length, whatever the view), a 12px muted note
+      that the export is what Rallies only plays (clips + restored breaks, never cut
+      parts; a bold lead-in when Edit is in Full video), Quality pills 720p / 1080p
+      (like the filter chips; 1080p disabled with "1080p needs a 1080p recording"),
+      then a full-width 44px primary **Export**. Disabled with its reason under it
+      (12px muted, centered): "Pick some rallies first: your reel is empty." / "One
+      export at a time: wait for this one to finish." Errors in `text-highlight-text`.
+    - "Your exports" (15/800), newest first, each a 14px-radius box: "0:24 · 720p ·
+      9:16" 14/700, "Exported from your edit at 2:14 PM" 12 muted (edits made since
+      don't change it), a trash icon (44px) that turns into a small destructive
+      "Delete" for 4 s to confirm. Then by status: `Progress` + "Exporting… 42%" (or
+      "Waiting to start…") and "You can close this and keep editing" muted; done =
+      the MP4 with native controls (12px radius, `bg-letterbox`; the newest done one
+      open, older ones behind a "Preview" link), two 44px buttons **Share** (primary)
+      and **Download** (secondary), "Available until Nov 24 · 2:14 PM · 12 MB" 12
+      muted; failed = "Failed: <reason>" 13/700 `text-highlight-text` and an outline
+      **Try again** (re-renders the same snapshot); expired = a muted line.
+    - Closed sheet: the button's badge, and a toast when an export finishes ("Your
+      highlight is ready") or fails (the reason), each with **Show** (opens it).
 - **How to record** (`/recording-tips`, linked from Upload and Profile): side-view and
   camera-view drawings on `bg-court` (court lines `--court-line`, labels
   `--court-foreground`, sight lines `--court-accent`), good/bad captions in

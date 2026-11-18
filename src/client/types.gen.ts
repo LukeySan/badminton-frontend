@@ -384,6 +384,21 @@ export type PrivateAnalysis = {
 };
 
 /**
+ * PrivateExportState
+ */
+export type PrivateExportState = {
+    /**
+     * Status
+     */
+    status: 'queued' | 'processing' | 'failed';
+    /**
+     * Progress
+     */
+    progress?: number;
+    failure_reason?: ExportFailureReason;
+};
+
+/**
  * PrivateRally
  */
 export type PrivateRally = {
@@ -2940,6 +2955,48 @@ export type exportsReadExportResponses = {
 
 export type exportsReadExportResponse = exportsReadExportResponses[keyof exportsReadExportResponses];
 
+export type exportsRetryExportData = {
+    body?: never;
+    path: {
+        /**
+         * Export Id
+         */
+        export_id: string;
+    };
+    query?: never;
+    url: '/api/v1/exports/{export_id}/retry';
+};
+
+export type exportsRetryExportErrors = {
+    /**
+     * Not failed (queued, processing or done), or another export of this reel is already queued or processing
+     */
+    409: unknown;
+    /**
+     * Expired: export the reel again instead
+     */
+    410: unknown;
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+    /**
+     * Too many of your exports queued or processing
+     */
+    429: unknown;
+};
+
+export type exportsRetryExportError = exportsRetryExportErrors[keyof exportsRetryExportErrors];
+
+export type exportsRetryExportResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExportPublic;
+};
+
+export type exportsRetryExportResponse = exportsRetryExportResponses[keyof exportsRetryExportResponses];
+
 export type exportsReadExportDownloadData = {
     body?: never;
     path: {
@@ -3073,3 +3130,63 @@ export type privateSetAnalysisResponses = {
 };
 
 export type privateSetAnalysisResponse = privateSetAnalysisResponses[keyof privateSetAnalysisResponses];
+
+export type privateSetExportStateData = {
+    body: PrivateExportState;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/private/exports/{id}/state';
+};
+
+export type privateSetExportStateErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type privateSetExportStateError = privateSetExportStateErrors[keyof privateSetExportStateErrors];
+
+export type privateSetExportStateResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExportPublic;
+};
+
+export type privateSetExportStateResponse = privateSetExportStateResponses[keyof privateSetExportStateResponses];
+
+export type privateRenderExportNowData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/private/exports/{id}/render';
+};
+
+export type privateRenderExportNowErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type privateRenderExportNowError = privateRenderExportNowErrors[keyof privateRenderExportNowErrors];
+
+export type privateRenderExportNowResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExportPublic;
+};
+
+export type privateRenderExportNowResponse = privateRenderExportNowResponses[keyof privateRenderExportNowResponses];

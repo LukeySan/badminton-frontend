@@ -205,3 +205,51 @@ export async function readRallies(token: string, videoId: string) {
 /** [start, end] of each rally, in match order (for comparing after a fix). */
 export const rallyBounds = async (token: string, videoId: string) =>
   (await readRallies(token, videoId)).map((r) => [r.start, r.end])
+
+export type TestExport = {
+  id: string
+  status: "queued" | "processing" | "done" | "failed"
+  progress: number
+  quality: string
+  format: string
+  failure_reason: string | null
+}
+
+/** The video's exports, newest first. */
+export async function readExports(
+  token: string,
+  videoId: string,
+): Promise<TestExport[]> {
+  const response = await fetch(`${API}/videos/${videoId}/reel/exports`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  return ((await response.json()) as { data: TestExport[] }).data
+}
+
+/**
+ * Moves an export along as a worker would, through the backend's development-only
+ * fixture (no worker needed): rendering at some progress, or failed with a reason.
+ */
+export async function setExportState(
+  exportId: string,
+  state: {
+    status: "queued" | "processing" | "failed"
+    progress?: number
+    failure_reason?: string
+  },
+) {
+  const response = await fetch(`${API}/private/exports/${exportId}/state`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(state),
+  })
+  if (!response.ok) throw new Error(`Export state failed: ${response.status}`)
+}
+
+/** Renders the export now with the worker's real renderer (ffmpeg) and finishes it. */
+export async function renderExport(exportId: string) {
+  const response = await fetch(`${API}/private/exports/${exportId}/render`, {
+    method: "POST",
+  })
+  if (!response.ok) throw new Error(`Render failed: ${response.status}`)
+}

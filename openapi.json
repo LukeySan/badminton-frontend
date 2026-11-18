@@ -2444,6 +2444,62 @@
         }
       }
     },
+    "/api/v1/exports/{export_id}/retry": {
+      "post": {
+        "tags": ["exports"],
+        "summary": "Retry Export",
+        "description": "Queue a failed export again (\"Try again\"). It renders the same snapshot: what\nthe reel was when the export was requested, not what it is now. Keeps its\ncreated_at and expires_at.",
+        "operationId": "exports-retry_export",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Export Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportPublic"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not failed (queued, processing or done), or another export of this reel is already queued or processing"
+          },
+          "410": {
+            "description": "Expired: export the reel again instead"
+          },
+          "429": {
+            "description": "Too many of your exports queued or processing"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/exports/{export_id}/download": {
       "get": {
         "tags": ["exports"],
@@ -2624,6 +2680,100 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VideoPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/private/exports/{id}/state": {
+      "post": {
+        "tags": ["private"],
+        "summary": "Set Export State",
+        "description": "Test fixture: put an export where a worker would (rendering at some progress,\nor failed with a reason), without rendering. Takes a new claim, so a real\nworker that has it stops writing to it (its writes check the claim).",
+        "operationId": "private-set_export_state",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivateExportState"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/private/exports/{id}/render": {
+      "post": {
+        "tags": ["private"],
+        "summary": "Render Export Now",
+        "description": "Test fixture: render the export now, inside this request, with the worker's\nrenderer (ffmpeg; a few seconds for a short clip), and finish it like a worker:\na real MP4 behind GET /exports/{id}/download.",
+        "operationId": "private-render_export_now",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportPublic"
                 }
               }
             }
@@ -3193,6 +3343,29 @@
         "type": "object",
         "required": ["rallies"],
         "title": "PrivateAnalysis"
+      },
+      "PrivateExportState": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["queued", "processing", "failed"],
+            "title": "Status"
+          },
+          "progress": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Progress",
+            "default": 0.0
+          },
+          "failure_reason": {
+            "$ref": "#/components/schemas/ExportFailureReason",
+            "default": "Something went wrong while exporting this reel"
+          }
+        },
+        "type": "object",
+        "required": ["status"],
+        "title": "PrivateExportState"
       },
       "PrivateRally": {
         "properties": {

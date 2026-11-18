@@ -78,8 +78,8 @@ test("a done video opens the screen: header, Highlights first, no reel yet", asy
   await expect(page.getByTestId("match-summary")).toHaveText(
     "7 rallies · 0:06 play",
   )
-  await expect(page.getByRole("button", { name: "Export" })).toBeDisabled()
-  await expect(page.getByText("Coming soon")).toBeVisible()
+  // Export opens its sheet (video-screen-export.spec.ts)
+  await expect(page.getByRole("button", { name: "Export" })).toBeEnabled()
   await expect(
     modes(page).getByRole("radio", { name: "Highlights" }),
   ).toBeChecked()

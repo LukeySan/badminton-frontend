@@ -23,6 +23,7 @@ import {
 import { toast } from "sonner"
 
 import type {
+  ExportPublic,
   RallyChange,
   RallyPublic,
   ReelPublic,
@@ -77,6 +78,7 @@ import { extractErrorMessage } from "@/utils"
 import { EditPanel } from "./EditPanel"
 import { EditTools } from "./EditTools"
 import { EmptyReel } from "./EmptyReel"
+import { ExportSheet } from "./ExportSheet"
 import { type FixKind, HighlightsPanel } from "./HighlightsPanel"
 import { videoReelQueryOptions } from "./queries"
 import {
@@ -123,6 +125,7 @@ import {
   timelineLength,
 } from "./timeline"
 import { type SaveStatus, useReelAutosave } from "./useReelAutosave"
+import { useReelExports } from "./useReelExports"
 
 export type EditorMode = "highlights" | "edit"
 
@@ -211,6 +214,28 @@ export function VideoScreen({
     [edit, segments, windows, duration],
   )
   const reelSeconds = timelineLength(items)
+  // What an export renders: always the Rallies-only result, whatever the view
+  const exportSeconds = useMemo(
+    () =>
+      edit.view === "cut"
+        ? reelSeconds
+        : timelineLength(
+            buildTimeline(
+              { ...edit, view: "cut" },
+              segments,
+              windows,
+              duration,
+            ),
+          ),
+    [edit, segments, windows, duration, reelSeconds],
+  )
+  const [exportOpen, setExportOpen] = useState(false)
+  const reelExports = useReelExports({
+    videoId: video.id,
+    beforeExport: autosave.flush,
+    quiet: exportOpen,
+    onShow: () => setExportOpen(true),
+  })
   const reelTime = reelTimeAtSource(items, time)
   const current = segmentAt(segments, time)
 
@@ -604,6 +629,8 @@ export function VideoScreen({
         maybeCount={maybeCount}
         playTime={playTime}
         beforeReanalyze={autosave.flush}
+        exporting={reelExports.active}
+        onExport={() => setExportOpen(true)}
         // Nothing to say about saving until there's a reel (or a change to save)
         saveStatus={
           autosave.exists || autosave.status !== "saved"
@@ -1028,14 +1055,26 @@ export function VideoScreen({
         onSubmit={submitFix}
         onClose={() => setFixRequest(null)}
       />
+      <ExportSheet
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        video={video}
+        reel={{
+          seconds: exportSeconds,
+          clips: edit.clips.length,
+          format: edit.format,
+          fullView: mode === "edit" && edit.view === "full",
+        }}
+        exports={reelExports}
+      />
     </div>
   )
 }
 
 /**
  * Back to Home, the video's title, "68 rallies · 18:20 play · 5 to check" (+ the
- * reel's save state once there is one), Export (not yet) and a menu (re-analyze with
- * a newer detector, re-mark court, delete).
+ * reel's save state once there is one), Export (with the running export's progress
+ * on it) and a menu (re-analyze with a newer detector, re-mark court, delete).
  */
 function ScreenHeader({
   video,
@@ -1046,6 +1085,8 @@ function ScreenHeader({
   saveStatus,
   onRetrySave,
   beforeReanalyze,
+  exporting,
+  onExport,
 }: {
   video: VideoPublic
   title: string
@@ -1056,6 +1097,9 @@ function ScreenHeader({
   saveStatus: SaveStatus | undefined
   onRetrySave: () => void
   beforeReanalyze: () => Promise<void>
+  /** An export of the reel that is queued or rendering: its progress on the button. */
+  exporting: ExportPublic | undefined
+  onExport: () => void
 }) {
   const [deleting, setDeleting] = useState(false)
   const [reanalyzing, setReanalyzing] = useState(false)
@@ -1098,18 +1142,28 @@ function ScreenHeader({
           )}
         </p>
       </div>
-      <div className="flex shrink-0 flex-col items-center gap-0.5">
-        <Button size="sm" disabled aria-describedby="export-soon">
-          <Upload />
-          Export
-        </Button>
-        <span
-          id="export-soon"
-          className="text-[10px] font-bold text-muted-foreground"
-        >
-          Coming soon
-        </span>
-      </div>
+      <Button
+        size="sm"
+        onClick={onExport}
+        aria-label={
+          exporting
+            ? `Export, ${Math.round(exporting.progress * 100)}% exported`
+            : "Export"
+        }
+        className="relative shrink-0"
+      >
+        <Upload />
+        Export
+        {exporting && (
+          // Progress while it renders, also with the sheet closed
+          <span
+            data-testid="export-badge"
+            className="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-[10px] font-extrabold text-background tabular-nums ring-2 ring-background"
+          >
+            {Math.round(exporting.progress * 100)}%
+          </span>
+        )}
+      </Button>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
