@@ -44,6 +44,11 @@ jobs:
         run: bun run build
         env:
           VITE_API_URL: http://localhost:8000
+      # The preview must play what the export renders: shared fixtures with the
+      # backend (tests/fixtures/reel-segments)
+      - name: Unit tests (bun test)
+        timeout-minutes: 2
+        run: bun run test:unit
 
   # End-to-end: the real backend (API + Postgres + Mailpit), the production build,
   # Chromium and WebKit (Safari's engine)

@@ -11,7 +11,9 @@
     "generate-client": "openapi-ts",
     "test": "bunx playwright test",
     "test:ui": "bunx playwright test --ui",
-    "test:webkit": "bash scripts/test-webkit-docker.sh"
+    "test:webkit": "bash scripts/test-webkit-docker.sh",
+    "test:unit": "bun test src",
+    "sync-fixtures": "rm -f tests/fixtures/reel-segments/*.json && cp ../badminton-backend/shared/reel-segments/*.json ../badminton-backend/shared/reel-segments/README.md tests/fixtures/reel-segments/"
   },
   "dependencies": {
     "@fontsource-variable/manrope": "^5.3.0",
@@ -58,6 +60,7 @@
     "@playwright/test": "1.64.1",
     "@tanstack/router-devtools": "^1.167.2",
     "@tanstack/router-plugin": "^1.168.48",
+    "@types/bun": "^1.4.4",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

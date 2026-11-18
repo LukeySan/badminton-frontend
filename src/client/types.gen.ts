@@ -110,6 +110,147 @@ export type ErrorWithCode = {
 };
 
 /**
+ * ExportCreate
+ */
+export type ExportCreate = {
+    /**
+     * Quality
+     *
+     * 1080p only if the video is at least 1080p
+     */
+    quality?: '720p' | '1080p';
+    /**
+     * Format
+     *
+     * null: the reel's format
+     */
+    format?: '16:9' | '9:16' | null;
+};
+
+/**
+ * ExportDownload
+ */
+export type ExportDownload = {
+    /**
+     * Url
+     *
+     * Signed link (relative to the API host); the response is an attachment named `filename`
+     */
+    url: string;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Expires At
+     */
+    expires_at: string;
+};
+
+/**
+ * ExportFailureReason
+ *
+ * Why an export failed, in words for the user (details stay in Export.error).
+ */
+export type ExportFailureReason = 'Couldn\'t read the original video' | 'The export kept stopping' | 'Something went wrong while exporting this reel';
+
+/**
+ * ExportPublic
+ */
+export type ExportPublic = {
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Video Id
+     */
+    video_id: string;
+    /**
+     * Reel Id
+     */
+    reel_id: string;
+    /**
+     * Title
+     */
+    title: string;
+    /**
+     * Status
+     */
+    status: 'queued' | 'processing' | 'done' | 'failed';
+    /**
+     * Progress
+     */
+    progress: number;
+    /**
+     * Why it failed, for the user (only when status is 'failed')
+     */
+    failure_reason: ExportFailureReason | null;
+    /**
+     * Format
+     */
+    format: '16:9' | '9:16';
+    /**
+     * Quality
+     */
+    quality: '720p' | '1080p';
+    /**
+     * Width
+     */
+    width: number;
+    /**
+     * Height
+     */
+    height: number;
+    /**
+     * Duration
+     *
+     * Length in seconds: expected until done, then measured
+     */
+    duration: number;
+    /**
+     * Size Bytes
+     *
+     * File size once done
+     */
+    size_bytes: number | null;
+    /**
+     * Filename
+     *
+     * Name the download is saved as
+     */
+    filename: string;
+    /**
+     * Created At
+     */
+    created_at: string;
+    /**
+     * Updated At
+     */
+    updated_at: string;
+    /**
+     * Expires At
+     *
+     * When the file is deleted (created_at + 7 days)
+     */
+    expires_at: string;
+};
+
+/**
+ * ExportsPublic
+ */
+export type ExportsPublic = {
+    /**
+     * Data
+     */
+    data: Array<ExportPublic>;
+    /**
+     * Count
+     */
+    count: number;
+};
+
+/**
  * FailureReason
  *
  * Why a video failed, in words for the user (Video.failure_reason). The technical
@@ -460,6 +601,12 @@ export type ReelClip = {
      * The parts of the rally to show: sorted, not overlapping (they may touch, e.g. after a split), within the rally's bounds widened by the reel's lead_in/lead_out. A clip without pieces is dropped when saved.
      */
     pieces?: Array<Piece>;
+    /**
+     * Cuts
+     *
+     * Footage of this clip the user deleted: never played, not even in a restored break next to it, and a restored break stops at a cut. Same bounds as pieces. Putting a cut back removes it from here and adds it to the pieces. On save: sorted, merged, and what the pieces cover removed.
+     */
+    cuts?: Array<TimeRange>;
 };
 
 /**
@@ -478,13 +625,16 @@ export type ReelCreate = {
  *
  * The edit list, stored as JSON. `version` changes when the format does; an
  * Alembic migration converts stored reels, so the code only knows the current one.
- * v2 (this): clips are rallies cut into pieces. v1 had one trim per clip.
+ * v4 (this): clips record deleted footage as cuts, which never play and bound
+ * restored breaks. v3 made a restored break an anchor (one time inside it) so it
+ * follows its neighbouring pieces; v2 stored restored breaks as {start, end}
+ * ranges; v1 had one trim per clip instead of pieces.
  */
 export type ReelEdit = {
     /**
      * Version
      */
-    version?: 2;
+    version?: 4;
     /**
      * View
      */
@@ -512,11 +662,11 @@ export type ReelEdit = {
      */
     clips?: Array<ReelClip>;
     /**
-     * Restored Gaps
+     * Restored Anchors
      *
-     * Breaks between rallies shown again in cut view
+     * Breaks shown again in 'Rallies only' (and exported): a stretch of footage between the nearest piece or cut on each side (or the start / end of the video) plays if one of these times (seconds) is inside it. Cuts never play. An anchor inside a piece or a cut does nothing, and is dropped when the reel is saved (so is a second anchor in the same stretch). See app/reel_ops.py stretches.
      */
-    restored_gaps?: Array<TimeRange>;
+    restored_anchors?: Array<number>;
     overlays?: ReelOverlays;
 };
 
@@ -2657,6 +2807,217 @@ export type reelsUpdateReelResponses = {
 };
 
 export type reelsUpdateReelResponse = reelsUpdateReelResponses[keyof reelsUpdateReelResponses];
+
+export type exportsReadVideoExportsData = {
+    body?: never;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/reel/exports';
+};
+
+export type exportsReadVideoExportsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type exportsReadVideoExportsError = exportsReadVideoExportsErrors[keyof exportsReadVideoExportsErrors];
+
+export type exportsReadVideoExportsResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExportsPublic;
+};
+
+export type exportsReadVideoExportsResponse = exportsReadVideoExportsResponses[keyof exportsReadVideoExportsResponses];
+
+export type exportsCreateExportData = {
+    body: ExportCreate;
+    path: {
+        /**
+         * Id
+         */
+        id: string;
+    };
+    query?: never;
+    url: '/api/v1/videos/{id}/reel/exports';
+};
+
+export type exportsCreateExportErrors = {
+    /**
+     * code `reel_missing`: the video has no reel yet. A video that doesn't exist gives a plain 404 without a code.
+     */
+    404: ErrorWithCode;
+    /**
+     * The reel has no clips, or an export of it is already queued or processing
+     */
+    409: unknown;
+    /**
+     * 1080p for a video smaller than 1080p, or more pieces than one export can take (MAX_EXPORT_SEGMENTS)
+     */
+    422: unknown;
+    /**
+     * Too many of your exports queued or processing
+     */
+    429: unknown;
+};
+
+export type exportsCreateExportError = exportsCreateExportErrors[keyof exportsCreateExportErrors];
+
+export type exportsCreateExportResponses = {
+    /**
+     * Successful Response
+     */
+    201: ExportPublic;
+};
+
+export type exportsCreateExportResponse = exportsCreateExportResponses[keyof exportsCreateExportResponses];
+
+export type exportsDeleteExportData = {
+    body?: never;
+    path: {
+        /**
+         * Export Id
+         */
+        export_id: string;
+    };
+    query?: never;
+    url: '/api/v1/exports/{export_id}';
+};
+
+export type exportsDeleteExportErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type exportsDeleteExportError = exportsDeleteExportErrors[keyof exportsDeleteExportErrors];
+
+export type exportsDeleteExportResponses = {
+    /**
+     * Successful Response
+     */
+    200: Message;
+};
+
+export type exportsDeleteExportResponse = exportsDeleteExportResponses[keyof exportsDeleteExportResponses];
+
+export type exportsReadExportData = {
+    body?: never;
+    path: {
+        /**
+         * Export Id
+         */
+        export_id: string;
+    };
+    query?: never;
+    url: '/api/v1/exports/{export_id}';
+};
+
+export type exportsReadExportErrors = {
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type exportsReadExportError = exportsReadExportErrors[keyof exportsReadExportErrors];
+
+export type exportsReadExportResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExportPublic;
+};
+
+export type exportsReadExportResponse = exportsReadExportResponses[keyof exportsReadExportResponses];
+
+export type exportsReadExportDownloadData = {
+    body?: never;
+    path: {
+        /**
+         * Export Id
+         */
+        export_id: string;
+    };
+    query?: never;
+    url: '/api/v1/exports/{export_id}/download';
+};
+
+export type exportsReadExportDownloadErrors = {
+    /**
+     * Not finished yet (or it failed)
+     */
+    409: unknown;
+    /**
+     * Expired: the file has been or is about to be deleted
+     */
+    410: unknown;
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type exportsReadExportDownloadError = exportsReadExportDownloadErrors[keyof exportsReadExportDownloadErrors];
+
+export type exportsReadExportDownloadResponses = {
+    /**
+     * Successful Response
+     */
+    200: ExportDownload;
+};
+
+export type exportsReadExportDownloadResponse = exportsReadExportDownloadResponses[keyof exportsReadExportDownloadResponses];
+
+export type exportsReadExportFileData = {
+    body?: never;
+    path: {
+        /**
+         * Export Id
+         */
+        export_id: string;
+    };
+    query: {
+        /**
+         * Token
+         *
+         * From GET /exports/{id}/download
+         */
+        token: string;
+    };
+    url: '/api/v1/exports/{export_id}/file';
+};
+
+export type exportsReadExportFileErrors = {
+    /**
+     * Invalid or expired link
+     */
+    403: unknown;
+    /**
+     * Validation Error
+     */
+    422: HTTPValidationError;
+};
+
+export type exportsReadExportFileError = exportsReadExportFileErrors[keyof exportsReadExportFileErrors];
+
+export type exportsReadExportFileResponses = {
+    /**
+     * Successful Response
+     */
+    200: Blob | File;
+};
+
+export type exportsReadExportFileResponse = exportsReadExportFileResponses[keyof exportsReadExportFileResponses];
 
 export type privateCreateUserData = {
     body: PrivateUserCreate;

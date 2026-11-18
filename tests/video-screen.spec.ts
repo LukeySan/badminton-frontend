@@ -353,6 +353,12 @@ const piecesOf = async (token: string, videoId: string) =>
     clip.pieces.map((p) => [p.start, p.end]),
   )
 
+/** Each clip's deleted footage (cuts), as saved. */
+const cutsOf = async (token: string, videoId: string) =>
+  (await readReel(token, videoId))?.edit.clips.map((clip) =>
+    (clip.cuts ?? []).map((c) => [c.start, c.end]),
+  )
+
 /**
  * Opens the reel in Edit mode once the video's metadata is in (enough to seek;
  * seekTo waits for the frame itself).
@@ -684,19 +690,25 @@ test.describe("Edit mode timeline", () => {
     await expect(page.getByTestId("unpicked")).toHaveCount(3)
     await expect(page.getByTestId("reel-time")).toContainText("/ 0:09")
     await expect
-      .poll(async () => (await readReel(token, videoId))?.edit.restored_gaps, {
-        timeout: SAVE_TIMEOUT,
-      })
-      .toEqual([{ start: 1.8, end: 6.35 }])
+      .poll(
+        async () => (await readReel(token, videoId))?.edit.restored_anchors,
+        {
+          timeout: SAVE_TIMEOUT,
+        },
+      )
+      .toEqual([4.075]) // one anchor, in the middle of the restored 1.8-6.35
 
     // Tap a restored break: hidden again
     await page.getByTestId("break").nth(1).click()
     await expect(page.getByTestId("gap")).toHaveCount(2)
     await expect(page.getByTestId("unpicked")).toHaveCount(0)
     await expect
-      .poll(async () => (await readReel(token, videoId))?.edit.restored_gaps, {
-        timeout: SAVE_TIMEOUT,
-      })
+      .poll(
+        async () => (await readReel(token, videoId))?.edit.restored_anchors,
+        {
+          timeout: SAVE_TIMEOUT,
+        },
+      )
       .toEqual([])
 
     // Undo brings the restored stretch back
@@ -880,6 +892,11 @@ test.describe("Cut and the tools", () => {
     await expect
       .poll(() => piecesOf(token, videoId), { timeout: SAVE_TIMEOUT })
       .toEqual([[[0, 1.8]], [[6.35, 7.55]]])
+    // The deleted part is saved as a cut: it never plays, even next to a
+    // restored break
+    await expect
+      .poll(() => cutsOf(token, videoId), { timeout: SAVE_TIMEOUT })
+      .toEqual([[], [[7.55, 9]]])
 
     // Highlights shows how much of the rally this reel keeps
     await page.getByRole("radio", { name: "Highlights" }).click()
@@ -902,6 +919,9 @@ test.describe("Cut and the tools", () => {
           [7.55, 9],
         ],
       ])
+    await expect
+      .poll(() => cutsOf(token, videoId), { timeout: SAVE_TIMEOUT })
+      .toEqual([[], []])
   })
 
   test("restore a cut: the stripe in Full video, the gap in Rallies only", async ({
@@ -945,7 +965,7 @@ test.describe("Cut and the tools", () => {
       })
       .toMatchObject({
         clips: [{}, { pieces: [{ start: 6.35, end: 9 }] }],
-        restored_gaps: [{ start: 9, end: 12 }],
+        restored_anchors: [10.5], // the break 9-12 after the restored cut part
       })
   })
 

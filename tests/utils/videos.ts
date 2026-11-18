@@ -70,8 +70,12 @@ export type TestReel = {
     view?: string
     lead_in: number
     lead_out: number
-    clips: { rally_id: number; pieces: TestPiece[] }[]
-    restored_gaps: { start: number; end: number }[]
+    clips: {
+      rally_id: number
+      pieces: TestPiece[]
+      cuts?: { start: number; end: number }[]
+    }[]
+    restored_anchors: number[]
     overlays: { captions: { start: number; end: number; text: string }[] }
   }
 }

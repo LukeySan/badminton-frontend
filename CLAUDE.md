@@ -57,6 +57,22 @@ bun run dev                                                      # http://localh
 `scripts/generate-client.sh` assumes a monorepo; in our two-repo setup use the two
 commands above). Commit `openapi.json` and `src/client/` together.
 
+**Unit tests** (`bun run test:unit`, also in CI): `bun test` over `src/**/*.test.ts`
+(excluded from the build's type-check). `src/components/Reels/timeline.fixtures.test.ts`
+checks that the Rallies-only preview plays what a reel export renders, against the
+backend's shared fixtures (`../badminton-backend/shared/reel-segments`, copied to
+`tests/fixtures/reel-segments`; refresh with `bun run sync-fixtures` when they change;
+Biome ignores the copies). `reelEdit.test.ts`: restoring/hiding breaks.
+
+**Restored breaks and cuts** (edit list v4). Deleting a piece records it in its clip's
+`cuts` (deleted footage: never plays); putting a cut back removes it and merges it
+into the pieces; splitting adds nothing. Restored breaks are `restored_anchors`, one
+time inside each. In Rallies only, the footage no piece covers is split by the cuts
+into stretches (`stretches` in reelEdit.ts, the same rule as the backend's
+`reel_ops.py`); a stretch plays if an anchor is inside it. So a restored break
+follows its pieces after rally fixes and lead changes, and never crosses a cut.
+Restoring a gap marker puts its cuts back into their clips and anchors the rest.
+
 `.env`: `VITE_API_URL=http://localhost:8000`. It must stay an absolute URL: the
 Capacitor app will not be served from the API's origin. The backend's CORS settings
 must allow `http://localhost:5173`.

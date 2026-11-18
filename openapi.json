@@ -1895,7 +1895,7 @@
       "put": {
         "tags": ["reels"],
         "summary": "Save Video Reel",
-        "description": "Create or save the video's reel: replaces the title and the whole edit list\n(clips without pieces are dropped). Send `updated_at: null` to create it (201),\nor the `updated_at` you loaded to update it (200). If it isn't as you last saw it\n(it now exists, changed, or was deleted), nothing is saved: 409, reload.\nThe reel belongs to the video's owner, also when a superuser saves it.",
+        "description": "Create or save the video's reel: replaces the title and the whole edit list\n(clips without pieces are dropped, and restored anchors that are inside a piece,\nor a second one in the same break). Send `updated_at: null` to create it (201),\nor the `updated_at` you loaded to update it (200). If it isn't as you last saw it\n(it now exists, changed, or was deleted), nothing is saved: 409, reload.\nThe reel belongs to the video's owner, also when a superuser saves it.",
         "operationId": "reels-save_video_reel",
         "security": [
           {
@@ -2241,6 +2241,314 @@
         }
       }
     },
+    "/api/v1/videos/{id}/reel/exports": {
+      "post": {
+        "tags": ["exports"],
+        "summary": "Create Export",
+        "description": "Export the video's reel to an MP4, rendered by a worker; poll GET /exports/{id}.\nWhat's rendered is fixed now: editing the reel or its rallies afterwards\ndoesn't change this export. Always the \"Rallies only\" result (the clips' pieces\nand restored breaks), even when the editor is in \"Full video\" view.\nAt most MAX_ACTIVE_EXPORTS_PER_USER (3) queued or processing per user (429).",
+        "operationId": "exports-create_export",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExportCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportPublic"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "code `reel_missing`: the video has no reel yet. A video that doesn't exist gives a plain 404 without a code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorWithCode"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The reel has no clips, or an export of it is already queued or processing"
+          },
+          "422": {
+            "description": "1080p for a video smaller than 1080p, or more pieces than one export can take (MAX_EXPORT_SEGMENTS)"
+          },
+          "429": {
+            "description": "Too many of your exports queued or processing"
+          }
+        }
+      },
+      "get": {
+        "tags": ["exports"],
+        "summary": "Read Video Exports",
+        "description": "The video's exports, newest first (not deleted; expired ones until the purge\nremoves them).",
+        "operationId": "exports-read_video_exports",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportsPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/{export_id}": {
+      "get": {
+        "tags": ["exports"],
+        "summary": "Read Export",
+        "description": "One export: status (queued \u2192 processing \u2192 done | failed), progress (0-1),\nfailure reason, size, and when its file will be deleted.",
+        "operationId": "exports-read_export",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Export Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportPublic"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["exports"],
+        "summary": "Delete Export",
+        "description": "Delete an export (soft) and its file. A render in progress stops.",
+        "operationId": "exports-delete_export",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Export Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Message"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/{export_id}/download": {
+      "get": {
+        "tags": ["exports"],
+        "summary": "Read Export Download",
+        "description": "A temporary link to download the finished MP4 (saved as `filename`). The link\nexpires after 12 hours, or when the export does.",
+        "operationId": "exports-read_export_download",
+        "security": [
+          {
+            "OAuth2PasswordBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Export Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExportDownload"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Not finished yet (or it failed)"
+          },
+          "410": {
+            "description": "Expired: the file has been or is about to be deleted"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/exports/{export_id}/file": {
+      "get": {
+        "tags": ["exports"],
+        "summary": "Read Export File",
+        "description": "The exported MP4, as an attachment (Content-Disposition), with Range support.",
+        "operationId": "exports-read_export_file",
+        "parameters": [
+          {
+            "name": "export_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Export Id"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "From GET /exports/{id}/download",
+              "title": "Token"
+            },
+            "description": "From GET /exports/{id}/download"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "video/mp4": {}
+            }
+          },
+          "403": {
+            "description": "Invalid or expired link"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/private/users/": {
       "post": {
         "tags": ["private"],
@@ -2486,6 +2794,201 @@
         "required": ["detail", "code"],
         "title": "ErrorWithCode",
         "description": "{\"detail\": \"...\", \"code\": \"...\"}: detail is for people, code for the app."
+      },
+      "ExportCreate": {
+        "properties": {
+          "quality": {
+            "type": "string",
+            "enum": ["720p", "1080p"],
+            "title": "Quality",
+            "description": "1080p only if the video is at least 1080p",
+            "default": "720p"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["16:9", "9:16"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Format",
+            "description": "null: the reel's format"
+          }
+        },
+        "type": "object",
+        "title": "ExportCreate"
+      },
+      "ExportDownload": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "Signed link (relative to the API host); the response is an attachment named `filename`"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": ["url", "filename", "expires_at"],
+        "title": "ExportDownload"
+      },
+      "ExportFailureReason": {
+        "type": "string",
+        "enum": [
+          "Couldn't read the original video",
+          "The export kept stopping",
+          "Something went wrong while exporting this reel"
+        ],
+        "title": "ExportFailureReason",
+        "description": "Why an export failed, in words for the user (details stay in Export.error)."
+      },
+      "ExportPublic": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "video_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Video Id"
+          },
+          "reel_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Reel Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["queued", "processing", "done", "failed"],
+            "title": "Status"
+          },
+          "progress": {
+            "type": "number",
+            "title": "Progress"
+          },
+          "failure_reason": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExportFailureReason"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Why it failed, for the user (only when status is 'failed')"
+          },
+          "format": {
+            "type": "string",
+            "enum": ["16:9", "9:16"],
+            "title": "Format"
+          },
+          "quality": {
+            "type": "string",
+            "enum": ["720p", "1080p"],
+            "title": "Quality"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "duration": {
+            "type": "number",
+            "title": "Duration",
+            "description": "Length in seconds: expected until done, then measured"
+          },
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes",
+            "description": "File size once done"
+          },
+          "filename": {
+            "type": "string",
+            "title": "Filename",
+            "description": "Name the download is saved as"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At",
+            "description": "When the file is deleted (created_at + 7 days)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "video_id",
+          "reel_id",
+          "title",
+          "status",
+          "progress",
+          "failure_reason",
+          "format",
+          "quality",
+          "width",
+          "height",
+          "duration",
+          "size_bytes",
+          "filename",
+          "created_at",
+          "updated_at",
+          "expires_at"
+        ],
+        "title": "ExportPublic"
+      },
+      "ExportsPublic": {
+        "properties": {
+          "data": {
+            "items": {
+              "$ref": "#/components/schemas/ExportPublic"
+            },
+            "type": "array",
+            "title": "Data"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": ["data", "count"],
+        "title": "ExportsPublic"
       },
       "FailureReason": {
         "type": "string",
@@ -2970,6 +3473,16 @@
             "title": "Pieces",
             "description": "The parts of the rally to show: sorted, not overlapping (they may touch, e.g. after a split), within the rally's bounds widened by the reel's lead_in/lead_out. A clip without pieces is dropped when saved.",
             "default": []
+          },
+          "cuts": {
+            "items": {
+              "$ref": "#/components/schemas/TimeRange"
+            },
+            "type": "array",
+            "maxItems": 500,
+            "title": "Cuts",
+            "description": "Footage of this clip the user deleted: never played, not even in a restored break next to it, and a restored break stops at a cut. Same bounds as pieces. Putting a cut back removes it from here and adds it to the pieces. On save: sorted, merged, and what the pieces cover removed.",
+            "default": []
           }
         },
         "additionalProperties": false,
@@ -2997,9 +3510,9 @@
         "properties": {
           "version": {
             "type": "integer",
-            "const": 2,
+            "const": 4,
             "title": "Version",
-            "default": 2
+            "default": 4
           },
           "view": {
             "type": "string",
@@ -3039,14 +3552,15 @@
             "description": "In reel order",
             "default": []
           },
-          "restored_gaps": {
+          "restored_anchors": {
             "items": {
-              "$ref": "#/components/schemas/TimeRange"
+              "type": "number",
+              "minimum": 0.0
             },
             "type": "array",
             "maxItems": 500,
-            "title": "Restored Gaps",
-            "description": "Breaks between rallies shown again in cut view",
+            "title": "Restored Anchors",
+            "description": "Breaks shown again in 'Rallies only' (and exported): a stretch of footage between the nearest piece or cut on each side (or the start / end of the video) plays if one of these times (seconds) is inside it. Cuts never play. An anchor inside a piece or a cut does nothing, and is dropped when the reel is saved (so is a second anchor in the same stretch). See app/reel_ops.py stretches.",
             "default": []
           },
           "overlays": {
@@ -3056,7 +3570,7 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ReelEdit",
-        "description": "The edit list, stored as JSON. `version` changes when the format does; an\nAlembic migration converts stored reels, so the code only knows the current one.\nv2 (this): clips are rallies cut into pieces. v1 had one trim per clip."
+        "description": "The edit list, stored as JSON. `version` changes when the format does; an\nAlembic migration converts stored reels, so the code only knows the current one.\nv4 (this): clips record deleted footage as cuts, which never play and bound\nrestored breaks. v3 made a restored break an anchor (one time inside it) so it\nfollows its neighbouring pieces; v2 stored restored breaks as {start, end}\nranges; v1 had one trim per clip instead of pieces."
       },
       "ReelImpact": {
         "properties": {
