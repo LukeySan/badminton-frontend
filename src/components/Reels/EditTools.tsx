@@ -87,7 +87,8 @@ export function EditTools({
       <div
         role="toolbar"
         aria-label="Edit tools"
-        className="flex shrink-0 gap-2 overflow-x-auto border-t border-track px-3 pt-1 pb-[max(1.375rem,env(safe-area-inset-bottom))] [scrollbar-width:none] md:px-0 [&::-webkit-scrollbar]:hidden"
+        // Pinned to the bottom of the screen (EditPanel's timeline takes the space above)
+        className="flex shrink-0 gap-2 overflow-x-auto border-t border-track px-3 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom))] [scrollbar-width:none] md:px-0 [&::-webkit-scrollbar]:hidden"
       >
         <Tool
           label="Cut"
@@ -176,16 +177,29 @@ function Tool({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "flex h-16 w-[68px] shrink-0 flex-col items-center justify-center gap-[5px] rounded-[14px] text-xs font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 [&_svg]:size-[22px]",
+        "group flex h-16 w-[68px] shrink-0 flex-col items-center justify-center rounded-[14px] text-xs font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-[22px]",
         primary
-          ? "bg-foreground text-background hover:bg-foreground/90"
-          : active
-            ? "bg-success-soft text-success-text ring-[1.5px] ring-chapter ring-inset"
-            : "bg-card text-foreground hover:bg-secondary",
+          ? // The prototype's mint tile with ink text, in both themes. Disabled (the
+            // playhead at a piece's edge) it stays mint and only its content fades:
+            // a grey tile read as "selected".
+            "bg-tool-primary text-tool-primary-foreground ring-[1.5px] ring-tool-primary-edge ring-inset hover:brightness-95 disabled:hover:brightness-100"
+          : cn(
+              "disabled:opacity-40",
+              active
+                ? "bg-success-soft text-success-text ring-[1.5px] ring-chapter ring-inset"
+                : "bg-card text-foreground hover:bg-secondary",
+            ),
       )}
     >
-      {icon}
-      {label}
+      <span
+        className={cn(
+          "flex flex-col items-center gap-[5px]",
+          primary && "group-disabled:opacity-40",
+        )}
+      >
+        {icon}
+        {label}
+      </span>
     </button>
   )
 }

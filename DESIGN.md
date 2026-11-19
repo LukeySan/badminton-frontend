@@ -70,28 +70,30 @@ Replace the template's values. Hex is fine in CSS variables.
 
 Custom tokens (add with `@theme inline` mappings so `bg-*` / `text-*` classes work):
 
-| Token                     | Dark                    | Light                 | Use                                                                    |
-| ------------------------- | ----------------------- | --------------------- | ---------------------------------------------------------------------- |
-| `--court`                 | `#03440C`               | `#03440C`             | video areas, thumbnails, featured card                                 |
-| `--court-foreground`      | `#DEFFF2`               | `#DEFFF2`             | mint text on `--court` (featured card)                                 |
-| `--court-muted`           | `#B9D1C6`               | `#B9D1C6`             | secondary text on `--court` ("out of 21:24 recorded")                  |
-| `--court-accent`          | `#7FD69B`               | `#7FD69B`             | label on `--court` ("Last match")                                      |
-| `--court-ink`             | `#191923`               | `#191923`             | ink on court areas: Watch button text, length chip (`bg-court-ink/85`) |
-| `--court-line`            | `#399E5A`               | `#399E5A`             | court drawings                                                         |
-| `--chapter`               | `#399E5A`               | `#399E5A`             | rally segments, length bars, progress                                  |
-| `--chapter-foreground`    | `#191923`               | `#191923`             | ink text on green (skip pill, court handles)                           |
-| `--chapter-dim`           | `#34343F`               | `#D3EEE1`             | filtered-out segments                                                  |
-| `--track`                 | `#2A2A36`               | `#BFE6D3`             | scrubber / bar backgrounds                                             |
-| `--highlight`             | `#FF3366`               | `#FF3366`             | current rally fill, failed badge fill tint                             |
-| `--highlight-foreground`  | `#191923`               | `#191923`             | text on pink                                                           |
-| `--highlight-text`        | `#FF8FAB`               | `#C2184A`             | small pink text                                                        |
-| `--highlight-text-strong` | `#FF8FAB`               | `#B0123F`             | pink text on a pink tint (Failed pill)                                 |
-| `--highlight-soft`        | `rgba(255,51,102,0.12)` | `#FFF0F4`             | current row background                                                 |
-| `--success-text`          | `#7FD69B`               | `#03440C`             | "Ready", play-time numbers                                             |
-| `--success-soft`          | `rgba(57,158,90,0.18)`  | `#C6F0D6`             | "Ready" badge background                                               |
-| `--sheet`                 | `#20202B`               | `#FFFFFF`             | bottom sheet behind the rally list                                     |
-| `--overlay`               | `rgba(25,25,35,0.75)`   | `rgba(25,25,35,0.45)` | dimmed page behind dialogs and sheets (ink)                            |
-| `--letterbox`             | `#000000`               | `#000000`             | full-screen player background and its control gradients                |
+| Token                     | Dark                    | Light                 | Use                                                                        |
+| ------------------------- | ----------------------- | --------------------- | -------------------------------------------------------------------------- |
+| `--court`                 | `#03440C`               | `#03440C`             | video areas, thumbnails, featured card                                     |
+| `--court-foreground`      | `#DEFFF2`               | `#DEFFF2`             | mint text on `--court` (featured card)                                     |
+| `--court-muted`           | `#B9D1C6`               | `#B9D1C6`             | secondary text on `--court` ("out of 21:24 recorded")                      |
+| `--court-accent`          | `#7FD69B`               | `#7FD69B`             | label on `--court` ("Last match")                                          |
+| `--court-ink`             | `#191923`               | `#191923`             | ink on court areas: Watch button text, length chip (`bg-court-ink/85`)     |
+| `--court-line`            | `#399E5A`               | `#399E5A`             | court drawings                                                             |
+| `--chapter`               | `#399E5A`               | `#399E5A`             | rally segments, length bars, progress                                      |
+| `--chapter-foreground`    | `#191923`               | `#191923`             | ink text on green (skip pill, court handles)                               |
+| `--chapter-dim`           | `#34343F`               | `#D3EEE1`             | filtered-out segments                                                      |
+| `--track`                 | `#2A2A36`               | `#BFE6D3`             | scrubber / bar backgrounds                                                 |
+| `--highlight`             | `#FF3366`               | `#FF3366`             | current rally fill, failed badge fill tint                                 |
+| `--highlight-foreground`  | `#191923`               | `#191923`             | text on pink                                                               |
+| `--highlight-text`        | `#FF8FAB`               | `#C2184A`             | small pink text                                                            |
+| `--highlight-text-strong` | `#FF8FAB`               | `#B0123F`             | pink text on a pink tint (Failed pill)                                     |
+| `--highlight-soft`        | `rgba(255,51,102,0.12)` | `#FFF0F4`             | current row background                                                     |
+| `--success-text`          | `#7FD69B`               | `#03440C`             | "Ready", play-time numbers                                                 |
+| `--success-soft`          | `rgba(57,158,90,0.18)`  | `#C6F0D6`             | "Ready" badge background                                                   |
+| `--sheet`                 | `#20202B`               | `#FFFFFF`             | bottom sheet behind the rally list                                         |
+| `--overlay`               | `rgba(25,25,35,0.75)`   | `rgba(25,25,35,0.45)` | dimmed page behind dialogs and sheets (ink)                                |
+| `--letterbox`             | `#000000`               | `#000000`             | full-screen player background and its control gradients                    |
+| `--tool-primary`          | `#DEFFF2`               | `#DEFFF2`             | Edit's primary tool tile (Cut), with `--tool-primary-foreground` `#191923` |
+| `--tool-primary-edge`     | `#DEFFF2` (none)        | `#BFE6D3`             | its edge: the light theme's page is mint too                               |
 
 `--subtle-foreground` is the softer text between foreground and muted: unselected sort
 buttons, rally lengths in the list. `shadow-sheet` (utility in `index.css`) is the light
@@ -263,9 +265,17 @@ sideways is wide but short, so it keeps the phone layout.
   per video in two modes. Highlights is the player (watch the match, pick and fix
   rallies), Edit is the video's reel (one per video). See `EditorHighlights` /
   `EditorEdit` / `EditorFull.dc.html` (one template; they differ only in the starting
-  mode and view) and, for the player parts, `player-*.mockup.html`. Phones: one screen
-  (`h-dvh`), the top half stays, the bottom half scrolls by itself. Desktop: the same
-  single column (max 48rem), the page scrolls (the old side-panel player is gone).
+  mode and view) and, for the player parts, `player-*.mockup.html`. Phones (portrait):
+  one screen, exactly the viewport (`h-dvh`, never `h-screen`: iOS Safari's toolbar
+  would make it overflow), a flex column that **never scrolls**. The top half
+  (header, video, controls, mode toggle) keeps its size; the mode's panel is `flex-1
+  min-h-0` with its last row **pinned to the bottom** (Edit: the tool row; Highlights:
+  the bottom bar), padded `calc(1rem + env(safe-area-inset-bottom))`. What's between
+  takes the rest: Edit's timeline area (tracks at its top, the playhead running down
+  it, as in the prototype; it scrolls inside if even the tracks don't fit), the rally
+  list (scrolls by itself). Only the rally list and the timeline scroll. Checked at
+  390×844, 390×664 and 430×932. Desktop: the same single column (max 48rem), the page
+  scrolls, the timeline is as tall as its tracks (the old side-panel player is gone).
   - Shared top: header (back to Home, the video's title 15/800, "68 rallies · 18:20
     play · 5 to check" 12 muted (sure rallies; "to check" only with maybes), plus "·
     Saved" once the video has a reel (on a phone the summary truncates first, the save
@@ -344,8 +354,12 @@ sideways is wide but short, so it keeps the phone layout.
     tapped; tapping a piece also puts the playhead where you tapped). Below the
     timeline: "**Rally 19, part 2 of 3** selected. Cut at the playhead, then delete
     the part you don't want." (12px muted, the name in `text-highlight-text`), then the
-    tool row (68×64 tiles, 14px radius): **Cut** (primary: `bg-foreground
-    text-background`; disabled within 0.3 s of the piece's edges), Delete (the last
+    tool row (68×64 tiles, 14px radius; top border `border-track`): **Cut** (primary:
+    the prototype's mint tile with ink text in both themes, `bg-tool-primary
+    text-tool-primary-foreground` with a 1.5px `--tool-primary-edge` inset ring, which
+    only shows in light, on the mint page; disabled within 0.3 s of the piece's edges:
+    the tile stays mint and only its icon and label fade to 40%, never a grey tile),
+    Delete (the last
     piece takes the rally out), Slow-mo (per piece), Loop (preview repeats the piece),
     Text (caption dialog, 80 characters), Format. Others `bg-card`; active =
     `bg-success-soft text-success-text` with a 1.5px `--chapter` ring. Caption bars "Aa

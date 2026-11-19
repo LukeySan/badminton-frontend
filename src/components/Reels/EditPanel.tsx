@@ -1,5 +1,6 @@
 import { ChevronsLeftRight } from "lucide-react"
 import {
+  type CSSProperties,
   type MouseEvent,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -280,10 +281,16 @@ function Timeline({
   }
 
   return (
-    // As tall as its tracks; the playhead spans them.
+    // Phones held upright (one screen, see VideoScreen): the space between the view
+    // row and the hint, so the tools sit at the bottom; the tracks are at its top
+    // and the playhead runs down it, as in the prototype. If even the tracks don't
+    // fit (a short phone, with captions), the timeline scrolls up and down inside,
+    // never the page. Desktop: as tall as its tracks (the page scrolls there).
     <div
-      className="relative shrink-0"
-      style={{ height: 96 + (hasCaptions ? 28 : 0) }}
+      className="relative h-(--tracks) shrink-0 max-md:portrait:h-auto max-md:portrait:min-h-0 max-md:portrait:flex-1"
+      style={
+        { "--tracks": `${96 + (hasCaptions ? 28 : 0)}px` } as CSSProperties
+      }
     >
       <section
         ref={scrollRef}
@@ -303,7 +310,7 @@ function Timeline({
             event.stopPropagation()
           }
         }}
-        className="absolute inset-0 select-none overflow-x-auto overflow-y-hidden overscroll-x-contain outline-none [scrollbar-width:none] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&::-webkit-scrollbar]:hidden"
+        className="absolute inset-0 select-none overflow-x-auto overflow-y-auto overscroll-contain outline-none [scrollbar-width:none] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&::-webkit-scrollbar]:hidden"
       >
         <div
           className="relative pt-1"

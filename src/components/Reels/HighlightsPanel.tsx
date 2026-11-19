@@ -239,7 +239,10 @@ export function HighlightsPanel({
       )}
 
       {/* Sticky on desktop (the page scrolls there); phones: the end of the screen */}
-      <div className="sticky bottom-0 flex shrink-0 items-center gap-3 border-t border-track bg-background px-4 pt-2.5 pb-[max(1.375rem,env(safe-area-inset-bottom))] md:px-0">
+      <div
+        data-testid="highlights-bar"
+        className="sticky bottom-0 flex shrink-0 items-center gap-3 border-t border-track bg-background px-4 pt-2.5 pb-[calc(1rem+env(safe-area-inset-bottom))] md:px-0"
+      >
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-sm font-extrabold">{pickedCount} picked</span>
           <span className="text-xs text-muted-foreground tabular-nums">

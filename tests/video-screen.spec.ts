@@ -402,6 +402,91 @@ const hint = (page: Page) => page.getByTestId("selection-hint")
 /** The time row's buttons (a rally fix's toast has an Undo button too). */
 const undoButton = (page: Page) => page.getByTitle("Undo (⌘Z)")
 
+// --- Phone layout: one screen -------------------------------------------------------
+
+/**
+ * `bar` ends at the viewport's bottom edge, and its content ends its bottom padding
+ * (the safe area plus our spacing) above it: pinned, not floating.
+ */
+async function expectPinned(
+  page: Page,
+  bar: ReturnType<Page["locator"]>,
+  content: ReturnType<Page["locator"]>,
+) {
+  const height = page.viewportSize()!.height
+  await expect
+    .poll(async () => {
+      const box = await bar.boundingBox()
+      return box ? Math.abs(box.y + box.height - height) : Number.NaN
+    })
+    .toBeLessThanOrEqual(2)
+  const padding = await bar.evaluate((el) =>
+    Number.parseFloat(getComputedStyle(el).paddingBottom),
+  )
+  expect(padding).toBeGreaterThanOrEqual(16)
+  const box = (await content.boundingBox())!
+  expect(Math.abs(box.y + box.height - (height - padding))).toBeLessThanOrEqual(
+    2,
+  )
+}
+
+/** Nothing scrolls the page itself (only the rally list and the timeline scroll). */
+const pageScrolls = (page: Page) =>
+  page.evaluate(() => {
+    const root = document.scrollingElement!
+    return (
+      root.scrollHeight > window.innerHeight + 1 ||
+      root.scrollWidth > window.innerWidth + 1
+    )
+  })
+
+test.describe("Phone layout", () => {
+  for (const [width, height] of [
+    [390, 844],
+    [390, 664], // a short phone
+    [430, 932],
+  ] as const) {
+    test(`${width}×${height}: tools and bottom bar pinned to the bottom, the page never scrolls`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height })
+      const { token, videoId } = await setUp(page)
+      await reelWithTwoClips(token, videoId)
+
+      // Edit: the timeline fills the space down to the hint; the tools sit below
+      await openEdit(page, videoId)
+      const toolbar = tools(page)
+      await expectPinned(
+        page,
+        toolbar,
+        toolbar.getByRole("button", { name: "Slow-mo" }),
+      )
+      const timeline = (await page.getByTestId("timeline").boundingBox())!
+      const hintBox = (await hint(page).boundingBox())!
+      expect(
+        Math.abs(timeline.y + timeline.height - hintBox.y),
+      ).toBeLessThanOrEqual(2)
+      expect(timeline.height).toBeGreaterThanOrEqual(height >= 800 ? 200 : 90)
+      expect(await pageScrolls(page)).toBe(false)
+
+      // Highlights: the list takes the room, its bar is pinned the same way
+      await modes(page).getByRole("radio", { name: "Highlights" }).click()
+      const bar = page.getByTestId("highlights-bar")
+      await expectPinned(
+        page,
+        bar,
+        bar.getByRole("button", { name: /Edit reel/ }),
+      )
+      expect(await pageScrolls(page)).toBe(false)
+      // The list scrolls inside itself when it's longer than its room
+      const list = page.getByRole("list", { name: "Rallies" })
+      const listBox = (await list.boundingBox())!
+      const barBox = (await bar.boundingBox())!
+      expect(listBox.y + listBox.height).toBeLessThanOrEqual(barBox.y + 1)
+    })
+  }
+})
+
 // --- Highlights mode ---------------------------------------------------------------
 
 const check = (page: Page, n: number) =>

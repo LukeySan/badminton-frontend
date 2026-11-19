@@ -617,9 +617,12 @@ export function VideoScreen({
     <div
       className={cn(
         "flex flex-col",
-        // Phones held upright: one screen like the prototypes. The top half stays,
-        // the bottom half (rally list / timeline) scrolls by itself.
-        "max-md:portrait:-m-4 max-md:portrait:h-dvh",
+        // Phones held upright: one screen like the prototypes, the viewport's height
+        // (dvh: iOS Safari's toolbar doesn't make it overflow). The top half
+        // (header, video, controls, mode toggle) keeps its size; the mode's panel
+        // takes the rest, with its tools / bottom bar at the bottom. The page never
+        // scrolls: only the rally list and the timeline do.
+        "max-md:portrait:-m-4 max-md:portrait:h-dvh max-md:portrait:overflow-hidden",
       )}
     >
       <ScreenHeader
