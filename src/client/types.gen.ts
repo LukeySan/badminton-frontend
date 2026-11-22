@@ -340,24 +340,6 @@ export type NewPassword = {
 };
 
 /**
- * Piece
- */
-export type Piece = {
-    /**
-     * Start
-     */
-    start: number;
-    /**
-     * End
-     */
-    end: number;
-    /**
-     * Slow Mo
-     */
-    slow_mo?: boolean;
-};
-
-/**
  * PrivateAnalysis
  */
 export type PrivateAnalysis = {
@@ -484,7 +466,8 @@ export type RalliesPublic = {
  * RallyChange
  *
  * What a correction changed, so the app can update its list and tell the user
- * (e.g. "Rally 5 split into 5 and 6; 1 reel updated").
+ * (e.g. "Rally 5 split into 5 and 6"). Reels aren't changed: their segments are
+ * just times (a deleted rally's segments keep playing, labelled rally_id null).
  */
 export type RallyChange = {
     /**
@@ -509,12 +492,6 @@ export type RallyChange = {
      * All the video's rallies after the change, numbered in time order
      */
     rallies: Array<RallyPublic>;
-    /**
-     * Reels
-     *
-     * Reels that had to be adjusted
-     */
-    reels: Array<ReelImpact>;
 };
 
 /**
@@ -601,30 +578,6 @@ export type RallyTimes = {
 };
 
 /**
- * ReelClip
- */
-export type ReelClip = {
-    /**
-     * Rally Id
-     *
-     * The rally this clip shows
-     */
-    rally_id: number;
-    /**
-     * Pieces
-     *
-     * The parts of the rally to show: sorted, not overlapping (they may touch, e.g. after a split), within the rally's bounds widened by the reel's lead_in/lead_out. A clip without pieces is dropped when saved.
-     */
-    pieces?: Array<Piece>;
-    /**
-     * Cuts
-     *
-     * Footage of this clip the user deleted: never played, not even in a restored break next to it, and a restored break stops at a cut. Same bounds as pieces. Putting a cut back removes it from here and adds it to the pieces. On save: sorted, merged, and what the pieces cover removed.
-     */
-    cuts?: Array<TimeRange>;
-};
-
-/**
  * ReelCreate
  */
 export type ReelCreate = {
@@ -640,101 +593,30 @@ export type ReelCreate = {
  *
  * The edit list, stored as JSON. `version` changes when the format does; an
  * Alembic migration converts stored reels, so the code only knows the current one.
- * v4 (this): clips record deleted footage as cuts, which never play and bound
- * restored breaks. v3 made a restored break an anchor (one time inside it) so it
- * follows its neighbouring pieces; v2 stored restored breaks as {start, end}
- * ranges; v1 had one trim per clip instead of pieces.
+ * v5 (this): a flat list of segments in playback order (Editor v2). v4 and before
+ * described a reel as rally clips cut into pieces, with lead-in/out, deleted cuts
+ * and restored breaks; migration 8f3a5c2d9e14 turned each into the segments it
+ * played.
  */
 export type ReelEdit = {
     /**
      * Version
      */
-    version?: 4;
-    /**
-     * View
-     */
-    view?: 'cut' | 'full';
+    version?: 5;
     /**
      * Format
      */
     format?: '16:9' | '9:16';
     /**
-     * Lead In
+     * Segments
      *
-     * Seconds a piece may start before its rally's detected start (0-3; the detector can be 1-2 s off)
+     * In playback order. May overlap in source time (a replay).
      */
-    lead_in?: number;
-    /**
-     * Lead Out
-     *
-     * Seconds a piece may end after its rally's detected end (0-3)
-     */
-    lead_out?: number;
-    /**
-     * Clips
-     *
-     * In reel order
-     */
-    clips?: Array<ReelClip>;
-    /**
-     * Restored Anchors
-     *
-     * Breaks shown again in 'Rallies only' (and exported): a stretch of footage between the nearest piece or cut on each side (or the start / end of the video) plays if one of these times (seconds) is inside it. Cuts never play. An anchor inside a piece or a cut does nothing, and is dropped when the reel is saved (so is a second anchor in the same stretch). See app/reel_ops.py stretches.
-     */
-    restored_anchors?: Array<number>;
-    overlays?: ReelOverlays;
-};
-
-/**
- * ReelImpact
- *
- * How a reel was adjusted to a rally change.
- */
-export type ReelImpact = {
-    /**
-     * Id
-     */
-    id: string;
-    /**
-     * Title
-     */
-    title: string;
-    /**
-     * Updated At
-     *
-     * New version: an open editor must reload
-     */
-    updated_at: string;
-    /**
-     * Clips Removed
-     *
-     * Clips dropped (their rally is gone, or nothing of them was left inside the new bounds)
-     */
-    clips_removed: number;
-    /**
-     * Pieces Trimmed
-     *
-     * Pieces cut back to the new bounds
-     */
-    pieces_trimmed: number;
-    /**
-     * Pieces Removed
-     *
-     * Pieces entirely outside the new bounds
-     */
-    pieces_removed: number;
-};
-
-/**
- * ReelOverlays
- */
-export type ReelOverlays = {
-    /**
-     * Trail
-     */
-    trail?: boolean;
+    segments?: Array<Segment>;
     /**
      * Captions
+     *
+     * Shown while the source time is inside [start, end), in every segment that shows it (seconds in the original video)
      */
     captions?: Array<Caption>;
 };
@@ -824,6 +706,44 @@ export type ReelsPublic = {
 };
 
 /**
+ * Segment
+ *
+ * One clip of the reel: a stretch of the original video.
+ */
+export type Segment = {
+    /**
+     * Id
+     *
+     * Chosen by the app, unique within the reel; kept as is
+     */
+    id: string;
+    /**
+     * Start
+     *
+     * Seconds in the original video, stored to 0.1 s
+     */
+    start: number;
+    /**
+     * End
+     *
+     * Seconds, after start (>= 0.3 s)
+     */
+    end: number;
+    /**
+     * Slow Mo
+     *
+     * Plays at half speed
+     */
+    slow_mo?: boolean;
+    /**
+     * Rally Id
+     *
+     * Label only: the rally this footage shows; null for footage from outside the rallies, and for a rally that was deleted since. Never changes what plays.
+     */
+    rally_id?: number | null;
+};
+
+/**
  * ThumbnailUrls
  *
  * Signed links (12 h) to a video's thumbnail strip. The index says where each
@@ -845,20 +765,6 @@ export type ThumbnailUrls = {
      * Expires At
      */
     expires_at: string;
-};
-
-/**
- * TimeRange
- */
-export type TimeRange = {
-    /**
-     * Start
-     */
-    start: number;
-    /**
-     * End
-     */
-    end: number;
 };
 
 /**
@@ -1232,7 +1138,8 @@ export type RalliesPublicWritable = {
  * RallyChange
  *
  * What a correction changed, so the app can update its list and tell the user
- * (e.g. "Rally 5 split into 5 and 6; 1 reel updated").
+ * (e.g. "Rally 5 split into 5 and 6"). Reels aren't changed: their segments are
+ * just times (a deleted rally's segments keep playing, labelled rally_id null).
  */
 export type RallyChangeWritable = {
     /**
@@ -1257,12 +1164,6 @@ export type RallyChangeWritable = {
      * All the video's rallies after the change, numbered in time order
      */
     rallies: Array<RallyPublicWritable>;
-    /**
-     * Reels
-     *
-     * Reels that had to be adjusted
-     */
-    reels: Array<ReelImpact>;
 };
 
 /**
@@ -2634,11 +2535,11 @@ export type reelsSaveVideoReelData = {
 
 export type reelsSaveVideoReelErrors = {
     /**
-     * code `reel_changed`: saved, created or deleted elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.
+     * code `reel_changed`: saved, created or deleted elsewhere (another tab or device) since you loaded it. Load it again.
      */
     409: ErrorWithCode;
     /**
-     * Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. ["body", "edit", "clips", 2, "pieces", 0, "end"]
+     * Invalid edit list: e.g. a segment shorter than 0.3 s, repeated segment ids, more than 200 segments, or times past the end of the video. Errors have the usual `loc`, e.g. ["body", "edit", "segments", 2, "end"]
      */
     422: unknown;
 };
@@ -2711,7 +2612,7 @@ export type reelsCreateReelData = {
 
 export type reelsCreateReelErrors = {
     /**
-     * Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. ["body", "edit", "clips", 2, "pieces", 0, "end"]
+     * Invalid edit list: e.g. a segment shorter than 0.3 s, repeated segment ids, more than 200 segments, or times past the end of the video. Errors have the usual `loc`, e.g. ["body", "edit", "segments", 2, "end"]
      */
     422: unknown;
 };
@@ -2803,11 +2704,11 @@ export type reelsUpdateReelData = {
 
 export type reelsUpdateReelErrors = {
     /**
-     * code `reel_changed`: saved, created or deleted elsewhere (another tab or device) since you loaded it, or adjusted to a rally correction or re-analysis. Load it again.
+     * code `reel_changed`: saved, created or deleted elsewhere (another tab or device) since you loaded it. Load it again.
      */
     409: ErrorWithCode;
     /**
-     * Invalid edit list, including checks against the video: a rally_id that isn't one of its rallies, pieces outside their rally's bounds (+ lead_in/lead_out), times past its end. Errors have the usual `loc`, e.g. ["body", "edit", "clips", 2, "pieces", 0, "end"]
+     * Invalid edit list: e.g. a segment shorter than 0.3 s, repeated segment ids, more than 200 segments, or times past the end of the video. Errors have the usual `loc`, e.g. ["body", "edit", "segments", 2, "end"]
      */
     422: unknown;
 };
@@ -2871,11 +2772,11 @@ export type exportsCreateExportErrors = {
      */
     404: ErrorWithCode;
     /**
-     * The reel has no clips, or an export of it is already queued or processing
+     * The reel has no segments, or an export of it is already queued or processing
      */
     409: unknown;
     /**
-     * 1080p for a video smaller than 1080p, or more pieces than one export can take (MAX_EXPORT_SEGMENTS)
+     * 1080p for a video smaller than 1080p
      */
     422: unknown;
     /**

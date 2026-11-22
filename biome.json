@@ -13,8 +13,7 @@
       "!**/playwright/.auth",
       "!**/test-results",
       "!**/playwright.config.ts",
-      "!**/docs/**/*",
-      "!**/tests/fixtures/reel-segments/**/*"
+      "!**/docs/**/*"
     ]
   },
   "linter": {

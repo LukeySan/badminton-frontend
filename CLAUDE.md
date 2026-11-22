@@ -58,20 +58,20 @@ bun run dev                                                      # http://localh
 commands above). Commit `openapi.json` and `src/client/` together.
 
 **Unit tests** (`bun run test:unit`, also in CI): `bun test` over `src/**/*.test.ts`
-(excluded from the build's type-check). `src/components/Reels/timeline.fixtures.test.ts`
-checks that the Rallies-only preview plays what a reel export renders, against the
-backend's shared fixtures (`../badminton-backend/shared/reel-segments`, copied to
-`tests/fixtures/reel-segments`; refresh with `bun run sync-fixtures` when they change;
-Biome ignores the copies). `reelEdit.test.ts`: restoring/hiding breaks.
+(excluded from the build's type-check).
 
-**Restored breaks and cuts** (edit list v4). Deleting a piece records it in its clip's
-`cuts` (deleted footage: never plays); putting a cut back removes it and merges it
-into the pieces; splitting adds nothing. Restored breaks are `restored_anchors`, one
-time inside each. In Rallies only, the footage no piece covers is split by the cuts
-into stretches (`stretches` in reelEdit.ts, the same rule as the backend's
-`reel_ops.py`); a stretch plays if an anchor is inside it. So a restored break
-follows its pieces after rally fixes and lead changes, and never crosses a cut.
-Restoring a gap marker puts its cuts back into their clips and anchors the rest.
+**Editor v2 (branch feat/editor-v2, in progress).** The backend's edit list is now v5:
+`{version: 5, format, segments: [{id, start, end, slow_mo, rally_id | null}],
+captions}`: a flat list of clips in playback order (seconds in the original video,
+0.1 s precision, ≥ 0.3 s each, may overlap for replays, ≤ 200), rally_id a label only
+(null for footage outside rallies or a deleted rally). Rally fixes no longer change
+reels. The client in src/client is regenerated for v5, so the OLD editor (reelEdit.ts
+pieces/cuts/anchors, timeline.ts, rallyFixes.ts) no longer type-checks: `bun run
+build` is red on this branch until Editor v2 replaces it (designs:
+docs/design/EditV2*.dc.html; decided: no "match order", no Lead pill, new clips get a
+fixed 1 s padding on each side). The shared reel-segments fixtures and their timeline
+test are gone (the backend keeps them as v4→v5 migration tests). Don't merge this
+branch (or the backend's) into main until Editor v2 is ready; merge both together.
 
 `.env`: `VITE_API_URL=http://localhost:8000`. It must stay an absolute URL: the
 Capacitor app will not be served from the API's origin. The backend's CORS settings

@@ -3,9 +3,7 @@
 // only", through the timeline the editor shows. Run: `bun run test:unit`.
 
 import { describe, expect, test } from "bun:test"
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
-import type { RallyPublic, ReelEdit } from "@/client"
+import type { RallyPublic } from "@/client"
 import { toSegments } from "@/components/Player/rallies"
 import {
   cutPiece,
@@ -15,7 +13,6 @@ import {
   hideRegion,
   normalizeEdit,
   rallyWindows,
-  restoreCut,
   restoreHidden,
   setLead,
   stretches,
@@ -194,20 +191,6 @@ describe("deleted footage is a cut", () => {
       [21, 29, "gap"],
       [29, 41, "piece"],
     ])
-  })
-
-  test("putting a cut back turns fixture 15 into fixture 16", () => {
-    const dir = join(
-      import.meta.dirname,
-      "../../../tests/fixtures/reel-segments",
-    )
-    const load = (name: string) =>
-      normalizeEdit(
-        JSON.parse(readFileSync(join(dir, name), "utf-8")).edit as ReelEdit,
-      )
-    const before = load("15-cut-end-next-to-restored-break.json")
-    const after = restoreCut(before, 0, { start: 18, end: 21 })
-    expect(after).toEqual(load("16-cut-put-back-next-to-restored-break.json"))
   })
 
   test("a deleted lead stays deleted when the lead grows", () => {

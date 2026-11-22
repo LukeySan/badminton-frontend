@@ -523,7 +523,8 @@ export class RalliesService {
     /**
      * Delete Rally
      *
-     * Delete a rally (e.g. a false detection). Reel clips of it are dropped.
+     * Delete a rally (e.g. a false detection). Reel segments of it keep playing,
+     * labelled rally_id null.
      */
     public static deleteRally<ThrowOnError extends boolean = true>(options: Options<ralliesDeleteRallyData, ThrowOnError>) {
         return (options.client ?? client).delete<ralliesDeleteRallyResponses, ralliesDeleteRallyErrors, ThrowOnError>({
@@ -537,8 +538,7 @@ export class RalliesService {
     /**
      * Edit Rally
      *
-     * Set a rally's start and end. Reel pieces outside the new bounds (plus each
-     * reel's lead_in/lead_out) are trimmed.
+     * Set a rally's start and end.
      */
     public static editRally<ThrowOnError extends boolean = true>(options: Options<ralliesEditRallyData, ThrowOnError>) {
         return (options.client ?? client).put<ralliesEditRallyResponses, ralliesEditRallyErrors, ThrowOnError>({
@@ -589,7 +589,7 @@ export class RalliesService {
      * Split Rally
      *
      * Split a rally in two at `at` seconds. The first part keeps the id; the second
-     * is a new rally. Reel clips are split the same way.
+     * is a new rally.
      */
     public static splitRally<ThrowOnError extends boolean = true>(options: Options<ralliesSplitRallyData, ThrowOnError>) {
         return (options.client ?? client).post<ralliesSplitRallyResponses, ralliesSplitRallyErrors, ThrowOnError>({
@@ -607,8 +607,8 @@ export class RalliesService {
     /**
      * Merge Rallies
      *
-     * Merge two neighbouring rallies into one new rally (new id). Reel clips of
-     * either point at the new rally; back-to-back clips of the two become one.
+     * Merge two neighbouring rallies into one new rally (new id). Reel segments of
+     * either keep playing, labelled rally_id null (both old rallies are gone).
      */
     public static mergeRallies<ThrowOnError extends boolean = true>(options: Options<ralliesMergeRalliesData, ThrowOnError>) {
         return (options.client ?? client).post<ralliesMergeRalliesResponses, ralliesMergeRalliesErrors, ThrowOnError>({
@@ -643,8 +643,8 @@ export class ReelsService {
      * Save Video Reel
      *
      * Create or save the video's reel: replaces the title and the whole edit list
-     * (clips without pieces are dropped, and restored anchors that are inside a piece,
-     * or a second one in the same break). Send `updated_at: null` to create it (201),
+     * (segment times are stored to 0.1 s; a rally_id that isn't one of the video's
+     * rallies is stored as null). Send `updated_at: null` to create it (201),
      * or the `updated_at` you loaded to update it (200). If it isn't as you last saw it
      * (it now exists, changed, or was deleted), nothing is saved: 409, reload.
      * The reel belongs to the video's owner, also when a superuser saves it.
@@ -776,8 +776,7 @@ export class ExportsService {
      *
      * Export the video's reel to an MP4, rendered by a worker; poll GET /exports/{id}.
      * What's rendered is fixed now: editing the reel or its rallies afterwards
-     * doesn't change this export. Always the "Rallies only" result (the clips' pieces
-     * and restored breaks), even when the editor is in "Full video" view.
+     * doesn't change this export. Its segments in order, slow-mo ones at half speed.
      * At most MAX_ACTIVE_EXPORTS_PER_USER (3) queued or processing per user (429).
      */
     public static createExport<ThrowOnError extends boolean = true>(options: Options<exportsCreateExportData, ThrowOnError>) {
@@ -890,8 +889,7 @@ export class PrivateService {
      *
      * Test fixture: finish a video as the worker would, with these rallies (and
      * optionally a shuttle trajectory and the thumbnail strip), without running the ML
-     * pipeline. Goes through crud.finish_video like a real worker, so reel clips are
-     * re-linked the same way.
+     * pipeline. Goes through crud.finish_video like a real worker.
      */
     public static setAnalysis<ThrowOnError extends boolean = true>(options: Options<privateSetAnalysisData, ThrowOnError>) {
         return (options.client ?? client).post<privateSetAnalysisResponses, privateSetAnalysisErrors, ThrowOnError>({
