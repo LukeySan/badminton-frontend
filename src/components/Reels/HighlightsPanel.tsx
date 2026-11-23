@@ -239,7 +239,10 @@ export function HighlightsPanel({
       )}
 
       {/* Sticky on desktop (the page scrolls there); phones: the end of the screen */}
-      <div className="sticky bottom-0 flex shrink-0 items-center gap-3 border-t border-track bg-background px-4 pt-2.5 pb-[max(1.375rem,env(safe-area-inset-bottom))] md:px-0">
+      <div
+        data-testid="highlights-bar"
+        className="sticky bottom-0 flex shrink-0 items-center gap-3 border-t border-track bg-background px-4 pt-2.5 pb-[calc(1rem+env(safe-area-inset-bottom))] md:px-0"
+      >
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-sm font-extrabold">{pickedCount} picked</span>
           <span className="text-xs text-muted-foreground tabular-nums">
@@ -402,8 +405,8 @@ function RallyRow({
             Not a rally, delete it
           </FixItem>
           <p className="mx-3 mt-1 mb-1.5 text-[11px] leading-[1.35] text-muted-foreground">
-            Fixes change this rally everywhere: its chapter and your reel. To
-            shorten it just for this reel, use Cut in Edit mode.
+            Fixes change this rally's chapter and the rally list. Your reel's
+            clips stay as they are: change them in Edit mode.
           </p>
         </DropdownMenuContent>
       </DropdownMenu>

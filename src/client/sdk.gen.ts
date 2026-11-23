@@ -2,7 +2,7 @@
 
 import { type Client, formDataBodySerializer, type Options as Options2, type TDataShape, urlSearchParamsBodySerializer } from './client';
 import { client } from './client.gen';
-import type { healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, privateSetAnalysisData, privateSetAnalysisErrors, privateSetAnalysisResponses, ralliesAddRallyData, ralliesAddRallyErrors, ralliesAddRallyResponses, ralliesConfirmRallyData, ralliesConfirmRallyErrors, ralliesConfirmRallyResponses, ralliesDeleteRallyData, ralliesDeleteRallyErrors, ralliesDeleteRallyResponses, ralliesEditRallyData, ralliesEditRallyErrors, ralliesEditRallyResponses, ralliesMergeRalliesData, ralliesMergeRalliesErrors, ralliesMergeRalliesResponses, ralliesSplitRallyData, ralliesSplitRallyErrors, ralliesSplitRallyResponses, ralliesUnconfirmRallyData, ralliesUnconfirmRallyErrors, ralliesUnconfirmRallyResponses, reelsCreateReelData, reelsCreateReelErrors, reelsCreateReelResponses, reelsDeleteReelData, reelsDeleteReelErrors, reelsDeleteReelResponses, reelsReadReelData, reelsReadReelErrors, reelsReadReelResponses, reelsReadReelsData, reelsReadReelsErrors, reelsReadReelsResponses, reelsReadVideoReelData, reelsReadVideoReelErrors, reelsReadVideoReelResponses, reelsSaveVideoReelData, reelsSaveVideoReelErrors, reelsSaveVideoReelResponses, reelsUpdateReelData, reelsUpdateReelErrors, reelsUpdateReelResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosReadVideoThumbnailFileData, videosReadVideoThumbnailFileErrors, videosReadVideoThumbnailFileResponses, videosReadVideoThumbnailsUrlData, videosReadVideoThumbnailsUrlErrors, videosReadVideoThumbnailsUrlResponses, videosReadVideoTrajectoryData, videosReadVideoTrajectoryErrors, videosReadVideoTrajectoryResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
+import type { exportsCreateExportData, exportsCreateExportErrors, exportsCreateExportResponses, exportsDeleteExportData, exportsDeleteExportErrors, exportsDeleteExportResponses, exportsReadExportData, exportsReadExportDownloadData, exportsReadExportDownloadErrors, exportsReadExportDownloadResponses, exportsReadExportErrors, exportsReadExportFileData, exportsReadExportFileErrors, exportsReadExportFileResponses, exportsReadExportResponses, exportsReadVideoExportsData, exportsReadVideoExportsErrors, exportsReadVideoExportsResponses, exportsRetryExportData, exportsRetryExportErrors, exportsRetryExportResponses, healthHealthData, healthHealthErrors, healthHealthResponses, loginLoginAccessTokenData, loginLoginAccessTokenErrors, loginLoginAccessTokenResponses, loginRecoverPasswordData, loginRecoverPasswordErrors, loginRecoverPasswordHtmlContentData, loginRecoverPasswordHtmlContentErrors, loginRecoverPasswordHtmlContentResponses, loginRecoverPasswordResponses, loginResetPasswordData, loginResetPasswordErrors, loginResetPasswordResponses, loginTestTokenData, loginTestTokenResponses, privateCreateUserData, privateCreateUserErrors, privateCreateUserResponses, privateRenderExportNowData, privateRenderExportNowErrors, privateRenderExportNowResponses, privateSetAnalysisData, privateSetAnalysisErrors, privateSetAnalysisResponses, privateSetExportStateData, privateSetExportStateErrors, privateSetExportStateResponses, ralliesAddRallyData, ralliesAddRallyErrors, ralliesAddRallyResponses, ralliesConfirmRallyData, ralliesConfirmRallyErrors, ralliesConfirmRallyResponses, ralliesDeleteRallyData, ralliesDeleteRallyErrors, ralliesDeleteRallyResponses, ralliesEditRallyData, ralliesEditRallyErrors, ralliesEditRallyResponses, ralliesMergeRalliesData, ralliesMergeRalliesErrors, ralliesMergeRalliesResponses, ralliesSplitRallyData, ralliesSplitRallyErrors, ralliesSplitRallyResponses, ralliesUnconfirmRallyData, ralliesUnconfirmRallyErrors, ralliesUnconfirmRallyResponses, reelsCreateReelData, reelsCreateReelErrors, reelsCreateReelResponses, reelsDeleteReelData, reelsDeleteReelErrors, reelsDeleteReelResponses, reelsReadReelData, reelsReadReelErrors, reelsReadReelResponses, reelsReadReelsData, reelsReadReelsErrors, reelsReadReelsResponses, reelsReadVideoReelData, reelsReadVideoReelErrors, reelsReadVideoReelResponses, reelsSaveVideoReelData, reelsSaveVideoReelErrors, reelsSaveVideoReelResponses, reelsUpdateReelData, reelsUpdateReelErrors, reelsUpdateReelResponses, usersCreateUserData, usersCreateUserErrors, usersCreateUserResponses, usersDeleteUserData, usersDeleteUserErrors, usersDeleteUserMeData, usersDeleteUserMeResponses, usersDeleteUserResponses, usersReadUserByIdData, usersReadUserByIdErrors, usersReadUserByIdResponses, usersReadUserMeData, usersReadUserMeResponses, usersReadUsersData, usersReadUsersErrors, usersReadUsersResponses, usersRegisterUserData, usersRegisterUserErrors, usersRegisterUserResponses, usersUpdatePasswordMeData, usersUpdatePasswordMeErrors, usersUpdatePasswordMeResponses, usersUpdateUserData, usersUpdateUserErrors, usersUpdateUserMeData, usersUpdateUserMeErrors, usersUpdateUserMeResponses, usersUpdateUserResponses, utilsHealthCheckData, utilsHealthCheckResponses, utilsTestEmailData, utilsTestEmailErrors, utilsTestEmailResponses, videosDeleteVideoData, videosDeleteVideoErrors, videosDeleteVideoResponses, videosProcessVideoData, videosProcessVideoErrors, videosProcessVideoResponses, videosReadVideoData, videosReadVideoErrors, videosReadVideoFileData, videosReadVideoFileErrors, videosReadVideoFileResponses, videosReadVideoFileUrlData, videosReadVideoFileUrlErrors, videosReadVideoFileUrlResponses, videosReadVideoFrameData, videosReadVideoFrameErrors, videosReadVideoFrameResponses, videosReadVideoRalliesData, videosReadVideoRalliesErrors, videosReadVideoRalliesResponses, videosReadVideoResponses, videosReadVideosData, videosReadVideosErrors, videosReadVideosResponses, videosReadVideoThumbnailFileData, videosReadVideoThumbnailFileErrors, videosReadVideoThumbnailFileResponses, videosReadVideoThumbnailsUrlData, videosReadVideoThumbnailsUrlErrors, videosReadVideoThumbnailsUrlResponses, videosReadVideoTrajectoryData, videosReadVideoTrajectoryErrors, videosReadVideoTrajectoryResponses, videosUpdateVideoCourtData, videosUpdateVideoCourtErrors, videosUpdateVideoCourtResponses, videosUploadVideoData, videosUploadVideoErrors, videosUploadVideoResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -523,7 +523,8 @@ export class RalliesService {
     /**
      * Delete Rally
      *
-     * Delete a rally (e.g. a false detection). Reel clips of it are dropped.
+     * Delete a rally (e.g. a false detection). Reel segments of it keep playing,
+     * labelled rally_id null.
      */
     public static deleteRally<ThrowOnError extends boolean = true>(options: Options<ralliesDeleteRallyData, ThrowOnError>) {
         return (options.client ?? client).delete<ralliesDeleteRallyResponses, ralliesDeleteRallyErrors, ThrowOnError>({
@@ -537,8 +538,7 @@ export class RalliesService {
     /**
      * Edit Rally
      *
-     * Set a rally's start and end. Reel pieces outside the new bounds (plus each
-     * reel's lead_in/lead_out) are trimmed.
+     * Set a rally's start and end.
      */
     public static editRally<ThrowOnError extends boolean = true>(options: Options<ralliesEditRallyData, ThrowOnError>) {
         return (options.client ?? client).put<ralliesEditRallyResponses, ralliesEditRallyErrors, ThrowOnError>({
@@ -589,7 +589,7 @@ export class RalliesService {
      * Split Rally
      *
      * Split a rally in two at `at` seconds. The first part keeps the id; the second
-     * is a new rally. Reel clips are split the same way.
+     * is a new rally.
      */
     public static splitRally<ThrowOnError extends boolean = true>(options: Options<ralliesSplitRallyData, ThrowOnError>) {
         return (options.client ?? client).post<ralliesSplitRallyResponses, ralliesSplitRallyErrors, ThrowOnError>({
@@ -607,8 +607,8 @@ export class RalliesService {
     /**
      * Merge Rallies
      *
-     * Merge two neighbouring rallies into one new rally (new id). Reel clips of
-     * either point at the new rally; back-to-back clips of the two become one.
+     * Merge two neighbouring rallies into one new rally (new id). Reel segments of
+     * either keep playing, labelled rally_id null (both old rallies are gone).
      */
     public static mergeRallies<ThrowOnError extends boolean = true>(options: Options<ralliesMergeRalliesData, ThrowOnError>) {
         return (options.client ?? client).post<ralliesMergeRalliesResponses, ralliesMergeRalliesErrors, ThrowOnError>({
@@ -643,7 +643,8 @@ export class ReelsService {
      * Save Video Reel
      *
      * Create or save the video's reel: replaces the title and the whole edit list
-     * (clips without pieces are dropped). Send `updated_at: null` to create it (201),
+     * (segment times are stored to 0.1 s; a rally_id that isn't one of the video's
+     * rallies is stored as null). Send `updated_at: null` to create it (201),
      * or the `updated_at` you loaded to update it (200). If it isn't as you last saw it
      * (it now exists, changed, or was deleted), nothing is saved: 409, reload.
      * The reel belongs to the video's owner, also when a superuser saves it.
@@ -754,6 +755,117 @@ export class ReelsService {
     }
 }
 
+export class ExportsService {
+    /**
+     * Read Video Exports
+     *
+     * The video's exports, newest first (not deleted; expired ones until the purge
+     * removes them).
+     */
+    public static readVideoExports<ThrowOnError extends boolean = true>(options: Options<exportsReadVideoExportsData, ThrowOnError>) {
+        return (options.client ?? client).get<exportsReadVideoExportsResponses, exportsReadVideoExportsErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/reel/exports',
+            ...options
+        });
+    }
+    
+    /**
+     * Create Export
+     *
+     * Export the video's reel to an MP4, rendered by a worker; poll GET /exports/{id}.
+     * What's rendered is fixed now: editing the reel or its rallies afterwards
+     * doesn't change this export. Its segments in order, slow-mo ones at half speed.
+     * At most MAX_ACTIVE_EXPORTS_PER_USER (3) queued or processing per user (429).
+     */
+    public static createExport<ThrowOnError extends boolean = true>(options: Options<exportsCreateExportData, ThrowOnError>) {
+        return (options.client ?? client).post<exportsCreateExportResponses, exportsCreateExportErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/videos/{id}/reel/exports',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Delete Export
+     *
+     * Delete an export (soft) and its file. A render in progress stops.
+     */
+    public static deleteExport<ThrowOnError extends boolean = true>(options: Options<exportsDeleteExportData, ThrowOnError>) {
+        return (options.client ?? client).delete<exportsDeleteExportResponses, exportsDeleteExportErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/exports/{export_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Export
+     *
+     * One export: status (queued → processing → done | failed), progress (0-1),
+     * failure reason, size, and when its file will be deleted.
+     */
+    public static readExport<ThrowOnError extends boolean = true>(options: Options<exportsReadExportData, ThrowOnError>) {
+        return (options.client ?? client).get<exportsReadExportResponses, exportsReadExportErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/exports/{export_id}',
+            ...options
+        });
+    }
+    
+    /**
+     * Retry Export
+     *
+     * Queue a failed export again ("Try again"). It renders the same snapshot: what
+     * the reel was when the export was requested, not what it is now. Keeps its
+     * created_at and expires_at.
+     */
+    public static retryExport<ThrowOnError extends boolean = true>(options: Options<exportsRetryExportData, ThrowOnError>) {
+        return (options.client ?? client).post<exportsRetryExportResponses, exportsRetryExportErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/exports/{export_id}/retry',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Export Download
+     *
+     * A temporary link to download the finished MP4 (saved as `filename`). The link
+     * expires after 12 hours, or when the export does.
+     */
+    public static readExportDownload<ThrowOnError extends boolean = true>(options: Options<exportsReadExportDownloadData, ThrowOnError>) {
+        return (options.client ?? client).get<exportsReadExportDownloadResponses, exportsReadExportDownloadErrors, ThrowOnError>({
+            responseType: 'json',
+            security: [{ scheme: 'bearer', type: 'http' }],
+            url: '/api/v1/exports/{export_id}/download',
+            ...options
+        });
+    }
+    
+    /**
+     * Read Export File
+     *
+     * The exported MP4, as an attachment (Content-Disposition), with Range support.
+     */
+    public static readExportFile<ThrowOnError extends boolean = true>(options: Options<exportsReadExportFileData, ThrowOnError>) {
+        return (options.client ?? client).get<exportsReadExportFileResponses, exportsReadExportFileErrors, ThrowOnError>({
+            responseType: 'blob',
+            url: '/api/v1/exports/{export_id}/file',
+            ...options
+        });
+    }
+}
+
 export class PrivateService {
     /**
      * Create User
@@ -777,8 +889,7 @@ export class PrivateService {
      *
      * Test fixture: finish a video as the worker would, with these rallies (and
      * optionally a shuttle trajectory and the thumbnail strip), without running the ML
-     * pipeline. Goes through crud.finish_video like a real worker, so reel clips are
-     * re-linked the same way.
+     * pipeline. Goes through crud.finish_video like a real worker.
      */
     public static setAnalysis<ThrowOnError extends boolean = true>(options: Options<privateSetAnalysisData, ThrowOnError>) {
         return (options.client ?? client).post<privateSetAnalysisResponses, privateSetAnalysisErrors, ThrowOnError>({
@@ -789,6 +900,40 @@ export class PrivateService {
                 'Content-Type': 'application/json',
                 ...options.headers
             }
+        });
+    }
+    
+    /**
+     * Set Export State
+     *
+     * Test fixture: put an export where a worker would (rendering at some progress,
+     * or failed with a reason), without rendering. Takes a new claim, so a real
+     * worker that has it stops writing to it (its writes check the claim).
+     */
+    public static setExportState<ThrowOnError extends boolean = true>(options: Options<privateSetExportStateData, ThrowOnError>) {
+        return (options.client ?? client).post<privateSetExportStateResponses, privateSetExportStateErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/private/exports/{id}/state',
+            ...options,
+            headers: {
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+    }
+    
+    /**
+     * Render Export Now
+     *
+     * Test fixture: render the export now, inside this request, with the worker's
+     * renderer (ffmpeg; a few seconds for a short clip), and finish it like a worker:
+     * a real MP4 behind GET /exports/{id}/download.
+     */
+    public static renderExportNow<ThrowOnError extends boolean = true>(options: Options<privateRenderExportNowData, ThrowOnError>) {
+        return (options.client ?? client).post<privateRenderExportNowResponses, privateRenderExportNowErrors, ThrowOnError>({
+            responseType: 'json',
+            url: '/api/v1/private/exports/{id}/render',
+            ...options
         });
     }
 }

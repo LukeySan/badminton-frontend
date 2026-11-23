@@ -1,7 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import {
-  Check,
   ChevronLeft,
   EllipsisVertical,
   MapPin,
@@ -23,6 +22,7 @@ import {
 import { toast } from "sonner"
 
 import type {
+  ExportPublic,
   RallyChange,
   RallyPublic,
   ReelPublic,
@@ -52,7 +52,9 @@ import {
 } from "@/components/Player/rallies"
 import { usePlayerKeys } from "@/components/Player/usePlayerKeys"
 import {
+  FREE_PLAYBACK,
   type PlaybackRule,
+  spansRule,
   useVideoPlayer,
 } from "@/components/Player/useVideoPlayer"
 import { VideoStage } from "@/components/Player/VideoStage"
@@ -74,11 +76,12 @@ import { ReanalyzeDialog } from "@/components/Videos/ReanalyzeDialog"
 import { formatDuration } from "@/lib/format"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
-import { EditPanel } from "./EditPanel"
+import { AddFootageSheet } from "./AddFootageSheet"
+import { clipMaybes, type Edge, EditPanel } from "./EditPanel"
 import { EditTools } from "./EditTools"
 import { EmptyReel } from "./EmptyReel"
+import { ExportSheet } from "./ExportSheet"
 import { type FixKind, HighlightsPanel } from "./HighlightsPanel"
-import { videoReelQueryOptions } from "./queries"
 import {
   type FixRequest,
   type FixValues,
@@ -93,38 +96,52 @@ import {
   reverseFix,
 } from "./rallyFixes"
 import {
+  type Clip,
   canCut,
   canRedo,
   canUndo,
   captionOf,
-  clipOfRally,
   type Edit,
   editReducer,
+  fitBounds,
   fixToRedo,
   fixToUndo,
   initialHistory,
-  joinTouching,
-  keptLength,
+  isRallyPicked,
   longestRallies,
-  MIN_SPAN,
+  newClipId,
   normalizeEdit,
-  type PieceRef,
+  paddedRally,
   presentEdit,
   type ReelFormat,
-  rallyWindows,
-  refit,
+  rallyOver,
+  reelLength,
+  relabel,
+  type Span,
 } from "./reelEdit"
 import { useThumbnails } from "./thumbnails"
 import {
-  buildTimeline,
-  pieceAtSource,
-  reelTimeAtSource,
-  sourceAtReelTime,
-  timelineLength,
+  atReelTime,
+  clipIndexAt,
+  EDGE_EPSILON,
+  reelSpans,
+  reelTimeIn,
 } from "./timeline"
 import { type SaveStatus, useReelAutosave } from "./useReelAutosave"
+import { useReelExports } from "./useReelExports"
 
 export type EditorMode = "highlights" | "edit"
+
+/** At most one seek this often while an edge or a range handle moves (ms). */
+const PREVIEW_SEEK_MS = 70
+/** Pressing "previous" this far into a clip restarts it (like a music app). */
+const RESTART_AFTER = 3
+/** The reel moves on this long before the video's last frame (see playbackRule). */
+const END_GUARD = 0.08
+/** Between two looks at the video, more than this is a jump, not playing on (s). */
+const JUMP = 0.5
+/** Add footage starts with this much, right after the clip under the playhead. */
+const ADD_FOOTAGE_SECONDS = 5
 
 /**
  * The one screen for an analyzed video, in two modes. Highlights is the player: the
@@ -132,9 +149,10 @@ export type EditorMode = "highlights" | "edit"
  * them). Edit is the reel's timeline. Shared: header, the video, the mode toggle.
  *
  * The video's reel (one per video) is made on the first change: until then `reel`
- * is null and the edit list is empty. The edit list lives in one reducer with undo /
- * redo, and is autosaved. Rally fixes (⋮ in the list) change the match's rallies on
- * the server and are undone through the reverse endpoint.
+ * is null and the edit list is empty. The edit list (v5: a flat list of clips played
+ * in list order) lives in one reducer with undo / redo, and is autosaved. Rally fixes
+ * (⋮ in the list) change the match's rallies on the server and are undone through the
+ * reverse endpoint; they never change what the reel plays.
  */
 export function VideoScreen({
   video,
@@ -156,6 +174,7 @@ export function VideoScreen({
     initialHistory(normalizeEdit(edit)),
   )
   const edit = presentEdit(history)
+  const clips = edit.segments
   // For async work (fixes, toasts): the latest, not the one from when it started
   const historyRef = useRef(history)
   historyRef.current = history
@@ -178,7 +197,6 @@ export function VideoScreen({
   const frameAspect = edit.format === "9:16" ? 9 / 16 : videoAspect
 
   const [skipBreaks, setSkipBreaks] = useState(false)
-  const [loop, setLoop] = useState(false)
   const player = useVideoPlayer(video, {
     landscape: frameAspect >= 1,
     playback: () => playbackRule(),
@@ -196,130 +214,193 @@ export function VideoScreen({
     [rallyList],
   )
   const maybeCount = rallyList.length - sureRallies.length
-  const windows = useMemo(
-    () =>
-      rallyWindows(
-        rallyList,
-        { lead_in: edit.lead_in, lead_out: edit.lead_out },
-        duration,
-      ),
-    [rallyList, edit.lead_in, edit.lead_out, duration],
-  )
-  // The reel as items in reel order: the timeline, the time row and playback read it.
-  const items = useMemo(
-    () => buildTimeline(edit, segments, windows, duration),
-    [edit, segments, windows, duration],
-  )
-  const reelSeconds = timelineLength(items)
-  const reelTime = reelTimeAtSource(items, time)
+  const maybes = useMemo(() => clipMaybes(clips, rallyList), [clips, rallyList])
+  const reelSeconds = reelLength(edit)
+  const [exportOpen, setExportOpen] = useState(false)
+  const reelExports = useReelExports({
+    videoId: video.id,
+    beforeExport: autosave.flush,
+    quiet: exportOpen,
+    onShow: () => setExportOpen(true),
+  })
   const current = segmentAt(segments, time)
 
-  // --- Selection: the piece under the playhead (or the last one tapped) ---------------
-  const [selection, setSelection] = useState<PieceRef>()
-  const under = pieceAtSource(items, time)
-  // Keyed by rally and position, not index: adding a clip before it is no move
-  const underKey = under ? `${under.clip.rally_id}:${under.piece.start}` : ""
-  // biome-ignore lint/correctness/useExhaustiveDependencies: follows the key only
+  // --- The cursor: the clip that's playing ------------------------------------------
+  // Source time can't say where the playhead is in the reel (clips can be in any order
+  // and show the same moment twice), so Edit keeps the clip that's playing. It's also
+  // the selected clip (tools act on it): playback, scrubbing and taps move it.
+  const [cursorId, setCursorState] = useState<string | undefined>(clips[0]?.id)
+  const cursorRef = useRef(cursorId)
+  const setCursor = useCallback((id: string | undefined) => {
+    cursorRef.current = id
+    setCursorState(id)
+  }, [])
+  const resolveCursor = (list: Clip[], t: number) => {
+    const i = list.findIndex((clip) => clip.id === cursorRef.current)
+    if (i >= 0) return i
+    const at = clipIndexAt(list, t)
+    return at >= 0 ? at : list.length > 0 ? 0 : -1
+  }
+  const cursorIndex = resolveCursor(clips, time)
+  const cursorClip = clips[cursorIndex] as Clip | undefined
+  // A deleted or replaced clip: the cursor moves to what's there now
   useEffect(() => {
-    if (under)
-      setSelection({ clipIndex: under.clipIndex, pieceIndex: under.pieceIndex })
-  }, [underKey])
-  const selected: PieceRef | undefined =
-    selection && edit.clips[selection.clipIndex]?.pieces[selection.pieceIndex]
-      ? selection
-      : edit.clips.length > 0
-        ? { clipIndex: 0, pieceIndex: 0 }
-        : undefined
-  const selectedItem = items.find(
-    (item) =>
-      item.kind === "piece" &&
-      item.clipIndex === selected?.clipIndex &&
-      item.pieceIndex === selected.pieceIndex,
-  )
-  const selectedPiece =
-    selected && edit.clips[selected.clipIndex].pieces[selected.pieceIndex]
-  const selectedClip = selected && edit.clips[selected.clipIndex]
-  const selectedNumber = segments.find(
-    (s) => s.rally.id === selectedClip?.rally_id,
-  )?.number
-  const pieceLabel = selectedNumber ? `Rally ${selectedNumber}` : "Clip"
+    if (cursorClip?.id !== cursorId) setCursor(cursorClip?.id)
+  }, [cursorClip?.id, cursorId, setCursor])
+  const reelTime = cursorIndex >= 0 ? reelTimeIn(clips, cursorIndex, time) : 0
 
+  /** The last time playback saw (or a seek of ours went to): tells a jump from play. */
+  const lastSource = useRef<number | null>(null)
+  /** Edit: put the playhead in clip `id`, at `source` in the video. */
+  const seekClip = (id: string, source: number) => {
+    setCursor(id)
+    lastSource.current = source
+    player.seek(source)
+  }
+
+  // Entering Edit (or the first clip arriving): the cursor and the video agree
+  // biome-ignore lint/correctness/useExhaustiveDependencies: on entering only
+  useEffect(() => {
+    if (mode !== "edit" || clips.length === 0) return
+    const t = player.currentTime()
+    const clip = clips.find((c) => c.id === cursorRef.current)
+    if (clip && t >= clip.start - EDGE_EPSILON && t <= clip.end) return
+    const at = clipIndexAt(clips, t)
+    if (at >= 0) setCursor(clips[at].id)
+    else {
+      const first = clip ?? clips[0]
+      seekClip(first.id, first.start)
+    }
+  }, [mode, clips.length > 0])
+
+  // --- Preview playback --------------------------------------------------------------
+  // Edit plays the reel: its clips in list order, slow-mo at half speed, stopping after
+  // the last (Play starts again from the first). Highlights plays the match freely, or
+  // only its rallies with skip-breaks.
+  const playbackRule = (): PlaybackRule => {
+    if (mode !== "edit") return skipBreaks ? spansRule(segments) : FREE_PLAYBACK
+    const list = clips
+    // A clip that runs to the video's end moves on just before it: after "ended",
+    // play() would start the video over (WebKit)
+    const endOf = (clip: Clip) =>
+      duration > 0 ? Math.min(clip.end, duration - END_GUARD) : clip.end
+    const inside = (clip: Clip, t: number) =>
+      t >= clip.start - EDGE_EPSILON && t < endOf(clip)
+    const seekTo = (t: number) => {
+      lastSource.current = t
+      return t
+    }
+    return {
+      next: (t) => {
+        if (list.length === 0) return null
+        let i = resolveCursor(list, t)
+        // The video jumped (moved from outside the reel, not by playing on): the
+        // playhead is in the clip that shows that moment, if one does
+        const last = lastSource.current
+        lastSource.current = t
+        if (
+          (last === null || Math.abs(t - last) > JUMP) &&
+          !inside(list[i], t)
+        ) {
+          const at = list.findIndex((clip) => inside(clip, t))
+          if (at >= 0) i = at
+        }
+        if (list[i].id !== cursorRef.current) setCursor(list[i].id)
+        const clip = list[i]
+        if (inside(clip, t)) return undefined
+        if (t < clip.start) return seekTo(clip.start)
+        const next = list[i + 1]
+        if (!next) return null
+        setCursor(next.id)
+        // Touching clips (a cut): no seek, no hitch
+        return Math.abs(next.start - t) < EDGE_EPSILON
+          ? undefined
+          : seekTo(next.start)
+      },
+      rate: () => (list[resolveCursor(list, 0)]?.slow_mo ? 0.5 : 1),
+      restart: () => {
+        if (list.length === 0) return undefined
+        setCursor(list[0].id)
+        return seekTo(list[0].start)
+      },
+    }
+  }
+
+  /** Seeks while a handle moves: the latest position, at most every PREVIEW_SEEK_MS. */
+  const previewSeek = useRef<{ last: number; timer?: number; t?: number }>({
+    last: 0,
+  })
+  const seekRef = useRef(player.seek)
+  seekRef.current = player.seek
+  const preview = (t: number) => {
+    const state = previewSeek.current
+    state.t = t
+    const run = () => {
+      state.timer = undefined
+      state.last = performance.now()
+      if (state.t !== undefined) seekRef.current(state.t)
+      state.t = undefined
+    }
+    const wait = PREVIEW_SEEK_MS - (performance.now() - state.last)
+    if (wait <= 0) run()
+    else if (state.timer === undefined)
+      state.timer = window.setTimeout(run, wait)
+  }
+  const stopPreview = () => {
+    window.clearTimeout(previewSeek.current.timer)
+    previewSeek.current = { last: 0 }
+  }
+
+  // --- Previous / next -----------------------------------------------------------------
   const playSegment = (segment: Segment | undefined) => {
     if (!segment) return
     player.seek(segment.start)
     player.play()
   }
-  // Highlights: ← / → go through the match's rallies. Edit: through the reel's pieces.
+  const playClip = (clip: Clip | undefined) => {
+    if (!clip) return
+    seekClip(clip.id, clip.start)
+    player.play()
+  }
+  // Highlights: ← / → go through the match's rallies. Edit: through the reel's clips.
   const goNext = () =>
     mode === "edit"
-      ? playSegment(nextSegment(reelPieces, player.currentTime()))
+      ? playClip(clips[cursorIndex + 1])
       : playSegment(nextSegment(segments, player.currentTime()))
-  const goPrevious = () =>
-    mode === "edit"
-      ? playSegment(previousSegment(reelPieces, player.currentTime()))
-      : playSegment(previousSegment(segments, player.currentTime()))
-
-  // --- Preview playback --------------------------------------------------------------
-  // Edit mode plays the reel as edited: its pieces in order, the footage kept around
-  // them ("Rallies only": restored breaks; "Full video": everything, without the breaks
-  // and cut parts when skip-breaks is on), slow-mo at half speed. Loop repeats the
-  // selected piece. Highlights mode plays the match freely (tap any rally to watch it).
-  const playbackRule = (): PlaybackRule => {
-    if (mode !== "edit") return { spans: skipBreaks ? segments : null }
-    if (loop && selectedItem?.kind === "piece") {
-      const rate = selectedItem.piece.slow_mo ? 0.5 : 1
-      return { spans: [selectedItem.src], loop: true, rateAt: () => rate }
+  const goPrevious = () => {
+    if (mode !== "edit") {
+      playSegment(previousSegment(segments, player.currentTime()))
+      return
     }
-    const skipping = edit.view === "full" && skipBreaks
-    const plays = items.filter(
-      (item) =>
-        item.kind !== "gap" &&
-        !(skipping && (item.kind === "break" || item.kind === "cut")),
+    const into = cursorClip ? player.currentTime() - cursorClip.start : 0
+    playClip(
+      into > RESTART_AFTER
+        ? cursorClip
+        : (clips[cursorIndex - 1] ?? cursorClip),
     )
-    return {
-      spans: mergeSpans(plays.map((item) => item.src)),
-      rateAt: (t) =>
-        plays.some(
-          (item) =>
-            item.kind === "piece" &&
-            item.piece.slow_mo &&
-            t >= item.src.start &&
-            t < item.src.end,
-        )
-          ? 0.5
-          : 1,
-    }
   }
-  // The reel's pieces as segments: in source time (← / →) and in reel time (the
-  // full-screen chapter bar draws each chapter from its rally's times).
-  const pieceSegments = (time: "src" | "reel"): Segment[] =>
-    items.flatMap((item, i) =>
-      item.kind === "piece"
-        ? [
-            {
-              number: item.segment?.number ?? i + 1,
-              rally: {
-                id: (item.segment?.rally.id ?? -1 - i) * 1000 + item.pieceIndex,
-                number: item.segment?.number ?? i + 1,
-                is_maybe: item.segment?.rally.is_maybe,
-                start: item[time].start,
-                end: item[time].end,
-                duration: item[time].end - item[time].start,
-              },
-              start: item[time].start,
-              end: item[time].end,
-            },
-          ]
-        : [],
-    )
-  const reelPieces = pieceSegments("src")
-  const reelChapters = pieceSegments("reel")
 
-  // What's on screen now: a slow-mo piece (Edit plays it slowly) and the caption.
-  const playingSlow = mode === "edit" && under?.piece.slow_mo
-  const caption = edit.overlays.captions.find(
-    (c) => time >= c.start && time < c.end,
-  )
+  // The reel's clips as chapters in reel time (the full-screen chapter bar)
+  const reelChapters = useMemo<Segment[]>(() => {
+    const spans = reelSpans(clips)
+    return clips.map((_, i) => ({
+      number: i + 1,
+      rally: {
+        id: i + 1,
+        number: i + 1,
+        is_maybe: maybes[i],
+        start: spans[i].start,
+        end: spans[i].end,
+        duration: spans[i].end - spans[i].start,
+      },
+      start: spans[i].start,
+      end: spans[i].end,
+    }))
+  }, [clips, maybes])
+
+  // What's on screen now: a slow-mo clip (Edit plays it slowly) and the caption.
+  const playingSlow = mode === "edit" && Boolean(cursorClip?.slow_mo)
+  const caption = edit.captions.find((c) => time >= c.start && time < c.end)
 
   // --- Rally fixes ---------------------------------------------------------------------
   const [fixBusy, setFixBusy] = useState(false)
@@ -339,53 +420,40 @@ export function VideoScreen({
     void invalidateVideoLists(queryClient)
   }
 
-  /**
-   * One server call at a time, with the reel saved first and no autosave meanwhile
-   * (the server adjusts reels as part of a fix).
-   */
+  /** One server call at a time. */
   const exclusive = async (work: () => Promise<void>) => {
     if (busy.current) return
     busy.current = true
     setFixBusy(true)
     try {
-      await autosave.flush()
-      autosave.hold(true)
       await work()
     } finally {
-      autosave.hold(false)
       busy.current = false
       setFixBusy(false)
     }
   }
 
-  /** Make a fix: refresh rallies and the reel, one undo step, say what changed. */
+  /**
+   * Make a fix: refresh the rallies, one undo step, say what changed. The reel plays
+   * the same footage; only labels of clips whose rally is gone change.
+   */
   const runFix = (pending: NewFix) =>
     exclusive(async () => {
-      const before = rallyList
       const result = await applyFix(video.id, pending)
       const fix = { ...pending, after: result.ids } as RallyFix
       applyRallies(result.change)
-      let next = presentEdit(historyRef.current)
-      // A video has one reel: any reel the server adjusted is this one
-      if (result.reels.length > 0) {
-        // The server adjusted this reel: start from its version
-        const fresh = await queryClient.fetchQuery({
-          ...videoReelQueryOptions(video.id),
-          staleTime: 0,
-        })
-        autosave.adopt(fresh)
-        next = normalizeEdit(fresh?.edit)
-      }
-      // Clips follow their rallies' new windows (a longer rally = a longer clip)
-      next = refit(
-        next,
-        rallyWindows(before, next, duration),
-        rallyWindows(result.change.rallies, next, duration),
-      )
-      if (fix.kind === "merge") next = joinTouching(next, fix.after[0])
-      dispatch({ type: "fix", fix, edit: next })
+      const now = presentEdit(historyRef.current)
+      const clipsOfDeleted =
+        fix.kind === "delete"
+          ? now.segments.filter((c) => c.rally_id === fix.before[0]).length
+          : 0
+      dispatch({
+        type: "fix",
+        fix,
+        edit: relabel(now, result.change.rallies),
+      })
       toast.success(describeFix(fix, result.change), {
-        description: describeImpact(result.reels),
+        description: describeImpact(fix, clipsOfDeleted),
         action: {
           label: "Undo",
           onClick: () => {
@@ -480,8 +548,6 @@ export function VideoScreen({
     await exclusive(async () => {
       const result = await reverseFix(video.id, fix)
       applyRallies(result.change)
-      const [mine] = result.reels
-      if (mine) autosave.rebase(mine.updated_at)
       dispatch({ type: "undo-fix", ids: result.ids })
       toast.success("Rally fix undone", {
         description: "The chapters are updated too.",
@@ -497,8 +563,6 @@ export function VideoScreen({
     await exclusive(async () => {
       const result = await applyFix(video.id, fix)
       applyRallies(result.change)
-      const [mine] = result.reels
-      if (mine) autosave.rebase(mine.updated_at)
       dispatch({ type: "redo-fix", ids: result.ids })
       toast.success(
         describeFix({ ...fix, after: result.ids } as RallyFix, result.change),
@@ -518,38 +582,71 @@ export function VideoScreen({
 
   // --- Edit tools ------------------------------------------------------------------
   const onCut = () => {
-    if (!selected) return
     const at = player.currentTime()
-    if (!canCut(edit, selected, at)) return
-    dispatch({ type: "cut-piece", piece: selected, at })
+    if (!cursorClip || !canCut(cursorClip, at)) return
+    const newId = newClipId(edit)
+    dispatch({ type: "cut", id: cursorClip.id, at, newId })
     // The second part is selected (the playhead is at its start)
-    setSelection({ ...selected, pieceIndex: selected.pieceIndex + 1 })
+    setCursor(newId)
   }
   const onDelete = () => {
-    if (!selected || !selectedClip) return
-    dispatch({ type: "delete-piece", piece: selected })
-    setSelection(
-      selectedClip.pieces.length > 1
-        ? { ...selected, pieceIndex: Math.max(0, selected.pieceIndex - 1) }
-        : undefined,
+    if (!cursorClip) return
+    dispatch({ type: "delete", id: cursorClip.id })
+    // The playhead goes to the clip that takes its place (or the one before)
+    const next = clips[cursorIndex + 1] ?? clips[cursorIndex - 1]
+    if (next) seekClip(next.id, next.start)
+    else setCursor(undefined)
+  }
+  const onSetBounds = (id: string, span: Span, edge: Edge) => {
+    stopPreview()
+    dispatch({ type: "set-bounds", id, span, duration })
+    // The playhead on the edge that moved: the frame you were looking at stays
+    const fitted = fitBounds(span, duration, edge === "start" ? "end" : "start")
+    seekClip(
+      id,
+      edge === "start"
+        ? fitted.start
+        : Math.max(fitted.start, fitted.end - EDGE_EPSILON),
     )
   }
-  const pickRally = (rally: RallyPublic) => {
-    const window = windows.get(rally.id)
-    if (!window) return
-    dispatch({ type: "pick-rally", rallyId: rally.id, window })
-    return edit.clips.filter((c) => c.pieces[0].start < window.start).length
+
+  // Add footage ("+" at the end of the clip track)
+  const [addRange, setAddRange] = useState<Span | null>(null)
+  /** Where the playhead was: the sheet's previews move the video, Cancel puts it back. */
+  const beforeAdd = useRef<{ id: string; source: number } | null>(null)
+  const openAdd = () => {
+    player.pause()
+    beforeAdd.current = cursorClip
+      ? { id: cursorClip.id, source: player.currentTime() }
+      : null
+    const from = cursorClip ? cursorClip.end : player.currentTime()
+    setAddRange(
+      fitBounds({ start: from, end: from + ADD_FOOTAGE_SECONDS }, duration),
+    )
+  }
+  const addFootage = (span: Span) => {
+    stopPreview()
+    beforeAdd.current = null
+    const clip: Clip = {
+      id: newClipId(edit),
+      ...span,
+      slow_mo: false,
+      rally_id: rallyOver(span, rallyList),
+    }
+    // After the clip under the playhead
+    dispatch({
+      type: "insert",
+      clip,
+      index: cursorIndex >= 0 ? cursorIndex + 1 : clips.length,
+    })
+    seekClip(clip.id, clip.start)
   }
 
+  const pickRally = (rally: RallyPublic) =>
+    dispatch({ type: "pick-rally", rally, duration })
   // Quick starts (Edit with nothing picked): one undo step each
   const pickAll = (list: RallyPublic[]) =>
-    dispatch({
-      type: "pick-many",
-      picks: list.flatMap((rally) => {
-        const window = windows.get(rally.id)
-        return window ? [{ rallyId: rally.id, window }] : []
-      }),
-    })
+    dispatch({ type: "pick-many", rallies: list, duration })
   // "Pick from the list": Highlights, with a hint about the circles and Picked
   const [pickHint, setPickHint] = useState(false)
   useEffect(() => {
@@ -558,17 +655,15 @@ export function VideoScreen({
 
   // Stats over the sure rallies (maybes count once kept)
   const playTime = rallyTime(segments.filter((s) => !isMaybe(s.rally)))
-  const rallyBadge = current && (
+  // Highlights only: in Edit the video shows the reel's clips, which are footage
+  // (their edges can go anywhere), not rallies
+  const rallyBadge = mode === "highlights" && current && (
     <RallyBadge number={current.number} total={segments.length} />
   )
   const inFullscreen = player.fullscreen.active
-  // Edit + "Rallies only": the breaks are cut by the edit itself, so the pill says so
-  // instead of offering to skip them.
-  const breaksCut = mode === "edit" && edit.view === "cut"
+  // Skip breaks is the player's: in Edit the reel has no breaks to skip
   const pill = (className?: string) =>
-    breaksCut ? (
-      <BreaksCutPill className={className} />
-    ) : (
+    mode === "highlights" && (
       <SkipBreaksPill
         on={skipBreaks}
         onToggle={() => setSkipBreaks((on) => !on)}
@@ -576,34 +671,51 @@ export function VideoScreen({
       />
     )
   const isPicked = useCallback(
-    (rally: RallyPublic) => edit.clips.some((c) => c.rally_id === rally.id),
-    [edit.clips],
+    (rally: RallyPublic) => isRallyPicked(edit, rally.id),
+    [edit],
   )
-  /** Seconds kept, for a rally cut in this reel (less than its whole window). */
+  const pickedCount = segments.filter((s) => isPicked(s.rally)).length
+  /** Seconds of the rally in this reel, when it's less than a new clip of it (cut). */
   const keptOf = (rally: RallyPublic) => {
-    const clip = clipOfRally(edit, rally.id)
-    const window = windows.get(rally.id)
-    if (!clip || !window) return undefined
-    const kept = keptLength(clip)
-    return kept < window.end - window.start - MIN_SPAN ? kept : undefined
+    const own = clips.filter((clip) => clip.rally_id === rally.id)
+    if (own.length === 0) return undefined
+    const kept = own.reduce((sum, clip) => sum + clip.end - clip.start, 0)
+    const whole = paddedRally(rally, duration)
+    return kept < whole.end - whole.start - 0.05 ? kept : undefined
   }
 
   return (
     <div
       className={cn(
         "flex flex-col",
-        // Phones held upright: one screen like the prototypes. The top half stays,
-        // the bottom half (rally list / timeline) scrolls by itself.
-        "max-md:portrait:-m-4 max-md:portrait:h-dvh",
+        // Phones held upright: one screen like the prototypes, the viewport's height
+        // (dvh: iOS Safari's toolbar doesn't make it overflow). The top half
+        // (header, video, controls, mode toggle) keeps its size; the mode's panel
+        // takes the rest, with its tools / bottom bar at the bottom. The page never
+        // scrolls: only the rally list and the timeline do.
+        "max-md:portrait:-m-4 max-md:portrait:h-dvh max-md:portrait:overflow-hidden",
       )}
     >
       <ScreenHeader
         video={video}
         title={title}
-        rallyCount={sureRallies.length}
-        maybeCount={maybeCount}
-        playTime={playTime}
+        summary={
+          mode === "edit"
+            ? {
+                kind: "reel",
+                clips: clips.length,
+                seconds: reelSeconds,
+              }
+            : {
+                kind: "match",
+                rallyCount: sureRallies.length,
+                maybeCount,
+                playTime,
+              }
+        }
         beforeReanalyze={autosave.flush}
+        exporting={reelExports.active}
+        onExport={() => setExportOpen(true)}
         // Nothing to say about saving until there's a reel (or a change to save)
         saveStatus={
           autosave.exists || autosave.status !== "saved"
@@ -660,7 +772,7 @@ export function VideoScreen({
             <>
               <div className="pr-2.5">
                 {mode === "edit" ? (
-                  // The reel's chapters, in reel time (as in the prototype)
+                  // The reel's clips as chapters, in reel time
                   <RallyScrubber
                     duration={reelSeconds}
                     time={reelTime}
@@ -668,14 +780,10 @@ export function VideoScreen({
                     visibleNumbers={
                       new Set(reelChapters.map((chapter) => chapter.number))
                     }
-                    currentNumber={
-                      reelChapters.find(
-                        (c) => reelTime >= c.start && reelTime < c.end,
-                      )?.number
-                    }
+                    currentNumber={cursorIndex + 1}
                     onSeek={(t) => {
-                      const source = sourceAtReelTime(items, t)
-                      if (source !== undefined) player.seek(source)
+                      const at = atReelTime(clips, t)
+                      if (at) seekClip(clips[at.index].id, at.source)
                     }}
                     onScrubbingChange={player.setScrubbing}
                   />
@@ -698,7 +806,7 @@ export function VideoScreen({
                 canPlay={Boolean(src)}
                 canNavigate={
                   Boolean(src) &&
-                  (mode === "edit" ? reelPieces : segments).length > 0
+                  (mode === "edit" ? clips : segments).length > 0
                 }
                 onPrevious={goPrevious}
                 onTogglePlay={player.togglePlay}
@@ -879,7 +987,7 @@ export function VideoScreen({
           isPicked={isPicked}
           keptOf={keptOf}
           currentNumber={current?.number}
-          pickedCount={edit.clips.length}
+          pickedCount={pickedCount}
           reelSeconds={reelSeconds}
           thumbs={thumbs}
           fixBusy={fixBusy}
@@ -937,7 +1045,7 @@ export function VideoScreen({
             </>
           }
         />
-      ) : edit.clips.length === 0 ? (
+      ) : clips.length === 0 ? (
         // Quick starts take the sure rallies only: a maybe joins once it's kept (or
         // picked by hand)
         <EmptyReel
@@ -953,59 +1061,46 @@ export function VideoScreen({
       ) : (
         <EditPanel
           edit={edit}
-          items={items}
+          rallies={rallyList}
+          duration={duration}
           reelTime={reelTime}
-          selected={selected}
+          selectedId={cursorClip?.id}
           thumbs={thumbs}
-          onSetView={(view) => dispatch({ type: "set-view", view })}
-          onSetLead={(lead) =>
-            dispatch({ type: "set-lead", lead, rallies: rallyList, duration })
-          }
-          timeline={{
+          callbacks={{
             onScrubStart: player.pause,
-            onScrub: (t) => {
-              const source = sourceAtReelTime(items, t)
-              if (source !== undefined) player.seek(source)
+            onScrub: (index, source) => {
+              const clip = clips[index]
+              if (clip) seekClip(clip.id, source)
             },
-            onSelectPiece: (piece, t) => {
-              setSelection(piece)
-              player.seek(t)
-            },
-            onRestoreHidden: (hidden) =>
-              dispatch({ type: "restore-hidden", hidden }),
-            onHide: (region) => dispatch({ type: "hide-region", region }),
-            onRestoreCut: (clipIndex, span) =>
-              dispatch({ type: "restore-cut", clipIndex, span }),
-            onPick: (rally) => {
-              const clipIndex = pickRally(rally)
-              if (clipIndex !== undefined)
-                setSelection({ clipIndex, pieceIndex: 0 })
+            onSelect: seekClip,
+            onEdgeDragStart: player.pause,
+            onPreview: preview,
+            onSetBounds,
+            onMove: (id, to) => dispatch({ type: "move", id, to }),
+            onAdd: openAdd,
+            onMoveStart: player.pause,
+            // Dropped (or not): that clip is selected, the playhead at its start
+            onMoveEnd: (id) => {
+              const moved = clips.find((clip) => clip.id === id)
+              if (moved) seekClip(moved.id, moved.start)
             },
           }}
         >
           <EditTools
-            edit={edit}
-            piece={selectedPiece}
-            pieceLabel={pieceLabel}
-            part={
-              selected && selectedClip
-                ? [selected.pieceIndex + 1, selectedClip.pieces.length]
-                : undefined
-            }
-            canCut={canCut(edit, selected, time)}
-            loop={loop}
-            caption={
-              selectedPiece ? captionOf(edit, selectedPiece)?.text : undefined
-            }
+            format={edit.format}
+            clip={cursorClip}
+            name={`clip ${cursorIndex + 1}`}
+            canCut={canCut(cursorClip, time)}
+            caption={cursorClip ? captionOf(edit, cursorClip)?.text : undefined}
             onCut={onCut}
             onDelete={onDelete}
             onToggleSlowMo={() =>
-              selected && dispatch({ type: "toggle-slow-mo", piece: selected })
+              cursorClip &&
+              dispatch({ type: "toggle-slow-mo", id: cursorClip.id })
             }
-            onToggleLoop={() => setLoop((on) => !on)}
             onSetCaption={(text) =>
-              selectedPiece &&
-              dispatch({ type: "set-caption", span: selectedPiece, text })
+              cursorClip &&
+              dispatch({ type: "set-caption", span: cursorClip, text })
             }
             onToggleFormat={() =>
               dispatch({
@@ -1017,6 +1112,24 @@ export function VideoScreen({
         </EditPanel>
       )}
 
+      <AddFootageSheet
+        open={addRange !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            stopPreview()
+            setAddRange(null)
+            const back = beforeAdd.current
+            beforeAdd.current = null
+            if (back) seekClip(back.id, back.source)
+          }
+        }}
+        duration={duration}
+        segments={segments}
+        thumbs={thumbs}
+        initial={addRange ?? { start: 0, end: ADD_FOOTAGE_SECONDS }}
+        onPreview={preview}
+        onAdd={addFootage}
+      />
       <RallyFixDialog
         request={fixRequest}
         duration={duration}
@@ -1028,34 +1141,51 @@ export function VideoScreen({
         onSubmit={submitFix}
         onClose={() => setFixRequest(null)}
       />
+      <ExportSheet
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        video={video}
+        reel={{
+          seconds: reelSeconds,
+          clips: clips.length,
+          format: edit.format,
+        }}
+        exports={reelExports}
+      />
     </div>
   )
 }
 
+/** What the header's second line sums up: the match (Highlights) or the reel (Edit). */
+type Summary =
+  | { kind: "match"; rallyCount: number; maybeCount: number; playTime: number }
+  | { kind: "reel"; clips: number; seconds: number }
+
 /**
- * Back to Home, the video's title, "68 rallies · 18:20 play · 5 to check" (+ the
- * reel's save state once there is one), Export (not yet) and a menu (re-analyze with
- * a newer detector, re-mark court, delete).
+ * Back to Home, the video's title, "68 rallies · 18:20 play · 5 to check" (Edit:
+ * "7 clips · 1:24") (+ the reel's save state once there is one), Export (with the running export's progress
+ * on it) and a menu (re-analyze with a newer detector, re-mark court, delete).
  */
 function ScreenHeader({
   video,
   title,
-  rallyCount,
-  maybeCount,
-  playTime,
+  summary,
   saveStatus,
   onRetrySave,
   beforeReanalyze,
+  exporting,
+  onExport,
 }: {
   video: VideoPublic
   title: string
-  /** Sure rallies (maybes not counted until kept). */
-  rallyCount: number
-  maybeCount: number
-  playTime: number
+  /** Match: sure rallies (maybes not counted until kept). */
+  summary: Summary
   saveStatus: SaveStatus | undefined
   onRetrySave: () => void
   beforeReanalyze: () => Promise<void>
+  /** An export of the reel that is queued or rendering: its progress on the button. */
+  exporting: ExportPublic | undefined
+  onExport: () => void
 }) {
   const [deleting, setDeleting] = useState(false)
   const [reanalyzing, setReanalyzing] = useState(false)
@@ -1078,18 +1208,26 @@ function ScreenHeader({
         {/* On a phone the summary gives way first: the save state (and its Retry)
             must stay visible */}
         <p className="flex min-w-0 text-xs text-muted-foreground tabular-nums md:text-[13px]">
-          <span data-testid="match-summary" className="truncate">
-            {rallyCount} {rallyCount === 1 ? "rally" : "rallies"} ·{" "}
-            {formatDuration(playTime)} play
-            {maybeCount > 0 && (
-              <>
-                {" · "}
-                <span className="font-bold text-subtle-foreground">
-                  {maybeCount} to check
-                </span>
-              </>
-            )}
-          </span>
+          {summary.kind === "reel" ? (
+            <span data-testid="reel-summary" className="truncate">
+              {summary.clips} {summary.clips === 1 ? "clip" : "clips"} ·{" "}
+              {formatDuration(summary.seconds)}
+            </span>
+          ) : (
+            <span data-testid="match-summary" className="truncate">
+              {summary.rallyCount}{" "}
+              {summary.rallyCount === 1 ? "rally" : "rallies"} ·{" "}
+              {formatDuration(summary.playTime)} play
+              {summary.maybeCount > 0 && (
+                <>
+                  {" · "}
+                  <span className="font-bold text-subtle-foreground">
+                    {summary.maybeCount} to check
+                  </span>
+                </>
+              )}
+            </span>
+          )}
           {saveStatus && (
             <span className="shrink-0 whitespace-pre">
               {" · "}
@@ -1098,18 +1236,28 @@ function ScreenHeader({
           )}
         </p>
       </div>
-      <div className="flex shrink-0 flex-col items-center gap-0.5">
-        <Button size="sm" disabled aria-describedby="export-soon">
-          <Upload />
-          Export
-        </Button>
-        <span
-          id="export-soon"
-          className="text-[10px] font-bold text-muted-foreground"
-        >
-          Coming soon
-        </span>
-      </div>
+      <Button
+        size="sm"
+        onClick={onExport}
+        aria-label={
+          exporting
+            ? `Export, ${Math.round(exporting.progress * 100)}% exported`
+            : "Export"
+        }
+        className="relative shrink-0"
+      >
+        <Upload />
+        Export
+        {exporting && (
+          // Progress while it renders, also with the sheet closed
+          <span
+            data-testid="export-badge"
+            className="absolute -top-2 -right-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-foreground px-1.5 text-[10px] font-extrabold text-background tabular-nums ring-2 ring-background"
+          >
+            {Math.round(exporting.progress * 100)}%
+          </span>
+        )}
+      </Button>
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button
@@ -1259,31 +1407,4 @@ function useUndoKeys({
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
   }, [])
-}
-
-/** Edit + "Rallies only": a static pill saying the breaks are already cut. */
-function BreaksCutPill({ className }: { className?: string }) {
-  return (
-    <span
-      className={cn("flex h-11 items-center px-1.5", className)}
-      data-testid="breaks-cut"
-    >
-      <span className="flex h-[30px] items-center gap-[5px] whitespace-nowrap rounded-full border border-chapter/60 bg-court-ink/80 px-3 text-xs font-extrabold text-court-accent">
-        <Check className="size-3.5" strokeWidth={3} />
-        Breaks cut
-      </span>
-    </span>
-  )
-}
-
-/** Stretches that touch (one ends where the next starts) play as one. */
-function mergeSpans(spans: { start: number; end: number }[]) {
-  const merged: { start: number; end: number }[] = []
-  for (const span of spans) {
-    const last = merged[merged.length - 1]
-    if (last && span.start - last.end < 0.05)
-      last.end = Math.max(last.end, span.end)
-    else merged.push({ ...span })
-  }
-  return merged
 }

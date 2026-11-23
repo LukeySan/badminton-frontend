@@ -73,6 +73,9 @@
   --color-chapter: var(--chapter);
   --color-chapter-foreground: var(--chapter-foreground);
   --color-chapter-dim: var(--chapter-dim);
+  --color-tool-primary: var(--tool-primary);
+  --color-tool-primary-foreground: var(--tool-primary-foreground);
+  --color-tool-primary-edge: var(--tool-primary-edge);
   --color-track: var(--track);
   --color-highlight: var(--highlight);
   --color-highlight-foreground: var(--highlight-foreground);
@@ -121,6 +124,11 @@
   --chapter: #399e5a;
   --chapter-foreground: #191923;
   --chapter-dim: #d3eee1;
+  /* Edit's primary tool (Cut): the prototype's mint tile with ink text; in light it
+     sits on the mint page, so it gets an edge */
+  --tool-primary: #defff2;
+  --tool-primary-foreground: #191923;
+  --tool-primary-edge: #bfe6d3;
   --track: #bfe6d3;
   --highlight: #ff3366;
   --highlight-foreground: #191923;
@@ -166,6 +174,9 @@
   --chapter: #399e5a;
   --chapter-foreground: #191923;
   --chapter-dim: #34343f;
+  --tool-primary: #defff2;
+  --tool-primary-foreground: #191923;
+  --tool-primary-edge: #defff2;
   --track: #2a2a36;
   --highlight: #ff3366;
   --highlight-foreground: #191923;

@@ -77,3 +77,12 @@ export function formatShortDate(iso: string): string {
 export function formatDate(iso: string): string {
   return dateFormat.format(parseApiDate(iso))
 }
+
+/** "2:14 PM" today, "Nov 15 · 2:14 PM" another day (the year too if not this one). */
+export function formatWhen(iso: string): string {
+  const date = parseApiDate(iso)
+  const now = new Date()
+  return date.toDateString() === now.toDateString()
+    ? timeFormat.format(date)
+    : formatShortDate(iso)
+}
