@@ -155,10 +155,10 @@ lower opacity, inside a dashed outline of that hue at full strength. No new toke
 - Scrubber chapter: `bg-chapter/30` + 1px dashed `border-chapter`; current
   `bg-highlight/40` + dashed `border-highlight` (still taller); filtered-out a dashed
   `border-chapter-dim` with no fill.
-- Timeline: a picked piece's frames at 55% with a 1.5px dashed
-  `border-court-foreground/80` inset outline (mint on the court-green clip); an
-  unpicked maybe's frames at 20% with a dashed `border-foreground/55` (instead of the
-  `--chapter` ring). Labels and aria-labels say "(maybe)".
+- Timeline: a maybe rally's clip has its frames at 55% with a 1.5px dashed
+  `border-court-foreground/80` inset outline (mint on the court-green clip). Labels
+  and aria-labels say "(maybe)". Add footage's match scrubber draws them faded and
+  dashed like the chapters.
 - Rally list: a **Maybe** tag (the 22px tag, 1px dashed `border-muted-foreground`,
   `text-subtle-foreground`, no fill) instead of "Longest"; "Playing" still shows. Under
   the row (aligned with the thumbnail): "Is this a rally?" (12 muted) and two 30px pills
@@ -263,9 +263,11 @@ sideways is wide but short, so it keeps the phone layout.
     video rows, bottom tab bar. See `home-*.mockup.html`.
 - **Video screen** (`/videos/$id` once analyzed; `?mode=edit` for Edit): ONE screen
   per video in two modes. Highlights is the player (watch the match, pick and fix
-  rallies), Edit is the video's reel (one per video). See `EditorHighlights` /
-  `EditorEdit` / `EditorFull.dc.html` (one template; they differ only in the starting
-  mode and view) and, for the player parts, `player-*.mockup.html`. Phones (portrait):
+  rallies), Edit is the video's reel (one per video). See `EditorHighlights.dc.html`
+  for Highlights, `EditV2Select` / `EditV2Drag` / `EditV2Reorder` / `EditV2Add.dc.html`
+  for Edit (one prototype in four starting states; the v1 `EditorEdit` /
+  `EditorFull` are superseded; since then, decided: no Reorder tool or mode, no
+  rally tags on clips, no rally badge in Edit, as described below) and, for the player parts, `player-*.mockup.html`. Phones (portrait):
   one screen, exactly the viewport (`h-dvh`, never `h-screen`: iOS Safari's toolbar
   would make it overflow), a flex column that **never scrolls**. The top half
   (header, video, controls, mode toggle) keeps its size; the mode's panel is `flex-1
@@ -277,15 +279,16 @@ sideways is wide but short, so it keeps the phone layout.
   390×844, 390×664 and 430×932. Desktop: the same single column (max 48rem), the page
   scrolls, the timeline is as tall as its tracks (the old side-panel player is gone).
   - Shared top: header (back to Home, the video's title 15/800, "68 rallies · 18:20
-    play · 5 to check" 12 muted (sure rallies; "to check" only with maybes), plus "·
-    Saved" once the video has a reel (on a phone the summary truncates first, the save
+    play · 5 to check" 12 muted (sure rallies; "to check" only with maybes; in Edit
+    the reel instead: "7 clips · 1:24"), plus "· Saved" once the video has a reel (on a phone the summary truncates first, the save
     state never), **Export** (`size="sm"` primary; while an export renders, a
     `bg-foreground text-background` 20px badge "42%" on its top-right corner with a
     2px `ring-background`), ⋮ More options:
     **Re-analyze with the latest detector** (only when the API says
     `detector_outdated`; a confirm dialog says the rally fixes are replaced, primary
     "Re-analyze"), Re-mark court, Delete video), the video
-    (max 40% of the screen; pink "Rally 19 of 73" badge; skip pill bottom-right; a 9:16
+    (max 40% of the screen; in Highlights the pink "Rally 19 of 73" badge and the skip
+    pill bottom-right, in Edit neither: it plays clips, not rallies; a 9:16
     reel shows the middle of the footage), then the mode's controls, then the
     Highlights | Edit tabs (`bg-card` track, selected = foreground fill).
   - Highlights controls (the player): the match's chapter scrubber, the stat strip
@@ -319,60 +322,103 @@ sideways is wide but short, so it keeps the phone layout.
   - Rally fix menu (⋮, "Fix rally 19"): `bg-card` popover, 14px radius, 44px items
     with an icon: Fix start and end, Split into two rallies, Merge with next rally,
     **Not a rally, delete it** (`text-highlight-text`), then the 11px muted note
-    "Fixes change this rally everywhere: its chapter and your reel. To shorten
-    it just for this reel, use Cut in Edit mode." Fixes change the match's rallies on
-    the server; a toast says what changed ("Rally 5 split into 5 and 6", what happened
-    to this and other reels) with an Undo action.
+    "Fixes change this rally's chapter and the rally list. Your reel's clips stay as
+    they are: change them in Edit mode." Fixes change the match's rallies on the
+    server, never the reel (its clips are times in the video; a deleted rally's
+    clips keep playing, unlabelled); a toast says what changed ("Rally 5 split into 5
+    and 6"; "Its clip stays in your reel." for a picked rally that's deleted) with an
+    Undo action.
   - Fix dialog (Fix start and end / Split / + Missed rally): on phones at the bottom
     of the screen over a clear overlay, so the video above stays visible and shows
     each new time. Per time: label + value (17/800, tenths) and five 44px
     `secondary` buttons: −1 s, −0.1, ⌖ at the playhead, +0.1, +1 s. The backend's
     refusal (overlaps) shows inline in `text-highlight-text`.
-  - Edit: "Rallies only | Full video" (radio pills in a bordered track, selected =
-    `bg-chapter text-chapter-foreground`), the **Lead ±1 s** chip on the right (opens
-    "Before and after each rally": lead-in and lead-out steppers, 0–3 s in 0.5 s steps,
-    at the bottom on phones so the timeline shows the change), then the hint under them
-    (11px muted). The timeline: fixed center playhead (2px foreground, ringed) with the
-    reel time in a bubble above it (`bg-foreground text-background`, 11/800, tenths),
-    native horizontal scroll (mouse: click and drag), 6 px per second of reel time, 2px
-    between items. Ruler ticks every 10 s (Rallies only) / 60 s (Full video), 10px
-    muted. Clip track 60px: pieces show frames from the sprite sheet (one per 60px,
-    only near the view) with an "R19 · 0:09" chip (`bg-court-ink/85`; a rally cut into
-    pieces is R19a, R19b...) and a "Slow-mo" chip (`bg-court-foreground`) at the bottom;
-    without a strip, `bg-court` with faint `--chapter` stripes. Selected piece = 3px pink
-    inset ring over the frames. Collapsed gap = 40px `bg-sheet` marker with a ⟷ icon and
-    the hidden length (tenths under 10 s); in Rallies only it stands for the breaks AND
-    the cut parts there, and a tap brings all of it back. Restored breaks show dimmed
-    frames with "Break 0:35", tap to hide again; in Full video breaks are striped
-    (`--card`/`--secondary`) and cut parts are pink stripes (`--highlight` 22% on
-    `--card`, at least 14px) labeled "Cut 0:02": tap to put the part back (the pieces
-    join again). Unpicked rallies: frames at 35% (or `bg-court/45` with a `--chapter`
-    ring), "R7" and "+ add". In Edit + Rallies only the video's pill is a static "✓
-    Breaks cut" (`text-court-accent`, `--chapter` border), elsewhere the skip toggle.
-    The time row shows reel time ("0:12 / 1:24").
-  - Cutting: the selected piece is the one under the playhead (or the last one
-    tapped; tapping a piece also puts the playhead where you tapped). Below the
-    timeline: "**Rally 19, part 2 of 3** selected. Cut at the playhead, then delete
-    the part you don't want." (12px muted, the name in `text-highlight-text`), then the
-    tool row (68×64 tiles, 14px radius; top border `border-track`): **Cut** (primary:
-    the prototype's mint tile with ink text in both themes, `bg-tool-primary
-    text-tool-primary-foreground` with a 1.5px `--tool-primary-edge` inset ring, which
-    only shows in light, on the mint page; disabled within 0.3 s of the piece's edges:
-    the tile stays mint and only its icon and label fade to 40%, never a grey tile),
-    Delete (the last
-    piece takes the rally out), Slow-mo (per piece), Loop (preview repeats the piece),
+  - **Edit (Editor v2):** the reel is a flat list of clips played in list order
+    (edit list v5): no "Rallies only | Full video", no Lead, no gap markers, cut
+    stripes or restored breaks, no skip pill on the video. Picking a rally (the
+    Highlights check, quick starts) adds a clip of it plus 1 s each side (inside the
+    video), in match order relative to the clips already there; unchecking removes
+    all of its clips. The time row shows reel time ("0:12 / 1:24").
+  - Timeline: fixed center playhead (2px foreground, ringed) with the reel time in a
+    bubble above it (`bg-foreground text-background`, 11/800, tenths), native
+    horizontal scroll (mouse: click and drag), 2px between clips, 6 px per second of
+    reel time to start. **Zoom**: pinch with two fingers, ctrl + wheel / a trackpad
+    pinch (Safari's gesture events too), 0.5 to 80 px per second, around the pinch's
+    center (what's under the fingers stays there; no zoom buttons). Ruler ticks (10px
+    muted) every 0.5 s to 10 min, whatever keeps them 48px apart. Clip track 72px:
+    frames from the sprite sheet (one per 60px, only near the view; without a strip
+    `bg-court` with faint `--chapter` stripes), clips at least 4px wide, the clip's
+    length in a "0:09" chip (`bg-court-ink/85`, only where it fits: 52px, or 90px
+    between a selected clip's handles) and a "Slow-mo" chip (`bg-court-foreground`)
+    at the bottom. **No rally names on clips** (no "R19" tags, here or while moving
+    one): a clip is footage, its edges can go anywhere. Maybe rallies as
+    below. After the last clip a 48×72 **+** tile (1.5px dashed
+    `border-muted-foreground/60`, 8px radius): Add footage. Caption bars "Aa …"
+    (`bg-secondary`) under their clips.
+  - Selection: the clip under the playhead is selected (a tap selects a clip and
+    puts the playhead where you tapped): a 3px pink inset ring over its frames and
+    two **edge handles**: 16px `bg-highlight` tabs with a 3×22 `bg-highlight-foreground`
+    grip, inside the clip's edges (outside when the clip is under 48px wide), each in
+    a 44px touch area. A press on a handle that doesn't move is a tap on the clip
+    under it (a narrow clip's handles cover its neighbours).
+  - **Edge drag**: out shows more footage, in shortens; anywhere in the video, at
+    least 0.3 s. Snaps to the clip's rally's detected start / end (within 10px; a
+    short vibration where the phone has one), otherwise to 0.1 s. While dragging: the
+    video shows the frame under the handle (a seek at most every 70 ms); the footage
+    past the detected bound on the dragged side is tinted `bg-court-foreground/18`
+    with a 2px dashed `border-court-foreground` line at the bound; a pink label over
+    the handle (`bg-highlight text-highlight-foreground`, 11/800, 8px radius, ending
+    at the handle so it stays on screen): "+1.2 s past rally end" / "+0.8 s before
+    rally start" ("At rally end" when snapped). The start handle keeps the clip's end
+    in place on screen. Release: one undo step, and the playhead lands on the moved
+    edge (the frame you were looking at stays). Arrow keys on a focused handle: 0.1 s
+    (Shift: 1 s).
+  - **Moving a clip** (no mode, no tool): press and hold it (250 ms) and drag. A quick
+    swipe still scrolls the timeline (moving before 250 ms cancels the hold) and a tap
+    still selects. While the press lasts, every clip shrinks to a 52px-tall thumbnail
+    over the timeline (20-36px wide: as wide as fits so the whole reel shows; past
+    that the strip scrolls, and scrolls itself while the clip is near its edges), with
+    its length where it fits (34px). The held clip lifts (14px up, ×1.12, 2px
+    `ring-highlight`, `shadow-xl shadow-letterbox/50`) and moves as far as the finger
+    does from where it was (held and let go without moving = nothing changes); the
+    others fade to 55% and slide aside (150 ms) to make room. Release: normal size
+    again, the moved clip selected (playhead at its start), one undo step. Keyboard:
+    Alt + ← / → on a focused clip moves it one place.
+  - **Add footage** (the + tile): bottom sheet on phones over a clear overlay (the
+    video above previews the range), a dialog on desktop; `bg-sheet shadow-sheet`,
+    22px radius. "Add footage" 16/800 with "Whole match · 21:24" (12 muted), a 12px
+    muted line, then a 56px scrubber of the whole match (`bg-court-ink`, frames at
+    50%, rallies as `bg-chapter/85` bars, maybes faded and dashed) with the range on
+    it (`bg-highlight/25`, 2px `ring-highlight`, 12px pink handles in 44px targets;
+    drag the middle to move it, tap the strip to move it there; arrow keys 0.1 s,
+    Shift 1 s). Under it "12:24 to 12:32" and "0:08 · between rally 33 and 34"
+    (800 `text-success-text`; "in rally 12", "rallies 12–14", "before rally 1"),
+    then Cancel (outline) and **Add at playhead** (primary), 1fr : 1.6fr, 44px. The
+    range starts where the clip under the playhead ends, 5 s long; the new clip goes
+    right after that clip, labelled with the rally it shows most of. Cancel puts the
+    video back where the playhead was. At this scale a long match is a few seconds
+    per pixel: the clip's edge handles do the fine-tuning.
+  - Under the timeline, the hint (12px muted): "Drag the pink edges to show more or
+    less. Hold and drag a clip to move it. Pinch to zoom." (with a mouse: "Pinch or
+    Ctrl + scroll to zoom."); while an edge or a clip moves it says what's happening. Then the tool
+    row (68×64 tiles, 14px radius; top border `border-track`, pinned to the bottom):
+    **Cut** (primary: the prototype's mint tile with ink text in both themes,
+    `bg-tool-primary text-tool-primary-foreground` with a 1.5px `--tool-primary-edge`
+    inset ring, which only shows in light, on the mint page; it splits the selected
+    clip at the playhead, off within 0.3 s of its edges: the tile stays mint and only
+    its icon and label fade to 40%, never a grey tile), Delete, Slow-mo (per clip),
     Text (caption dialog, 80 characters), Format. Others `bg-card`; active =
-    `bg-success-soft text-success-text` with a 1.5px `--chapter` ring. Caption bars "Aa
-    …" (`bg-secondary`) under their pieces. On the video: "Slow-mo" tag top-right while a
-    slow piece plays, and the caption bottom center (`bg-court-ink/75`).
+    `bg-success-soft text-success-text` with a 1.5px `--chapter` ring. On the video:
+    "Slow-mo" tag top-right while a slow clip plays, and the caption bottom center
+    (`bg-court-ink/75`). Every change (a drag, a drop, an add) is one undo step.
   - **Export sheet** (header Export): a bottom sheet on phones (`bg-sheet shadow-sheet`,
     22px top radius, max 90dvh, scrolls), a right side panel on desktop. Title 15/800
     "Export highlight", 13px muted line. On the sheet, sections are `bg-background`
     and tiles on them `bg-card` (`--sheet` and `--card` are both white in light).
     - New export (18px radius): three fact tiles like the stat strip (Length / Clips
-      / Format; the **Rallies-only** length, whatever the view), a 12px muted note
-      that the export is what Rallies only plays (clips + restored breaks, never cut
-      parts; a bold lead-in when Edit is in Full video), Quality pills 720p / 1080p
+      / Format: the reel's length, as Edit plays it), a 12px muted note that the
+      export plays what Edit plays (the clips in order, slow-mo at half speed, the
+      text), Quality pills 720p / 1080p
       (like the filter chips; 1080p disabled with "1080p needs a 1080p recording"),
       then a full-width 44px primary **Export**. Disabled with its reason under it
       (12px muted, centered): "Pick some rallies first: your reel is empty." / "One

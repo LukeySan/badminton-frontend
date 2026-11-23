@@ -1,11 +1,4 @@
-import {
-  RectangleVertical,
-  Repeat,
-  Scissors,
-  Timer,
-  Trash2,
-  Type,
-} from "lucide-react"
+import { RectangleVertical, Scissors, Timer, Trash2, Type } from "lucide-react"
 import { type ReactNode, useState } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -21,69 +14,44 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
-import { CAPTION_MAX, type Edit, type Piece } from "./reelEdit"
+import { CAPTION_MAX, type Clip, type ReelFormat } from "./reelEdit"
 
 /**
- * Below the timeline: what's selected, then the tools. Cut and Delete are the editing
- * model (cut at the playhead, delete the part you don't want); every change is a
- * callback that goes through the reducer. Loop only changes the preview.
+ * The tool row under the timeline, pinned to the bottom of the screen. Every change
+ * is a callback that goes through the reducer. (Moving a clip is on the timeline:
+ * press and hold it.)
  */
 export function EditTools({
-  edit,
-  piece,
-  pieceLabel,
-  part,
+  format,
+  clip,
+  name,
   canCut,
-  loop,
   caption,
   onCut,
   onDelete,
   onToggleSlowMo,
-  onToggleLoop,
   onSetCaption,
   onToggleFormat,
 }: {
-  edit: Edit
-  /** The selected piece (undefined: nothing selected). */
-  piece: Piece | undefined
-  /** "Rally 19" */
-  pieceLabel: string
-  /** Its place in the clip: [2, 3] = part 2 of 3. */
-  part: [number, number] | undefined
-  /** The playhead is inside the selected piece, not too close to its edges. */
+  format: ReelFormat
+  /** The selected clip (undefined: nothing selected). */
+  clip: Clip | undefined
+  /** "clip 3" */
+  name: string
+  /** The playhead is inside the selected clip, at least 0.3 s from its edges. */
   canCut: boolean
-  loop: boolean
   caption: string | undefined
   onCut: () => void
   onDelete: () => void
   onToggleSlowMo: () => void
-  onToggleLoop: () => void
   onSetCaption: (text: string) => void
   onToggleFormat: () => void
 }) {
   const [captionOpen, setCaptionOpen] = useState(false)
-  const hasPiece = piece !== undefined
-  const name =
-    part && part[1] > 1
-      ? `${pieceLabel}, part ${part[0]} of ${part[1]}`
-      : pieceLabel
+  const hasClip = clip !== undefined
 
   return (
     <>
-      <p
-        data-testid="selection-hint"
-        className="flex min-h-[34px] shrink-0 items-center px-4 py-0.5 text-xs leading-[1.3] text-muted-foreground md:px-0"
-      >
-        {hasPiece ? (
-          <span>
-            <span className="font-extrabold text-highlight-text">{name}</span>{" "}
-            selected. Cut at the playhead, then delete the part you don’t want.
-          </span>
-        ) : (
-          <span>Tap a clip to select it.</span>
-        )}
-      </p>
-
       <div
         role="toolbar"
         aria-label="Edit tools"
@@ -92,7 +60,7 @@ export function EditTools({
       >
         <Tool
           label="Cut"
-          ariaLabel={hasPiece ? `Cut ${name} at the playhead` : "Cut"}
+          ariaLabel={hasClip ? `Cut ${name} at the playhead` : "Cut"}
           icon={<Scissors />}
           primary
           disabled={!canCut}
@@ -100,43 +68,36 @@ export function EditTools({
         />
         <Tool
           label="Delete"
-          ariaLabel={hasPiece ? `Delete ${name}` : "Delete"}
+          ariaLabel={hasClip ? `Delete ${name}` : "Delete"}
           icon={<Trash2 />}
-          disabled={!hasPiece}
+          disabled={!hasClip}
           onClick={onDelete}
         />
         <Tool
           label="Slow-mo"
           icon={<Timer />}
-          active={Boolean(piece?.slow_mo)}
-          disabled={!hasPiece}
+          active={Boolean(clip?.slow_mo)}
+          disabled={!hasClip}
           onClick={onToggleSlowMo}
-        />
-        <Tool
-          label="Loop"
-          icon={<Repeat />}
-          active={loop && hasPiece}
-          disabled={!hasPiece}
-          onClick={onToggleLoop}
         />
         <Tool
           label="Text"
           icon={<Type />}
           active={Boolean(caption)}
-          disabled={!hasPiece}
+          disabled={!hasClip}
           onClick={() => setCaptionOpen(true)}
         />
         <Tool
-          label={edit.format}
-          ariaLabel={`Format ${edit.format}`}
+          label={format}
+          ariaLabel={`Format ${format}`}
           icon={<RectangleVertical />}
           onClick={onToggleFormat}
         />
       </div>
 
-      {hasPiece && (
+      {hasClip && (
         <CaptionDialog
-          key={`${piece.start}-${captionOpen}`}
+          key={`${clip.id}-${captionOpen}`}
           open={captionOpen}
           onOpenChange={setCaptionOpen}
           name={name}
@@ -180,7 +141,7 @@ function Tool({
         "group flex h-16 w-[68px] shrink-0 flex-col items-center justify-center rounded-[14px] text-xs font-bold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring [&_svg]:size-[22px]",
         primary
           ? // The prototype's mint tile with ink text, in both themes. Disabled (the
-            // playhead at a piece's edge) it stays mint and only its content fades:
+            // playhead at a clip's edge) it stays mint and only its content fades:
             // a grey tile read as "selected".
             "bg-tool-primary text-tool-primary-foreground ring-[1.5px] ring-tool-primary-edge ring-inset hover:brightness-95 disabled:hover:brightness-100"
           : cn(
@@ -204,7 +165,7 @@ function Tool({
   )
 }
 
-/** Text tool: one caption per piece, up to 80 characters (empty removes it). */
+/** Text tool: one caption per clip, up to 80 characters (empty removes it). */
 function CaptionDialog({
   open,
   onOpenChange,
@@ -233,7 +194,7 @@ function CaptionDialog({
           <DialogHeader>
             <DialogTitle>Text on {name}</DialogTitle>
             <DialogDescription>
-              Shown at the bottom of the video while this part plays.
+              Shown at the bottom of the video while this clip plays.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-2">

@@ -4,8 +4,8 @@ import { type ExportPublic, ExportsService, type VideoPublic } from "@/client"
 import { parseApiDate } from "@/lib/format"
 
 // Reel exports: the video's reel rendered into an MP4 by the worker. What's rendered
-// is fixed when the export is requested (later edits don't change it) and is always
-// the Rallies-only result, whatever view Edit shows. Query keys: the video's exports
+// is fixed when the export is requested (later edits don't change it): the reel's
+// clips in list order, as Edit plays them. Query keys: the video's exports
 // ["videos", id, "exports"] (under the video, so deleting it drops them), a finished
 // export's signed link ["exports", id, "download"] and its file ["exports", id, "file"].
 

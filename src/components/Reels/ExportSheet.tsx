@@ -38,8 +38,8 @@ import type { ReelExports } from "./useReelExports"
 
 /**
  * Export (the video screen header's button): a bottom sheet on phones, a side panel
- * on desktop. Top: what the export will be (length, clips, format, always the
- * Rallies-only result) with the quality and the Export button. Below: "Your exports"
+ * on desktop. Top: what the export will be (length, clips, format: the reel's clips
+ * in order, as Edit plays them) with the quality and the Export button. Below: "Your exports"
  * for this video, newest first, each with its progress, its preview with Share and
  * Download once done, or the reason and Try again when it failed. Closing the sheet
  * doesn't stop anything: the header's badge and a toast keep the user posted.
@@ -54,13 +54,11 @@ export function ExportSheet({
   open: boolean
   onOpenChange: (open: boolean) => void
   video: VideoPublic
-  /** The reel as it would be exported now (its Rallies-only length). */
+  /** The reel as it would be exported now (its clips, in order). */
   reel: {
     seconds: number
     clips: number
     format: ReelFormat
-    /** Edit is showing Full video: say that the export is Rallies only anyway. */
-    fullView: boolean
   }
   exports: ReelExports
 }) {
@@ -117,16 +115,8 @@ export function ExportSheet({
               <Fact label="Format" value={reel.format} />
             </div>
             <p className="text-xs leading-[1.4] text-muted-foreground">
-              {reel.fullView && (
-                <span className="font-bold text-foreground">
-                  You're viewing Full video, but the export is the Rallies only
-                  version:{" "}
-                </span>
-              )}
-              {reel.fullView
-                ? "your"
-                : "It plays what Rallies only plays: your"}{" "}
-              clips and the breaks you brought back, never the parts you cut.
+              It plays what Edit plays: your clips in their order, slow-mo at
+              half speed, with your text.
             </p>
             <div className="flex items-center gap-3">
               <span className="text-[13px] font-bold">Quality</span>

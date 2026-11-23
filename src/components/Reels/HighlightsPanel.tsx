@@ -405,8 +405,8 @@ function RallyRow({
             Not a rally, delete it
           </FixItem>
           <p className="mx-3 mt-1 mb-1.5 text-[11px] leading-[1.35] text-muted-foreground">
-            Fixes change this rally everywhere: its chapter and your reel. To
-            shorten it just for this reel, use Cut in Edit mode.
+            Fixes change this rally's chapter and the rally list. Your reel's
+            clips stay as they are: change them in Edit mode.
           </p>
         </DropdownMenuContent>
       </DropdownMenu>

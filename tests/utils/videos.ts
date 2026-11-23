@@ -59,24 +59,24 @@ export async function deleteVideo(token: string, id: string) {
   })
 }
 
-export type TestPiece = { start: number; end: number; slow_mo?: boolean }
+/** A clip of a reel (edit list v5: the API's Segment). */
+export type TestClip = {
+  id: string
+  start: number
+  end: number
+  slow_mo?: boolean
+  rally_id?: number | null
+}
 
 export type TestReel = {
   id: string
   title: string
   updated_at: string
-  edit: Record<string, unknown> & {
-    format?: string
-    view?: string
-    lead_in: number
-    lead_out: number
-    clips: {
-      rally_id: number
-      pieces: TestPiece[]
-      cuts?: { start: number; end: number }[]
-    }[]
-    restored_anchors: number[]
-    overlays: { captions: { start: number; end: number; text: string }[] }
+  edit: {
+    version: 5
+    format: string
+    segments: (TestClip & { slow_mo: boolean; rally_id: number | null })[]
+    captions: { start: number; end: number; text: string }[]
   }
 }
 

@@ -1,23 +1,31 @@
 /// <reference types="bun" />
-// Restored breaks (restored_anchors) and deleted footage (clip cuts) in "Rallies
-// only", through the timeline the editor shows. Run: `bun run test:unit`.
+// Edit list v5: a flat list of clips in playback order. The operations the editor's
+// reducer runs, and undo / redo. Run: `bun run test:unit`.
 
 import { describe, expect, test } from "bun:test"
 import type { RallyPublic } from "@/client"
-import { toSegments } from "@/components/Player/rallies"
 import {
-  cutPiece,
-  deletePiece,
+  type Clip,
+  canCut,
+  cutClip,
   type Edit,
-  hiddenRegions,
-  hideRegion,
+  editReducer,
+  fitBounds,
+  initialHistory,
+  insertClip,
+  moveClip,
+  newClipIds,
   normalizeEdit,
-  rallyWindows,
-  restoreHidden,
-  setLead,
-  stretches,
+  pickMany,
+  pickRally,
+  presentEdit,
+  rallyOver,
+  reelLength,
+  relabel,
+  setCaption,
+  setClipBounds,
+  unpickRally,
 } from "./reelEdit"
-import { buildTimeline, type TimelineItem } from "./timeline"
 
 const DURATION = 60
 const rally = (id: number, start: number, end: number): RallyPublic => ({
@@ -29,176 +37,239 @@ const rally = (id: number, start: number, end: number): RallyPublic => ({
   confidence: null,
   is_maybe: false,
 })
-const RALLIES = [rally(1, 10, 20), rally(2, 30, 40)]
+const R1 = rally(1, 10, 20)
+const R2 = rally(2, 30, 40)
+const R3 = rally(3, 45.04, 50)
 
-type ClipSpec = {
-  pieces: [number, number, boolean?][]
-  cuts?: [number, number][]
-}
+const clip = (
+  id: string,
+  start: number,
+  end: number,
+  rally_id: number | null = null,
+  slow_mo = false,
+): Clip => ({ id, start, end, slow_mo, rally_id })
+const reel = (...segments: Clip[]): Edit => ({
+  ...normalizeEdit(undefined),
+  segments,
+})
+const spans = (edit: Edit) =>
+  edit.segments.map((c) => [c.id, c.start, c.end] as const)
 
-function edit(clips: ClipSpec[], anchors: number[] = []): Edit {
-  return normalizeEdit({
-    clips: clips.map((clip, i) => ({
-      rally_id: i + 1,
-      pieces: clip.pieces.map(([start, end, slow_mo]) => ({
-        start,
-        end,
-        slow_mo: slow_mo ?? false,
-      })),
-      cuts: (clip.cuts ?? []).map(([start, end]) => ({ start, end })),
-    })),
-    restored_anchors: anchors,
-  })
-}
-
-const timeline = (e: Edit) =>
-  buildTimeline(
-    e,
-    toSegments(RALLIES, DURATION),
-    rallyWindows(RALLIES, e, DURATION),
-    DURATION,
-  )
-
-/** What plays, as [start, end, kind] in reel order (restored footage merged). */
-function played(items: TimelineItem[]): [number, number, string][] {
-  const out: [number, number, string][] = []
-  for (const item of items) {
-    if (item.reel.end <= item.reel.start) continue
-    const kind =
-      item.kind === "piece" ? (item.piece.slow_mo ? "slow" : "piece") : "gap"
-    const last = out[out.length - 1]
-    if (kind === "gap" && last?.[2] === "gap" && last[1] === item.src.start)
-      last[1] = item.src.end
-    else out.push([item.src.start, item.src.end, kind])
-  }
-  return out
-}
-
-const gapMarkers = (items: TimelineItem[]) =>
-  items.filter((i) => i.kind === "gap") as Extract<
-    TimelineItem,
-    { kind: "gap" }
-  >[]
-
-const NOTHING = { regions: [], cuts: [] }
-
-describe("restored breaks are anchors", () => {
-  test("hidden stretches are what no piece covers", () => {
+describe("normalizeEdit", () => {
+  test("fills in the defaults", () => {
+    expect(normalizeEdit(undefined)).toEqual({
+      version: 5,
+      format: "16:9",
+      segments: [],
+      captions: [],
+    })
     expect(
-      hiddenRegions(edit([{ pieces: [[9, 21]] }, { pieces: [[29, 41]] }]), 60),
-    ).toEqual([
-      { start: 0, end: 9 },
-      { start: 21, end: 29 },
-      { start: 41, end: 60 },
-    ])
-  })
-
-  test("tapping a gap marker restores it with an anchor in the middle", () => {
-    const before = edit([{ pieces: [[9, 21]] }, { pieces: [[29, 41]] }])
-    const between = gapMarkers(timeline(before)).find((g) => g.src.start === 21)
-    const after = restoreHidden(before, between?.hidden ?? NOTHING)
-    expect(after.restored_anchors).toEqual([25])
-    expect(played(timeline(after))).toEqual([
-      [9, 21, "piece"],
-      [21, 29, "gap"],
-      [29, 41, "piece"],
-    ])
-  })
-
-  test("tapping a restored break hides it again", () => {
-    const restored = edit([{ pieces: [[9, 21]] }, { pieces: [[29, 41]] }], [25])
-    const item = timeline(restored).find((i) => i.kind === "break")
-    const region = item?.kind === "break" ? item.region : { start: 0, end: 0 }
-    const hidden = hideRegion(restored, region)
-    expect(hidden.restored_anchors).toEqual([])
-    expect(played(timeline(hidden))).toEqual([
-      [9, 21, "piece"],
-      [29, 41, "piece"],
-    ])
-  })
-
-  test("a restored break follows its pieces", () => {
-    // Pieces shrink (lead 1 s -> 0.5 s): the restored stretch grows with them
-    const shrunk = edit(
-      [{ pieces: [[9.5, 20.5]] }, { pieces: [[29.5, 40.5]] }],
-      [25],
-    )
-    expect(played(timeline(shrunk))).toContainEqual([20.5, 29.5, "gap"])
-    // A piece grows over the anchor: nothing restored any more
-    const covered = edit([{ pieces: [[9, 26]] }, { pieces: [[29, 41]] }], [25])
-    expect(played(timeline(covered)).some(([, , kind]) => kind === "gap")).toBe(
-      false,
-    )
+      normalizeEdit({ segments: [{ id: "s1", start: 1, end: 2 }] }).segments,
+    ).toEqual([clip("s1", 1, 2)])
   })
 })
 
-describe("deleted footage is a cut", () => {
-  test("deleting a piece records it; splitting doesn't", () => {
-    const start = edit([{ pieces: [[9, 21]] }, { pieces: [[29, 41]] }])
-    const split = cutPiece(start, { clipIndex: 0, pieceIndex: 0 }, 18)
-    expect(split.clips[0].cuts).toEqual([])
-    const deleted = deletePiece(split, { clipIndex: 0, pieceIndex: 1 })
-    expect(deleted.clips[0].pieces).toEqual([
-      { start: 9, end: 18, slow_mo: false },
-    ])
-    expect(deleted.clips[0].cuts).toEqual([{ start: 18, end: 21 }])
-    // Deleting the last piece takes the rally out of the reel, its cuts with it
-    const gone = deletePiece(deleted, { clipIndex: 0, pieceIndex: 0 })
-    expect(gone.clips.map((c) => c.rally_id)).toEqual([2])
+describe("picking rallies", () => {
+  test("a rally gets 1 s on each side, clamped to the video, on the 0.1 s grid", () => {
+    expect(spans(pickRally(reel(), R1, DURATION, "a"))).toEqual([["a", 9, 21]])
+    // 45.04 - 1 = 44.04 → 44.0; at the video's start / end it stops there
+    expect(spans(pickRally(reel(), R3, DURATION, "a"))).toEqual([["a", 44, 51]])
+    expect(
+      spans(pickRally(reel(), rally(4, 0.4, 59.5), DURATION, "a")),
+    ).toEqual([["a", 0, 60]])
   })
 
-  test("a cut is a wall: the restored break stops at it", () => {
-    const e = edit(
-      [{ pieces: [[9, 21]] }, { pieces: [[29, 41]], cuts: [[26, 29]] }],
-      [25],
+  test("goes in match order relative to the clips there", () => {
+    const start = reel(clip("x", 50, 55), clip("y", 2, 5))
+    // Before the first clip (in list order) that starts after it
+    expect(spans(pickRally(start, R2, DURATION, "a")).map((s) => s[0])).toEqual(
+      ["a", "x", "y"],
     )
-    expect(stretches(e, DURATION)).toContainEqual({ start: 21, end: 26 })
-    expect(played(timeline(e))).toEqual([
-      [9, 21, "piece"],
-      [21, 26, "gap"],
-      [29, 41, "piece"],
+    const sorted = reel(clip("x", 2, 5), clip("y", 50, 55))
+    expect(
+      spans(pickRally(sorted, R2, DURATION, "a")).map((s) => s[0]),
+    ).toEqual(["x", "a", "y"])
+  })
+
+  test("a picked rally isn't added twice; unpicking removes all its clips", () => {
+    const once = pickRally(reel(), R1, DURATION)
+    expect(pickRally(once, R1, DURATION)).toBe(once)
+    const cut = cutClip(once, once.segments[0].id, 15, "b")
+    expect(cut.segments).toHaveLength(2)
+    expect(unpickRally(cut, R1.id).segments).toEqual([])
+  })
+
+  test("pick many: new ids, match order", () => {
+    const edit = pickMany(reel(), [R2, R1], DURATION)
+    expect(spans(edit)).toEqual([
+      ["c2", 9, 21],
+      ["c1", 29, 41],
+    ])
+  })
+})
+
+describe("editing clips", () => {
+  test("cut at the playhead: two parts, both at least 0.3 s", () => {
+    const edit = reel(clip("a", 10, 20, 1, true))
+    expect(canCut(edit.segments[0], 10.2)).toBe(false)
+    expect(canCut(edit.segments[0], 10.3)).toBe(true)
+    expect(canCut(edit.segments[0], 19.75)).toBe(false)
+    const cut = cutClip(edit, "a", 14.04, "b")
+    expect(cut.segments).toEqual([
+      clip("a", 10, 14, 1, true),
+      clip("b", 14, 20, 1, true),
+    ])
+    expect(cutClip(edit, "a", 10.1, "b")).toBe(edit)
+  })
+
+  test("edges go anywhere in the video, at least 0.3 s, on the 0.1 s grid", () => {
+    const edit = reel(clip("a", 10, 20))
+    expect(
+      spans(setClipBounds(edit, "a", { start: 3.26, end: 20 }, 60)),
+    ).toEqual([["a", 3.3, 20]])
+    // Past the end of the video: stops there
+    expect(
+      spans(setClipBounds(edit, "a", { start: 10, end: 75 }, 60.04)),
+    ).toEqual([["a", 10, 60]])
+    // Dragged past the other edge: the moved one stops 0.3 s from it
+    expect(
+      spans(setClipBounds(edit, "a", { start: 19.9, end: 20 }, 60)),
+    ).toEqual([["a", 19.7, 20]])
+    expect(spans(setClipBounds(edit, "a", { start: 10, end: 9 }, 60))).toEqual([
+      ["a", 10, 10.3],
     ])
   })
 
-  test("a gap marker over a cut puts it back into its clip", () => {
-    // Rally 1's last 3 s (18-21) were deleted; the marker covers them and the break
-    const before = edit([
-      {
-        pieces: [
-          [9, 14],
-          [14, 18, true],
-        ],
-        cuts: [[18, 21]],
-      },
-      { pieces: [[29, 41]] },
-    ])
-    const between = gapMarkers(timeline(before)).find((g) => g.src.start === 18)
-    expect(between?.hidden.cuts).toEqual([
-      { clipIndex: 0, span: { start: 18, end: 21 } },
-    ])
-    expect(between?.hidden.regions).toEqual([{ start: 21, end: 29 }])
-    const after = restoreHidden(before, between?.hidden ?? NOTHING)
-    expect(after.clips[0].pieces[after.clips[0].pieces.length - 1]).toEqual({
-      start: 14,
-      end: 21,
-      slow_mo: true,
+  test("fitBounds keeps clips inside a short video", () => {
+    expect(fitBounds({ start: 59.9, end: 60 }, 60)).toEqual({
+      start: 59.7,
+      end: 60,
     })
-    expect(after.clips[0].cuts).toEqual([])
-    expect(after.restored_anchors).toEqual([25])
-    expect(played(timeline(after))).toEqual([
-      [9, 14, "piece"],
-      [14, 21, "slow"],
-      [21, 29, "gap"],
-      [29, 41, "piece"],
+    expect(fitBounds({ start: -2, end: 0.1 }, 60, "end")).toEqual({
+      start: 0,
+      end: 0.3,
+    })
+  })
+
+  test("move: the clip's index afterwards", () => {
+    const edit = reel(clip("a", 0, 1), clip("b", 1, 2), clip("c", 2, 3))
+    expect(moveClip(edit, "a", 2).segments.map((c) => c.id)).toEqual([
+      "b",
+      "c",
+      "a",
+    ])
+    expect(moveClip(edit, "c", 0).segments.map((c) => c.id)).toEqual([
+      "c",
+      "a",
+      "b",
     ])
   })
 
-  test("a deleted lead stays deleted when the lead grows", () => {
-    const e = edit([{ pieces: [[10, 21]], cuts: [[9, 10]] }])
-    const grown = setLead(e, { lead_in: 2, lead_out: 1 }, [RALLIES[0]], 60)
-    expect(grown.clips[0].cuts).toEqual([{ start: 8, end: 10 }])
-    expect(grown.clips[0].pieces).toEqual([
-      { start: 10, end: 21, slow_mo: false },
+  test("insert (Add footage) and its label", () => {
+    const edit = reel(clip("a", 0, 1), clip("b", 1, 2))
+    expect(
+      insertClip(edit, clip("x", 25, 31), 1).segments.map((c) => c.id),
+    ).toEqual(["a", "x", "b"])
+    expect(rallyOver({ start: 18, end: 31 }, [R1, R2])).toBe(R1.id)
+    expect(rallyOver({ start: 21, end: 29 }, [R1, R2])).toBeNull()
+  })
+
+  test("length: slow-mo plays twice as long", () => {
+    expect(reelLength(reel(clip("a", 0, 2), clip("b", 5, 6, null, true)))).toBe(
+      4,
+    )
+  })
+
+  test("captions are in source time and replace what's under the clip", () => {
+    const edit = setCaption(
+      reel(clip("a", 10, 20)),
+      { start: 10, end: 20 },
+      "Wow",
+    )
+    expect(edit.captions).toEqual([{ start: 10, end: 20, text: "Wow" }])
+    expect(setCaption(edit, { start: 12, end: 14 }, "").captions).toEqual([])
+  })
+
+  test("new ids never repeat one in the reel", () => {
+    expect(newClipIds(reel(clip("c2", 0, 1)), 2)).toEqual(["c3", "c4"])
+    expect(newClipIds(reel(clip("s1", 0, 1), clip("c3", 1, 2)), 2)).toEqual([
+      "c4",
+      "c5",
     ])
+  })
+
+  test("relabel after a fix: a gone rally's clips get what they show, or none", () => {
+    const merged = rally(9, 10, 40)
+    const edit = reel(
+      clip("a", 9, 21, 1),
+      clip("b", 29, 41, 2),
+      clip("x", 55, 58),
+    )
+    expect(relabel(edit, [merged]).segments.map((c) => c.rally_id)).toEqual([
+      9,
+      9,
+      null,
+    ])
+    expect(relabel(edit, []).segments.map((c) => c.rally_id)).toEqual([
+      null,
+      null,
+      null,
+    ])
+  })
+})
+
+describe("history", () => {
+  test("every change is one undo step; a no-op isn't one", () => {
+    let history = initialHistory(reel())
+    history = editReducer(history, {
+      type: "pick-rally",
+      rally: R1,
+      duration: DURATION,
+    })
+    history = editReducer(history, {
+      type: "set-bounds",
+      id: "c1",
+      span: { start: 9, end: 23.4 },
+      duration: DURATION,
+    })
+    history = editReducer(history, {
+      type: "insert",
+      clip: clip("x", 25, 30),
+      index: 1,
+    })
+    history = editReducer(history, { type: "move", id: "x", to: 0 })
+    // Moving it where it is: nothing to undo
+    const same = editReducer(history, { type: "move", id: "x", to: 0 })
+    expect(same).toBe(history)
+    expect(spans(presentEdit(history))).toEqual([
+      ["x", 25, 30],
+      ["c1", 9, 23.4],
+    ])
+    history = editReducer(history, { type: "undo" })
+    expect(spans(presentEdit(history)).map((s) => s[0])).toEqual(["c1", "x"])
+    history = editReducer(history, { type: "undo" })
+    history = editReducer(history, { type: "undo" })
+    expect(spans(presentEdit(history))).toEqual([["c1", 9, 21]])
+    history = editReducer(history, { type: "redo" })
+    expect(spans(presentEdit(history))).toEqual([["c1", 9, 23.4]])
+  })
+
+  test("undoing a rally fix remaps the labels before it", () => {
+    let history = initialHistory(reel(clip("a", 9, 21, 1)))
+    const fix = {
+      kind: "delete" as const,
+      before: [1] as [number],
+      after: [] as [],
+      from: { start: 10, end: 20 },
+    }
+    history = editReducer(history, {
+      type: "fix",
+      fix,
+      edit: relabel(presentEdit(history), []),
+    })
+    expect(presentEdit(history).segments[0].rally_id).toBeNull()
+    // The reverse endpoint added it back as rally 7
+    history = editReducer(history, { type: "undo-fix", ids: [7] })
+    expect(presentEdit(history).segments[0].rally_id).toBe(7)
   })
 })

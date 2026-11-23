@@ -1,543 +1,288 @@
 import type { RallyPublic, ReelEdit } from "@/client"
 import type { RallyFix } from "./rallyFixes"
 
-// A reel is a non-destructive edit list over one match video (the backend's
-// ReelEdit, version 4): which rallies, cut into which pieces, in which order, and how
-// to show them. All times are seconds in the original video.
-//
-// Each picked rally is a clip. A clip can use its rally's *window*: the rally plus
-// lead_in before and lead_out after (detector times can be 1-2 s off), but never past
-// the video's ends or into a neighbouring rally's window. Its pieces are the parts of
-// the window that play; the rest of the window is "cut" (soft: it can be put back).
-// What the user deletes is recorded in the clip's `cuts`: it never plays, not even
-// in a restored break next to it.
+// A reel is a non-destructive edit list over one match video (the backend's ReelEdit,
+// version 5): a flat list of clips, played one after another in list order. Each clip
+// is a stretch of the original video (seconds, stored to 0.1 s, at least 0.3 s long).
+// Clips may overlap in source time (a replay) and can be in any order. `rally_id` is
+// only a label (which rally the footage shows; null for footage outside rallies): it
+// never changes what plays. Captions are in source time and show in every clip that
+// shows that moment.
 
 export type Span = { start: number; end: number }
-export type Piece = Span & { slow_mo: boolean }
+/** One clip of the reel (the API's Segment; the app calls them clips). */
 export type Clip = {
-  rally_id: number
-  pieces: Piece[]
-  /** Deleted footage: never plays, and a restored break stops at it. */
-  cuts: Span[]
+  id: string
+  start: number
+  end: number
+  slow_mo: boolean
+  rally_id: number | null
 }
+export type Caption = Span & { text: string }
 
 /** Every optional field filled in, so the editor never has to check. */
 export type Edit = {
-  version: 4
-  view: "cut" | "full"
+  version: 5
   format: "16:9" | "9:16"
-  lead_in: number
-  lead_out: number
-  clips: Clip[]
-  /**
-   * Restored breaks, one time inside each. In "Rallies only", a stretch of the
-   * footage no piece covers, between the nearest piece or cut on each side, is
-   * hidden unless an anchor is inside it: see stretches. So a restored break follows
-   * its pieces when they move, and never crosses or includes a cut. The export uses
-   * the same rule (backend reel_ops.py; shared fixtures in tests/fixtures/reel-segments).
-   */
-  restored_anchors: number[]
-  overlays: {
-    /** Not shown by the app any more; kept as stored. */
-    trail: boolean
-    captions: (Span & { text: string })[]
-  }
+  segments: Clip[]
+  captions: Caption[]
 }
 
 export type ReelFormat = Edit["format"]
 
-/** The backend's default and limits for lead_in / lead_out (seconds). */
-export const DEFAULT_LEAD = 1
-export const MAX_LEAD = 3
-export const LEAD_STEP = 0.5
+/** Shortest clip (the backend's MIN_SEGMENT_SECONDS). */
+export const MIN_CLIP = 0.3
+/** A rally picked into the reel gets this much footage before and after it (seconds):
+ *  detected boundaries can be 1-2 s off. */
+export const CLIP_PADDING = 1
+/** Most clips in a reel (the backend's MAX_REEL_SEGMENTS). */
+export const MAX_CLIPS = 200
+/** Longest caption (the backend's CAPTION_MAX_LENGTH). */
+export const CAPTION_MAX = 80
+/** How many rallies the "Longest 5" quick start picks. */
+export const QUICK_PICKS = 5
 
 export function normalizeEdit(edit: ReelEdit | undefined): Edit {
   return {
-    version: 4,
-    view: edit?.view ?? "cut",
+    version: 5,
     format: edit?.format ?? "16:9",
-    lead_in: edit?.lead_in ?? DEFAULT_LEAD,
-    lead_out: edit?.lead_out ?? DEFAULT_LEAD,
-    clips: (edit?.clips ?? [])
-      .map((clip) => ({
-        rally_id: clip.rally_id,
-        pieces: (clip.pieces ?? []).map((p) => ({
-          start: p.start,
-          end: p.end,
-          slow_mo: p.slow_mo ?? false,
-        })),
-        cuts: (clip.cuts ?? []).map((c) => ({ start: c.start, end: c.end })),
-      }))
-      .filter((clip) => clip.pieces.length > 0),
-    restored_anchors: edit?.restored_anchors ?? [],
-    overlays: {
-      trail: edit?.overlays?.trail ?? false,
-      captions: edit?.overlays?.captions ?? [],
-    },
+    segments: (edit?.segments ?? []).map((s) => ({
+      id: s.id,
+      start: s.start,
+      end: s.end,
+      slow_mo: s.slow_mo ?? false,
+      rally_id: s.rally_id ?? null,
+    })),
+    captions: (edit?.captions ?? []).map((c) => ({
+      start: c.start,
+      end: c.end,
+      text: c.text,
+    })),
   }
 }
 
-/** Shorter than this (seconds) counts as nothing: no gap, no break, no cut. */
-export const MIN_SPAN = 0.05
-/** Cut ignores the playhead this close to a piece's edge (no slivers). */
-export const MIN_CUT = 0.3
-/** Longest caption (the backend's CAPTION_MAX_LENGTH). */
-export const CAPTION_MAX = 80
+// --- Times ---------------------------------------------------------------------------
 
-const round3 = (t: number) => Math.round(t * 1000) / 1000
+/** Seconds to the 0.1 s the backend stores (so what we keep is what it keeps). */
+export const round1 = (t: number) => Math.round(t * 10) / 10
+/** The last 0.1 s step inside the video (no limit while the duration is unknown). */
+const lastStep = (duration: number) =>
+  duration > 0
+    ? Math.floor(duration * 10 + 1e-6) / 10
+    : Number.POSITIVE_INFINITY
+
+/**
+ * A clip's bounds made valid: on the 0.1 s grid, inside the video, at least MIN_CLIP
+ * long (`keep` says which edge stays put when it's too short).
+ */
+export function fitBounds(
+  span: Span,
+  duration: number,
+  keep: "start" | "end" = "start",
+): Span {
+  const limit = lastStep(duration)
+  let start = Math.min(Math.max(0, round1(span.start)), limit)
+  let end = Math.min(Math.max(0, round1(span.end)), limit)
+  if (end - start < MIN_CLIP - 1e-9) {
+    if (keep === "start") end = Math.min(limit, round1(start + MIN_CLIP))
+    else start = Math.max(0, round1(end - MIN_CLIP))
+    // Against the video's start or end: the other edge gives
+    if (end - start < MIN_CLIP - 1e-9) {
+      if (keep === "start") start = Math.max(0, round1(end - MIN_CLIP))
+      else end = Math.min(limit, round1(start + MIN_CLIP))
+    }
+  }
+  return { start, end }
+}
+
+/** How long a clip plays in the reel: slow-mo plays at half speed. */
+export const clipLength = (clip: Pick<Clip, "start" | "end" | "slow_mo">) =>
+  (clip.end - clip.start) * (clip.slow_mo ? 2 : 1)
+
+export const reelLength = (edit: Edit) =>
+  edit.segments.reduce((sum, clip) => sum + clipLength(clip), 0)
+
+/** A new clip for a rally: its detected bounds plus CLIP_PADDING each side. */
+export const paddedRally = (rally: Span, duration: number): Span =>
+  fitBounds(
+    { start: rally.start - CLIP_PADDING, end: rally.end + CLIP_PADDING },
+    duration,
+  )
+
 const overlap = (a: Span, b: Span) =>
   Math.min(a.end, b.end) - Math.max(a.start, b.start)
 
-// --- Hidden stretches ("Rallies only") -------------------------------------------------
-// Must match the backend's app/reel_ops.py (kept_pieces, hidden_regions, is_restored):
-// the export renders what this says the preview plays.
-
-/** Every piece, cut to the video; slivers under MIN_SPAN left out. */
-export function keptPieces(edit: Edit, duration: number): Span[] {
-  const limit = duration > 0 ? duration : Number.POSITIVE_INFINITY
-  return edit.clips
-    .flatMap((clip) => clip.pieces)
-    .map((p) => ({ start: Math.max(0, p.start), end: Math.min(p.end, limit) }))
-    .filter((p) => p.end - p.start >= MIN_SPAN)
-}
-
-/** Sorted, overlapping or touching spans merged. */
-function union(spans: Span[]): Span[] {
-  const merged: Span[] = []
-  for (const span of [...spans].sort((a, b) => a.start - b.start)) {
-    const last = merged[merged.length - 1]
-    if (last && span.start <= last.end) last.end = Math.max(last.end, span.end)
-    else merged.push({ ...span })
-  }
-  return merged
-}
-
-/** The parts of `span` outside all `holes`. */
-function subtract(span: Span, holes: Span[]): Span[] {
-  let parts = [span]
-  for (const hole of holes) {
-    parts = parts.flatMap((p) =>
-      [
-        { start: p.start, end: Math.min(p.end, hole.start) },
-        { start: Math.max(p.start, hole.end), end: p.end },
-      ].filter((q) => q.end - q.start > 0),
-    )
-  }
-  return parts
-}
-
-/** What `covered` (sorted, merged) leaves free in [0, limit], no slivers. */
-function gaps(covered: Span[], limit: number): Span[] {
-  const free: Span[] = []
-  let cursor = 0
-  for (const span of covered) {
-    if (span.start - cursor >= MIN_SPAN)
-      free.push({ start: cursor, end: span.start })
-    cursor = Math.max(cursor, span.end)
-  }
-  if (limit - cursor >= MIN_SPAN) free.push({ start: cursor, end: limit })
-  return free
-}
-
-const limitOf = (duration: number) =>
-  duration > 0 ? duration : Number.POSITIVE_INFINITY
+// --- Ids -------------------------------------------------------------------------------
 
 /**
- * The footage no piece covers, in time order: before the first piece, between
- * neighbouring pieces (sorted by time; overlapping ones count as one), after the
- * last. Cuts are part of it.
+ * Ids for new clips, unique in the reel ("c8", "c9"...). Pure, so the reducer can
+ * make them and the screen can know them in advance (to select the new clip).
  */
-export function hiddenRegions(edit: Edit, duration: number): Span[] {
-  return gaps(union(keptPieces(edit, duration)), limitOf(duration))
+export function newClipIds(edit: Edit, count = 1): string[] {
+  const used = new Set(edit.segments.map((clip) => clip.id))
+  const ids: string[] = []
+  let n = edit.segments.length + 1
+  while (ids.length < count) {
+    const id = `c${n++}`
+    if (!used.has(id)) ids.push(id)
+  }
+  return ids
+}
+export const newClipId = (edit: Edit) => newClipIds(edit)[0]
+
+// --- Picking rallies (Highlights' check circles, quick starts) -------------------------
+
+export const isRallyPicked = (edit: Edit, rallyId: number) =>
+  edit.segments.some((clip) => clip.rally_id === rallyId)
+
+/**
+ * Where a clip starting at `start` goes "in match order": before the first clip (in
+ * list order) that starts after it. In a reel that was never reordered that's its
+ * place in time; in a reordered one, it lands next to its neighbours in time.
+ */
+export const matchOrderIndex = (edit: Edit, start: number) => {
+  const i = edit.segments.findIndex((clip) => clip.start > start)
+  return i < 0 ? edit.segments.length : i
 }
 
-/** Every cut that matters, with its clip: cut to the video, minus what any piece
- *  covers (a replay may show it), no slivers. In time order. */
-export function clipCuts(
+/** Add a rally to the reel (its padded bounds), in match order. */
+export function pickRally(
   edit: Edit,
+  rally: Span & { id: number },
   duration: number,
-): { clipIndex: number; span: Span }[] {
-  const limit = limitOf(duration)
-  const covered = union(keptPieces(edit, duration))
-  return edit.clips
-    .flatMap((clip, clipIndex) =>
-      clip.cuts.flatMap((cut) =>
-        subtract(
-          { start: Math.max(0, cut.start), end: Math.min(cut.end, limit) },
-          covered,
-        )
-          .filter((part) => part.end - part.start >= MIN_SPAN)
-          .map((span) => ({ clipIndex, span })),
-      ),
-    )
-    .sort((a, b) => a.span.start - b.span.start)
+  id = newClipId(edit),
+): Edit {
+  if (isRallyPicked(edit, rally.id) || edit.segments.length >= MAX_CLIPS)
+    return edit
+  const span = paddedRally(rally, duration)
+  const clip: Clip = { id, ...span, slow_mo: false, rally_id: rally.id }
+  return insertClip(edit, clip, matchOrderIndex(edit, span.start))
 }
 
-/**
- * What an anchor can restore: hidden footage between the nearest piece or cut on
- * each side (or the start / end of the video). Never a cut, never across one.
- */
-export function stretches(edit: Edit, duration: number): Span[] {
-  const walls = [
-    ...keptPieces(edit, duration),
-    ...clipCuts(edit, duration).map((c) => c.span),
-  ]
-  return gaps(union(walls), limitOf(duration))
-}
-
-/** Restored: an anchor strictly inside (one on an edge belongs to no break). */
-export const isRestored = (region: Span, anchors: number[]) =>
-  anchors.some((a) => a > region.start && a < region.end)
-
-/** How long a piece plays in the reel: slow-mo plays at half speed. */
-export const pieceLength = (piece: Piece) =>
-  (piece.end - piece.start) * (piece.slow_mo ? 2 : 1)
-
-/** Footage a clip keeps (seconds of the match, slow-mo not counted twice). */
-export const keptLength = (clip: Clip) =>
-  clip.pieces.reduce((sum, p) => sum + (p.end - p.start), 0)
-
-// --- Rally windows --------------------------------------------------------------------
-
-export type Windows = Map<number, Span>
-
-/**
- * Each rally's window: lead_in before it and lead_out after it, inside the video. Two
- * rallies closer than their leads share the gap between them (in proportion to the
- * leads), so windows never overlap and a lead never reaches into another rally.
- */
-export function rallyWindows(
-  rallies: RallyPublic[],
-  lead: { lead_in: number; lead_out: number },
-  duration: number,
-): Windows {
-  const sorted = [...rallies].sort((a, b) => a.start - b.start)
-  const windows: Windows = new Map()
-  const boundary = (a: RallyPublic, b: RallyPublic) => {
-    const gap = b.start - a.end
-    const total = lead.lead_in + lead.lead_out
-    if (gap <= 0 || total <= 0) return (a.end + b.start) / 2
-    return a.end + gap * (lead.lead_out / total)
-  }
-  sorted.forEach((rally, i) => {
-    const previous = sorted[i - 1]
-    const next = sorted[i + 1]
-    let start = Math.max(0, rally.start - lead.lead_in)
-    let end = rally.end + lead.lead_out
-    if (duration > 0) end = Math.min(end, duration)
-    if (previous) start = Math.max(start, boundary(previous, rally))
-    if (next) end = Math.min(end, boundary(rally, next))
-    windows.set(rally.id, { start: round3(start), end: round3(end) })
-  })
-  return windows
-}
-
-/** A clip's window, widened to its pieces (a reel saved elsewhere may reach further). */
-export function clipWindow(clip: Clip, windows: Windows): Span {
-  const window = windows.get(clip.rally_id)
-  const first = clip.pieces[0]
-  const last = clip.pieces[clip.pieces.length - 1]
-  if (!window) return { start: first.start, end: last.end }
-  return {
-    start: Math.min(window.start, first.start),
-    end: Math.max(window.end, last.end),
-  }
-}
-
-/** A new clip: the whole window as one piece. */
-export const clipFromWindow = (rallyId: number, window: Span): Clip => ({
-  rally_id: rallyId,
-  pieces: [{ start: window.start, end: window.end, slow_mo: false }],
-  cuts: [],
-})
-
-/** The clip made from this rally, if it's in the reel. */
-export const clipOfRally = (edit: Edit, rallyId: number) =>
-  edit.clips.find((clip) => clip.rally_id === rallyId)
-
-/** Add a rally to the reel, in match order. */
-export function pickRally(edit: Edit, rallyId: number, window: Span): Edit {
-  if (clipOfRally(edit, rallyId)) return edit
-  const clips = [...edit.clips, clipFromWindow(rallyId, window)].sort(
-    (a, b) => a.pieces[0].start - b.pieces[0].start,
-  )
-  return { ...edit, clips }
-}
-
-/** Take a rally out of the reel (its footage becomes part of the gap around it). */
-export function unpickRally(edit: Edit, rallyId: number): Edit {
-  return {
-    ...edit,
-    clips: edit.clips.filter((clip) => clip.rally_id !== rallyId),
-  }
-}
-
-/**
- * After the windows change (new lead, or rallies fixed): a piece edge that was at its
- * window's edge moves with it (more lead = more footage), and every piece is kept
- * inside the new window. A clip with nothing left is dropped.
- */
-export function refit(edit: Edit, before: Windows, after: Windows): Edit {
-  const clips = edit.clips.flatMap((clip) => {
-    const old = before.get(clip.rally_id)
-    const now = after.get(clip.rally_id)
-    if (!now) return [clip]
-    const pieces = clip.pieces.map((p) => ({ ...p }))
-    const first = pieces[0]
-    const last = pieces[pieces.length - 1]
-    if (old && Math.abs(first.start - old.start) < 0.011)
-      first.start = now.start
-    if (old && Math.abs(last.end - old.end) < 0.011) last.end = now.end
-    const kept = pieces
-      .map((p) => ({
-        ...p,
-        start: Math.max(p.start, now.start),
-        end: Math.min(p.end, now.end),
-      }))
-      .filter((p) => p.end - p.start >= MIN_SPAN)
-    // Cuts move and shrink the same way: a deleted lead stays deleted as it grows
-    const cuts = clip.cuts
-      .map((c) => ({
-        start:
-          old && Math.abs(c.start - old.start) < 0.011
-            ? now.start
-            : Math.max(c.start, now.start),
-        end:
-          old && Math.abs(c.end - old.end) < 0.011
-            ? now.end
-            : Math.min(c.end, now.end),
-      }))
-      .filter((c) => c.end - c.start >= MIN_SPAN)
-    return kept.length > 0 ? [{ ...clip, pieces: kept, cuts }] : []
-  })
-  return { ...edit, clips }
-}
-
-/** New lead_in / lead_out: the windows grow or shrink, and the clips with them. */
-export function setLead(
+/** Add several rallies at once (quick starts), each in match order. */
+export function pickMany(
   edit: Edit,
-  lead: { lead_in: number; lead_out: number },
-  rallies: RallyPublic[],
+  rallies: (Span & { id: number })[],
   duration: number,
 ): Edit {
-  const clampLead = (t: number) =>
-    Math.min(MAX_LEAD, Math.max(0, Math.round(t * 100) / 100))
-  const next = {
-    lead_in: clampLead(lead.lead_in),
-    lead_out: clampLead(lead.lead_out),
-  }
-  const before = rallyWindows(rallies, edit, duration)
-  const after = rallyWindows(rallies, next, duration)
-  return { ...refit(edit, before, after), ...next }
+  return rallies.reduce((next, rally) => pickRally(next, rally, duration), edit)
 }
 
-// --- Cutting ----------------------------------------------------------------------------
-
-export type PieceRef = { clipIndex: number; pieceIndex: number }
-
-const replacePieces = (edit: Edit, clipIndex: number, pieces: Piece[]) => ({
+/** Take a rally out of the reel: every clip labelled with it. */
+export const unpickRally = (edit: Edit, rallyId: number): Edit => ({
   ...edit,
-  clips: edit.clips.map((c, i) => (i === clipIndex ? { ...c, pieces } : c)),
+  segments: edit.segments.filter((clip) => clip.rally_id !== rallyId),
 })
 
-/** Can the piece be cut at `at`? Not within MIN_CUT of its edges. */
-export function canCut(edit: Edit, ref: PieceRef | undefined, at: number) {
-  const piece = ref && edit.clips[ref.clipIndex]?.pieces[ref.pieceIndex]
-  return Boolean(
-    piece && at - piece.start >= MIN_CUT && piece.end - at >= MIN_CUT,
-  )
+// --- Editing clips -------------------------------------------------------------------
+
+const mapClip = (edit: Edit, id: string, change: (clip: Clip) => Clip) => ({
+  ...edit,
+  segments: edit.segments.map((clip) => (clip.id === id ? change(clip) : clip)),
+})
+
+/** Can the clip be cut at `at`? Both parts must be at least MIN_CLIP long. */
+export function canCut(clip: Clip | undefined, at: number) {
+  if (!clip) return false
+  const t = round1(at)
+  return t - clip.start >= MIN_CLIP - 1e-9 && clip.end - t >= MIN_CLIP - 1e-9
 }
 
-/** Split a piece in two at `at` (both halves keep its slow-mo). */
-export function cutPiece(edit: Edit, ref: PieceRef, at: number): Edit {
-  if (!canCut(edit, ref, at)) return edit
-  const pieces = edit.clips[ref.clipIndex].pieces
-  const piece = pieces[ref.pieceIndex]
-  const t = round3(at)
-  return replacePieces(edit, ref.clipIndex, [
-    ...pieces.slice(0, ref.pieceIndex),
-    { ...piece, end: t },
-    { ...piece, start: t },
-    ...pieces.slice(ref.pieceIndex + 1),
-  ])
+/** Split a clip in two at `at` (both keep its speed and label; the second is `newId`). */
+export function cutClip(
+  edit: Edit,
+  id: string,
+  at: number,
+  newId = newClipId(edit),
+): Edit {
+  const i = edit.segments.findIndex((clip) => clip.id === id)
+  const clip = edit.segments[i]
+  if (!canCut(clip, at) || edit.segments.length >= MAX_CLIPS) return edit
+  const t = round1(at)
+  const segments = [...edit.segments]
+  segments.splice(i, 1, { ...clip, end: t }, { ...clip, id: newId, start: t })
+  return { ...edit, segments }
 }
 
-/** Remove a piece. The last piece takes the rally out of the reel. */
-/**
- * Remove a piece: its footage is recorded as a cut (it never plays, not even in a
- * restored break). The last piece takes the rally out of the reel, cuts and all.
- */
-export function deletePiece(edit: Edit, ref: PieceRef): Edit {
-  const clip = edit.clips[ref.clipIndex]
-  const piece = clip?.pieces[ref.pieceIndex]
-  if (!piece) return edit
-  const pieces = clip.pieces.filter((_, i) => i !== ref.pieceIndex)
-  if (pieces.length === 0) {
-    return { ...edit, clips: edit.clips.filter((_, i) => i !== ref.clipIndex) }
-  }
-  const cuts = union([...clip.cuts, { start: piece.start, end: piece.end }])
-  return {
-    ...edit,
-    clips: edit.clips.map((c, i) =>
-      i === ref.clipIndex ? { ...c, pieces, cuts } : c,
-    ),
-  }
+export const deleteClip = (edit: Edit, id: string): Edit => ({
+  ...edit,
+  segments: edit.segments.filter((clip) => clip.id !== id),
+})
+
+export const toggleSlowMo = (edit: Edit, id: string): Edit =>
+  mapClip(edit, id, (clip) => ({ ...clip, slow_mo: !clip.slow_mo }))
+
+/** New start / end for a clip (a finished edge drag): anywhere in the video. */
+export function setClipBounds(
+  edit: Edit,
+  id: string,
+  span: Span,
+  duration: number,
+): Edit {
+  const old = edit.segments.find((clip) => clip.id === id)
+  if (!old) return edit
+  // The edge that moved is the one that gives when the clip gets too short
+  const keep = span.start !== old.start ? "end" : "start"
+  return mapClip(edit, id, (clip) => ({
+    ...clip,
+    ...fitBounds(span, duration, keep),
+  }))
 }
 
-export function toggleSlowMo(edit: Edit, ref: PieceRef): Edit {
-  const pieces = edit.clips[ref.clipIndex]?.pieces
-  if (!pieces?.[ref.pieceIndex]) return edit
-  return replacePieces(
-    edit,
-    ref.clipIndex,
-    pieces.map((p, i) =>
-      i === ref.pieceIndex ? { ...p, slow_mo: !p.slow_mo } : p,
-    ),
-  )
+/** Move a clip to position `to` (its index in the list afterwards). */
+export function moveClip(edit: Edit, id: string, to: number): Edit {
+  const from = edit.segments.findIndex((clip) => clip.id === id)
+  if (from < 0) return edit
+  const segments = [...edit.segments]
+  const [clip] = segments.splice(from, 1)
+  segments.splice(Math.min(Math.max(0, to), segments.length), 0, clip)
+  return { ...edit, segments }
 }
 
-/**
- * Put a cut part of a clip back. It joins the pieces it touches (taking the speed of
- * the one before it), so cutting and then restoring gives the original piece back,
- * and it's no longer one of the clip's cuts (deleted footage).
- */
-export function restoreCut(edit: Edit, clipIndex: number, span: Span): Edit {
-  const clip = edit.clips[clipIndex]
-  if (!clip) return edit
-  const touches = (a: Span, b: Span) => Math.abs(a.end - b.start) < 1e-3
-  const before = [...clip.pieces]
-    .reverse()
-    .find((p) => p.end <= span.start + 1e-3)
-  const after = clip.pieces.find((p) => p.start >= span.end - 1e-3)
-  let restored: Piece = {
-    start: round3(span.start),
-    end: round3(span.end),
-    slow_mo: before?.slow_mo ?? after?.slow_mo ?? false,
-  }
-  const pieces = clip.pieces.filter((p) => overlap(p, span) <= 0)
-  const merged: Piece[] = []
-  for (const piece of pieces) {
-    if (
-      piece === before &&
-      touches(piece, restored) &&
-      piece.slow_mo === restored.slow_mo
-    ) {
-      restored = { ...restored, start: piece.start }
-    } else if (
-      piece === after &&
-      touches(restored, piece) &&
-      piece.slow_mo === restored.slow_mo
-    ) {
-      restored = { ...restored, end: piece.end }
-    } else {
-      merged.push(piece)
-    }
-  }
-  merged.push(restored)
-  merged.sort((a, b) => a.start - b.start)
-  // No longer deleted
-  const cuts = clip.cuts
-    .flatMap((cut) => subtract(cut, [span]))
-    .filter((cut) => cut.end - cut.start >= MIN_SPAN)
-  return {
-    ...edit,
-    clips: edit.clips.map((c, i) =>
-      i === clipIndex ? { ...c, pieces: merged, cuts } : c,
-    ),
-  }
+/** Put a clip into the list at `index` (Add footage, picks). */
+export function insertClip(edit: Edit, clip: Clip, index: number): Edit {
+  if (edit.segments.length >= MAX_CLIPS) return edit
+  const segments = [...edit.segments]
+  segments.splice(Math.min(Math.max(0, index), segments.length), 0, clip)
+  return { ...edit, segments }
 }
 
-/**
- * One rally's clip with back-to-back pieces of the same speed joined (after a merge,
- * the two rallies' clips meet where their windows did).
- */
-export function joinTouching(edit: Edit, rallyId: number): Edit {
-  return {
-    ...edit,
-    clips: edit.clips.map((clip) => {
-      if (clip.rally_id !== rallyId) return clip
-      const pieces: Piece[] = []
-      for (const piece of clip.pieces) {
-        const last = pieces[pieces.length - 1]
-        if (
-          last &&
-          Math.abs(piece.start - last.end) < 1e-3 &&
-          piece.slow_mo === last.slow_mo
-        )
-          pieces[pieces.length - 1] = { ...last, end: piece.end }
-        else pieces.push(piece)
-      }
-      return { ...clip, pieces }
-    }),
+/** The rally a stretch of footage shows most of (for a new clip's label), if any. */
+export function rallyOver(
+  span: Span,
+  rallies: (Span & { id: number })[],
+): number | null {
+  let best: { id: number; amount: number } | undefined
+  for (const rally of rallies) {
+    const amount = overlap(span, rally)
+    if (amount > 0 && (!best || amount > best.amount))
+      best = { id: rally.id, amount }
   }
-}
-
-// --- Hidden footage ("Rallies only") ------------------------------------------------------
-
-/** What a collapsed gap stands for: breaks between clips and cut parts of clips. */
-export type Hidden = {
-  regions: Span[]
-  cuts: { clipIndex: number; span: Span }[]
-}
-
-/**
- * Bring back everything behind a gap: cut parts go back into their clips, and each
- * break gets an anchor in its middle (restored_anchors). Once the cuts are back the
- * break is exactly the stretch between the pieces, so the anchor restores it.
- */
-export function restoreHidden(edit: Edit, hidden: Hidden): Edit {
-  let next = edit
-  for (const cut of hidden.cuts)
-    next = restoreCut(next, cut.clipIndex, cut.span)
-  for (const region of hidden.regions) {
-    next = {
-      ...hideRegion(next, region),
-      restored_anchors: [
-        ...hideRegion(next, region).restored_anchors,
-        round3((region.start + region.end) / 2),
-      ].sort((a, b) => a - b),
-    }
-  }
-  return next
-}
-
-/** Hide a stretch again: drop the anchors in it. */
-export function hideRegion(edit: Edit, region: Span): Edit {
-  return {
-    ...edit,
-    restored_anchors: edit.restored_anchors.filter(
-      (a) => a < region.start || a > region.end,
-    ),
-  }
+  return best?.id ?? null
 }
 
 // --- Captions ---------------------------------------------------------------------------
 
+/** Shorter than this (seconds) counts as no overlap. */
+const MIN_OVERLAP = 0.05
+
 /** The caption shown over a stretch (the first one overlapping it). */
 export const captionOf = (edit: Edit, span: Span) =>
-  edit.overlays.captions.find((c) => overlap(c, span) >= MIN_SPAN)
+  edit.captions.find((c) => overlap(c, span) >= MIN_OVERLAP)
 
 /** Set (or with an empty text, remove) the caption over a stretch. */
 export function setCaption(edit: Edit, span: Span, text: string): Edit {
-  const others = edit.overlays.captions.filter(
-    (c) => overlap(c, span) < MIN_SPAN,
-  )
+  const others = edit.captions.filter((c) => overlap(c, span) < MIN_OVERLAP)
   const trimmed = text.trim().slice(0, CAPTION_MAX)
   return {
     ...edit,
-    overlays: {
-      ...edit.overlays,
-      captions: trimmed
-        ? [...others, { start: span.start, end: span.end, text: trimmed }]
-        : others,
-    },
+    captions: trimmed
+      ? [...others, { start: span.start, end: span.end, text: trimmed }]
+      : others,
   }
 }
 
 // --- Quick starts -------------------------------------------------------------------------
-
-/** How many rallies the "Longest 5" quick start picks. */
-export const QUICK_PICKS = 5
 
 /** The `count` longest rallies, in match order. */
 export const longestRallies = (rallies: RallyPublic[], count = QUICK_PICKS) =>
@@ -546,28 +291,34 @@ export const longestRallies = (rallies: RallyPublic[], count = QUICK_PICKS) =>
     .slice(0, count)
     .sort((a, b) => a.start - b.start)
 
-/** Add several rallies at once (each its whole window), in match order. */
-export function pickMany(
-  edit: Edit,
-  picks: { rallyId: number; window: Span }[],
-): Edit {
-  return picks.reduce(
-    (next, pick) => pickRally(next, pick.rallyId, pick.window),
-    edit,
-  )
-}
+// --- Rally labels ---------------------------------------------------------------------
 
-// --- Rally ids --------------------------------------------------------------------------
-
-/** Point clips at new rally ids (after a rally fix is undone or redone). */
+/** Point labels at new rally ids (after a rally fix is undone or redone). */
 export function remapRallies(edit: Edit, ids: Map<number, number>): Edit {
   if (ids.size === 0) return edit
   return {
     ...edit,
-    clips: edit.clips.map((clip) => ({
-      ...clip,
-      rally_id: ids.get(clip.rally_id) ?? clip.rally_id,
-    })),
+    segments: edit.segments.map((clip) =>
+      clip.rally_id === null
+        ? clip
+        : { ...clip, rally_id: ids.get(clip.rally_id) ?? clip.rally_id },
+    ),
+  }
+}
+
+/**
+ * After a rally fix: a clip labelled with a rally that's gone (deleted, merged) gets
+ * the rally it now shows most of, or none. What plays never changes.
+ */
+export function relabel(edit: Edit, rallies: RallyPublic[]): Edit {
+  const known = new Set(rallies.map((r) => r.id))
+  return {
+    ...edit,
+    segments: edit.segments.map((clip) =>
+      clip.rally_id === null || known.has(clip.rally_id)
+        ? clip
+        : { ...clip, rally_id: rallyOver(clip, rallies) },
+    ),
   }
 }
 
@@ -576,7 +327,7 @@ export function remapRallies(edit: Edit, ids: Map<number, number>): Edit {
 // Every state the user can go back to, oldest first. An entry reached through a rally
 // fix (a server change to the match's rallies) carries that fix: undoing it calls the
 // reverse endpoint first, redoing it the forward one. Those calls give rallies new ids,
-// so the entries on that side of the fix (up to the next fix) get their ids remapped.
+// so the entries on that side of the fix (up to the next fix) get their labels remapped.
 
 export type HistoryEntry = { edit: Edit; fix?: RallyFix }
 export type EditHistory = { entries: HistoryEntry[]; index: number }
@@ -597,23 +348,18 @@ export type EditAction =
   /** The server's version (first load, or after a conflict): no undo past it. */
   | { type: "load"; edit: Edit }
   | { type: "set-format"; format: ReelFormat }
-  | { type: "set-view"; view: Edit["view"] }
-  | {
-      type: "set-lead"
-      lead: { lead_in: number; lead_out: number }
-      rallies: RallyPublic[]
-      duration: number
-    }
-  | { type: "pick-rally"; rallyId: number; window: Span }
+  | { type: "pick-rally"; rally: Span & { id: number }; duration: number }
   /** Quick starts (Longest 5, All rallies): one undo step. */
-  | { type: "pick-many"; picks: { rallyId: number; window: Span }[] }
+  | { type: "pick-many"; rallies: (Span & { id: number })[]; duration: number }
   | { type: "unpick-rally"; rallyId: number }
-  | { type: "restore-hidden"; hidden: Hidden }
-  | { type: "hide-region"; region: Span }
-  | { type: "restore-cut"; clipIndex: number; span: Span }
-  | { type: "cut-piece"; piece: PieceRef; at: number }
-  | { type: "delete-piece"; piece: PieceRef }
-  | { type: "toggle-slow-mo"; piece: PieceRef }
+  | { type: "cut"; id: string; at: number; newId: string }
+  | { type: "delete"; id: string }
+  | { type: "toggle-slow-mo"; id: string }
+  /** A finished edge drag (one undo step per drag). */
+  | { type: "set-bounds"; id: string; span: Span; duration: number }
+  /** A finished reorder drag. */
+  | { type: "move"; id: string; to: number }
+  | { type: "insert"; clip: Clip; index: number }
   | { type: "set-caption"; span: Span; text: string }
   /** A rally fix went through: the reel as it is after it (one undo step). */
   | { type: "fix"; fix: RallyFix; edit: Edit }
@@ -721,31 +467,27 @@ export function editReducer(
       return push(history, { edit: action.edit, fix: action.fix })
     case "set-format":
       return commit(history, { ...edit, format: action.format })
-    case "set-view":
-      return commit(history, { ...edit, view: action.view })
-    case "set-lead":
-      return commit(
-        history,
-        setLead(edit, action.lead, action.rallies, action.duration),
-      )
     case "pick-rally":
-      return commit(history, pickRally(edit, action.rallyId, action.window))
+      return commit(history, pickRally(edit, action.rally, action.duration))
     case "pick-many":
-      return commit(history, pickMany(edit, action.picks))
+      return commit(history, pickMany(edit, action.rallies, action.duration))
     case "unpick-rally":
       return commit(history, unpickRally(edit, action.rallyId))
-    case "restore-hidden":
-      return commit(history, restoreHidden(edit, action.hidden))
-    case "hide-region":
-      return commit(history, hideRegion(edit, action.region))
-    case "restore-cut":
-      return commit(history, restoreCut(edit, action.clipIndex, action.span))
-    case "cut-piece":
-      return commit(history, cutPiece(edit, action.piece, action.at))
-    case "delete-piece":
-      return commit(history, deletePiece(edit, action.piece))
+    case "cut":
+      return commit(history, cutClip(edit, action.id, action.at, action.newId))
+    case "delete":
+      return commit(history, deleteClip(edit, action.id))
     case "toggle-slow-mo":
-      return commit(history, toggleSlowMo(edit, action.piece))
+      return commit(history, toggleSlowMo(edit, action.id))
+    case "set-bounds":
+      return commit(
+        history,
+        setClipBounds(edit, action.id, action.span, action.duration),
+      )
+    case "move":
+      return commit(history, moveClip(edit, action.id, action.to))
+    case "insert":
+      return commit(history, insertClip(edit, action.clip, action.index))
     case "set-caption":
       return commit(history, setCaption(edit, action.span, action.text))
   }

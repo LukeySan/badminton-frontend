@@ -29,9 +29,9 @@ const isStaleSave = (error: unknown) =>
  * is never overwritten: the backend answers 409 ("reel_changed"), and then the latest
  * version is loaded (`onReload`) and the user is told their last change didn't make it.
  *
- * Rally fixes change the reel on the server too, so the editor can also: `flush` (save
- * now and wait), `hold` (no saves while a fix runs), `adopt` (the server's reel after
- * a fix is what we have) and `rebase` (the server's reel changed; save ours over it).
+ * `flush` saves now and waits (before an export, which renders the saved reel, and
+ * before re-analyzing). Rally fixes don't change the reel on the server (edit list v5:
+ * clips are times in the video), so nothing else has to wait for them.
  */
 export function useReelAutosave({
   videoId,
@@ -51,20 +51,14 @@ export function useReelAutosave({
   const [status, setStatus] = useState<SaveStatus>("saved")
   /** The video has a reel on the server (shown as "Saved" in the header). */
   const [exists, setExists] = useState(reel !== null)
-  /** Bumped to re-arm the debounce without an edit (after rebase / hold). */
-  const [tick, setTick] = useState(0)
-
   /** The server's version we're editing on top of (null: no reel yet). */
   const baseline = useRef<string | null>(reel?.updated_at ?? null)
   const reelTitle = useRef(reel?.title ?? title)
-  /** What the server has (as JSON); null = unknown, so anything gets saved. */
-  const savedJson = useRef<string | null>(
-    JSON.stringify(normalizeEdit(reel?.edit)),
-  )
+  /** What the server has (as JSON). */
+  const savedJson = useRef<string>(JSON.stringify(normalizeEdit(reel?.edit)))
   const latest = useRef(edit)
   latest.current = edit
   const running = useRef<Promise<void> | null>(null)
-  const held = useRef(false)
 
   /** Record what the server has now. */
   const remember = useCallback(
@@ -79,11 +73,10 @@ export function useReelAutosave({
   )
 
   const save = useCallback(async (): Promise<void> => {
-    if (held.current) return
     // The running save checks for newer changes when it ends.
     if (running.current) return running.current
     const run = (async () => {
-      while (!held.current) {
+      while (true) {
         const sending = latest.current
         const json = JSON.stringify(sending)
         if (json === savedJson.current) {
@@ -134,7 +127,6 @@ export function useReelAutosave({
   }, [onReload, queryClient, remember, videoId])
 
   // Debounce: every change restarts the wait.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tick re-arms it on purpose
   useEffect(() => {
     if (JSON.stringify(edit) === savedJson.current) return
     setStatus((s) => (s === "saving" ? s : "unsaved"))
@@ -143,7 +135,7 @@ export function useReelAutosave({
       AUTOSAVE_DELAY_MS,
     )
     return () => window.clearTimeout(timer)
-  }, [edit, save, tick])
+  }, [edit, save])
 
   // Leaving the screen (in the app): don't drop a pending change.
   const saveRef = useRef(save)
@@ -165,32 +157,10 @@ export function useReelAutosave({
       throw new Error("Your reel isn't saved yet. Try again.")
   }, [save])
 
-  /** No saves while a rally fix runs (it changes the reel on the server). */
-  const hold = useCallback((on: boolean) => {
-    held.current = on
-    if (!on) setTick((t) => t + 1)
-  }, [])
-
-  /** The server's reel after a fix: what we have now. */
-  const adopt = useCallback(
-    (fresh: ReelPublic | null) => remember(fresh),
-    [remember],
-  )
-
-  /** The server's reel changed (to `updatedAt`) in a way we'll overwrite: save ours. */
-  const rebase = useCallback((updatedAt: string) => {
-    baseline.current = updatedAt
-    savedJson.current = null
-    setTick((t) => t + 1)
-  }, [])
-
   return {
     status,
     exists,
     retry: () => void save().catch(() => {}),
     flush,
-    hold,
-    adopt,
-    rebase,
   }
 }

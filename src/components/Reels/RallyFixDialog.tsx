@@ -137,7 +137,7 @@ function FixForm({
       ? "Adds a rally the detector missed, here in the match. It can't overlap another rally."
       : request.kind === "split"
         ? "It becomes two rallies, split at this moment."
-        : "Changes this rally everywhere, including its chapter and your reel."
+        : "Changes this rally's chapter and its place in the rally list. Your reel's clips stay as they are."
 
   const submit = async () => {
     if (invalid) return

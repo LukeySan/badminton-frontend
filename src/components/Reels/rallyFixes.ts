@@ -1,8 +1,10 @@
-import { RalliesService, type RallyChange, type ReelImpact } from "@/client"
+import { RalliesService, type RallyChange } from "@/client"
 import { formatTenths } from "@/lib/format"
 
 // Rally fixes (Highlights mode's ⋮ menu): changes to the match's rallies on the server,
-// so they show everywhere (player chapters, every reel). Each fix records the rally
+// so they show everywhere (the player's chapters, the rally list). They don't change
+// the reel: its clips are times in the video (edit list v5), only a clip's rally
+// label can go out of date (see relabel in reelEdit.ts). Each fix records the rally
 // ids on both sides, so the editor's undo can call the reverse endpoint and redo the
 // forward one again. Those calls make new rallies (new ids): `before` / `after` are
 // updated each time, and the edit history is remapped to them.
@@ -47,8 +49,6 @@ export type FixResult = {
   ids: number[]
   /** The last change: its `rallies` is the whole list now. */
   change: RallyChange
-  /** Reels the server adjusted, merged over all the calls (latest version each). */
-  reels: ReelImpact[]
 }
 
 const one = async (call: Promise<{ data: RallyChange }>) => (await call).data
@@ -68,11 +68,11 @@ export async function applyFix(
           body: fix.to,
         }),
       )
-      return { ids: [id], change, reels: change.reels }
+      return { ids: [id], change }
     }
     case "add": {
       const change = await one(RalliesService.addRally({ path, body: fix.to }))
-      return { ids: [change.added[0].id], change, reels: change.reels }
+      return { ids: [change.added[0].id], change }
     }
     case "delete": {
       const change = await one(
@@ -80,14 +80,14 @@ export async function applyFix(
           path: { ...path, rally_id: fix.before[0] },
         }),
       )
-      return { ids: [], change, reels: change.reels }
+      return { ids: [], change }
     }
     case "confirm": {
       const [id] = fix.before
       const change = await one(
         RalliesService.confirmRally({ path: { ...path, rally_id: id } }),
       )
-      return { ids: [id], change, reels: change.reels }
+      return { ids: [id], change }
     }
     case "split": {
       const [id] = fix.before
@@ -97,13 +97,13 @@ export async function applyFix(
           body: { at: fix.at },
         }),
       )
-      return { ids: [id, change.added[0].id], change, reels: change.reels }
+      return { ids: [id, change.added[0].id], change }
     }
     case "merge": {
       const change = await one(
         RalliesService.mergeRallies({ path, body: { rally_ids: fix.before } }),
       )
-      return { ids: [change.added[0].id], change, reels: change.reels }
+      return { ids: [change.added[0].id], change }
     }
   }
 }
@@ -123,7 +123,7 @@ export async function reverseFix(
           body: fix.from,
         }),
       )
-      return { ids: [id], change, reels: change.reels }
+      return { ids: [id], change }
     }
     case "add": {
       const change = await one(
@@ -131,12 +131,12 @@ export async function reverseFix(
           path: { ...path, rally_id: fix.after[0] },
         }),
       )
-      return { ids: [], change, reels: change.reels }
+      return { ids: [], change }
     }
     case "delete": {
       const added = await one(RalliesService.addRally({ path, body: fix.from }))
       const id = added.added[0].id
-      if (!fix.maybe) return { ids: [id], change: added, reels: added.reels }
+      if (!fix.maybe) return { ids: [id], change: added }
       // Added rallies are sure ones: make it a maybe again, as it was
       const change = await one(
         RalliesService.unconfirmRally({ path: { ...path, rally_id: id } }),
@@ -144,7 +144,6 @@ export async function reverseFix(
       return {
         ids: [id],
         change,
-        reels: mergeImpacts(added.reels, change.reels),
       }
     }
     case "confirm": {
@@ -152,13 +151,13 @@ export async function reverseFix(
       const change = await one(
         RalliesService.unconfirmRally({ path: { ...path, rally_id: id } }),
       )
-      return { ids: [id], change, reels: change.reels }
+      return { ids: [id], change }
     }
     case "split": {
       const change = await one(
         RalliesService.mergeRallies({ path, body: { rally_ids: fix.after } }),
       )
-      return { ids: [change.added[0].id], change, reels: change.reels }
+      return { ids: [change.added[0].id], change }
     }
     case "merge": {
       // Split the merged rally where the first one ended, then put the second one's
@@ -172,7 +171,7 @@ export async function reverseFix(
       )
       const second = split.added[0].id
       if (fix.second.start - fix.first.end < 1e-6) {
-        return { ids: [id, second], change: split, reels: split.reels }
+        return { ids: [id, second], change: split }
       }
       const change = await one(
         RalliesService.editRally({
@@ -183,29 +182,9 @@ export async function reverseFix(
       return {
         ids: [id, second],
         change,
-        reels: mergeImpacts(split.reels, change.reels),
       }
     }
   }
-}
-
-function mergeImpacts(a: ReelImpact[], b: ReelImpact[]): ReelImpact[] {
-  const byId = new Map(a.map((r) => [r.id, r]))
-  for (const r of b) {
-    const old = byId.get(r.id)
-    byId.set(
-      r.id,
-      old
-        ? {
-            ...r,
-            clips_removed: old.clips_removed + r.clips_removed,
-            pieces_trimmed: old.pieces_trimmed + r.pieces_trimmed,
-            pieces_removed: old.pieces_removed + r.pieces_removed,
-          }
-        : r,
-    )
-  }
-  return [...byId.values()]
 }
 
 /** "Rally 5 split into 5 and 6": what a fix did, with the numbers after it. */
@@ -236,22 +215,11 @@ export function describeFix(fix: RallyFix, change: RallyChange): string {
 }
 
 /**
- * "Your reel: 1 part trimmed · The chapters…". A video has one reel, so
- * every reel the server adjusted is this one.
+ * The toast's second line. A fix never changes the reel; deleting a rally that has
+ * clips in it leaves them playing (they show the same footage), so say so.
  */
-export function describeImpact(reels: ReelImpact[]): string {
-  const parts: string[] = []
-  for (const reel of reels) {
-    const changes = [
-      plural(reel.clips_removed, "clip removed", "clips removed"),
-      plural(reel.pieces_trimmed, "part trimmed", "parts trimmed"),
-      plural(reel.pieces_removed, "part removed", "parts removed"),
-    ].filter(Boolean)
-    if (changes.length) parts.push(`Your reel: ${changes.join(", ")}`)
-  }
-  parts.push("The chapters are updated too.")
-  return parts.join(" · ")
+export function describeImpact(fix: RallyFix, clipsOfDeleted: number): string {
+  if (fix.kind === "delete" && clipsOfDeleted > 0)
+    return `Its ${clipsOfDeleted === 1 ? "clip stays" : "clips stay"} in your reel. The chapters are updated too.`
+  return "The chapters are updated too."
 }
-
-const plural = (n: number, one: string, many: string) =>
-  n === 0 ? "" : `${n} ${n === 1 ? one : many}`

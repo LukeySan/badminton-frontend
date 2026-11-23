@@ -60,18 +60,11 @@ commands above). Commit `openapi.json` and `src/client/` together.
 **Unit tests** (`bun run test:unit`, also in CI): `bun test` over `src/**/*.test.ts`
 (excluded from the build's type-check).
 
-**Editor v2 (branch feat/editor-v2, in progress).** The backend's edit list is now v5:
-`{version: 5, format, segments: [{id, start, end, slow_mo, rally_id | null}],
-captions}`: a flat list of clips in playback order (seconds in the original video,
-0.1 s precision, ≥ 0.3 s each, may overlap for replays, ≤ 200), rally_id a label only
-(null for footage outside rallies or a deleted rally). Rally fixes no longer change
-reels. The client in src/client is regenerated for v5, so the OLD editor (reelEdit.ts
-pieces/cuts/anchors, timeline.ts, rallyFixes.ts) no longer type-checks: `bun run
-build` is red on this branch until Editor v2 replaces it (designs:
-docs/design/EditV2*.dc.html; decided: no "match order", no Lead pill, new clips get a
-fixed 1 s padding on each side). The shared reel-segments fixtures and their timeline
-test are gone (the backend keeps them as v4→v5 migration tests). Don't merge this
-branch (or the backend's) into main until Editor v2 is ready; merge both together.
+**Editor v2 (branch feat/editor-v2).** Built against the backend's edit list v5 (see
+"The reel" below; designs docs/design/EditV2*.dc.html; decided: no "match order", no
+Lead pill, new clips get a fixed 1 s padding on each side). The shared reel-segments
+fixtures are gone (the backend keeps them as v4→v5 migration tests). Don't merge this
+branch (or the backend's) into main alone: merge both together.
 
 `.env`: `VITE_API_URL=http://localhost:8000`. It must stay an absolute URL: the
 Capacitor app will not be served from the API's origin. The backend's CORS settings
@@ -86,6 +79,12 @@ macOS WebKit build hangs on macOS 26.0). CI (`.github/workflows/test-frontend.ym
 runs Biome, the build, and both browsers against the backend's `main` and the
 production build. In tests, wait for the app's own navigations (`waitForURL`) instead
 of calling `goto` right after a click that navigates: WebKit cancels one of the two.
+Editor v2's gestures (`tests/video-screen-edit.spec.ts`, 390 px, `hasTouch`, both
+themes) are synthetic `pointerType: "touch"` pointer events dispatched on the elements
+(Playwright has no touch drags, none at all in WebKit); one pinch also goes through
+Chromium's real touch input (CDP). Never `click()` / `tap()` something inside the
+timeline: Playwright scrolls it into view first (WebKit even when visible), and
+scrolling the timeline moves the playhead. Tap / click at its coordinates instead.
 
 Auth: the template stores the JWT in `localStorage` (`access_token`) and sends it via
 the client's `auth` option in `src/main.tsx`; a 401/403 logs the user out. This also
@@ -106,11 +105,11 @@ width/height, order **far-left, far-right, near-right, near-left**.
 | `PUT /videos/{id}/court` `{corners: [[x,y]×4]}`                                                                                                                                                              | save corners. 422 with a readable message for wrong tap order or a corner too far outside                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | `POST /videos/{id}/process`                                                                                                                                                                                  | queue (also reprocess). 409 no court / already queued; 429 when the user already has 2 videos queued or processing. Show the `detail`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `GET /videos/{id}/rallies`                                                                                                                                                                                   | `{data: [{id, number, start, end, duration, confidence, is_maybe}], count}` (`number` = 1, 2, 3… in time order; changes when rallies are added, split, merged or deleted). `is_maybe`: the detector (v1.1+) was unsure: drawn faded + dashed, Keep / Delete in the list (DESIGN.md "Maybe rallies")                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `POST /videos/{id}/rallies`, `PUT`/`DELETE /videos/{id}/rallies/{rally_id}`, `POST …/{rally_id}/split` `{at}`, `POST /videos/{id}/rallies/merge` `{rally_ids: [a, b]}`, `POST`/`DELETE …/{rally_id}/confirm` | rally corrections (the editor's fix menu). Each returns `RallyChange`: `added`, `updated`, `deleted`, the whole renumbered `rallies` list and the `reels` the server adjusted (new `updated_at`). 409 with a readable `detail` for overlaps, non-neighbours, or while processing. Confirm = Keep a maybe; `DELETE …/confirm` makes it a maybe again (undo of Keep; undo of deleting a maybe = add + un-confirm)                                                                                                                                                                                                                                                                                                     |
+| `POST /videos/{id}/rallies`, `PUT`/`DELETE /videos/{id}/rallies/{rally_id}`, `POST …/{rally_id}/split` `{at}`, `POST /videos/{id}/rallies/merge` `{rally_ids: [a, b]}`, `POST`/`DELETE …/{rally_id}/confirm` | rally corrections (the editor's fix menu). Each returns `RallyChange`: `added`, `updated`, `deleted`, the whole renumbered `rallies` list. Fixes never change reels (since edit list v5). 409 with a readable `detail` for overlaps, non-neighbours, or while processing. Confirm = Keep a maybe; `DELETE …/confirm` makes it a maybe again (undo of Keep; undo of deleting a maybe = add + un-confirm)                                                                                                                                                                                                                                                                                                             |
 | `GET /videos/{id}/thumbnails-url`                                                                                                                                                                            | `{index_url, sheet_urls, expires_at}`: signed links (12 h) to the thumbnail strip (one 160 px frame per second, 10×10 tiles per sheet; `index.json` has the layout). 404 `code: "thumbnails_missing"` for videos analyzed before it existed                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | `GET /videos/{id}/file-url`                                                                                                                                                                                  | `{url, expires_at}`: a signed, expiring URL for this one video. Use `<video src={VITE_API_URL + url}>`. Refetch a new one when it expires (the video tag can't send the login header, which is why this exists)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | `GET /videos/{id}/trajectory?start&end`                                                                                                                                                                      | shuttle position per frame. Still saved by the backend; **not used by the app** (the shuttle trail was removed)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `GET/PUT /videos/{id}/reel`                                                                                                                                                                                  | the video's reel, **one per video**: a title + an edit list, **version 2**: `view`, `format`, `lead_in`/`lead_out` (0–3 s), `clips` = `{rally_id, pieces: [{start, end, slow_mo}]}` (pieces sorted, inside the rally ± lead), `restored_gaps`, `overlays.captions`. GET 404 `code: "reel_missing"` = none yet. PUT `{title, edit, updated_at}`: `updated_at: null` creates it (201), the loaded one saves it (200); anything stale → 409 `code: "reel_changed"`, reload. Rally corrections adjust the reel on the server. (`/videos/{id}/reels` and `/reels/{id}` are deprecated, not used)                                                                                                                         |
+| `GET/PUT /videos/{id}/reel`                                                                                                                                                                                  | the video's reel, **one per video**: a title + an edit list, **version 5**: `format`, `segments` = `[{id, start, end, slow_mo, rally_id \| null}]` (clips in playback order; seconds in the original, stored to 0.1 s, ≥ 0.3 s, may overlap = replays, ≤ 200; `rally_id` a label only, null for other footage or a rally that's gone), `captions` (source seconds). GET 404 `code: "reel_missing"` = none yet. PUT `{title, edit, updated_at}`: `updated_at: null` creates it (201), the loaded one saves it (200); anything stale → 409 `code: "reel_changed"`, reload. (`/videos/{id}/reels` and `/reels/{id}` are deprecated, not used)                                                                          |
 | `POST`/`GET /videos/{id}/reel/exports`, `GET`/`DELETE /exports/{id}`, `POST /exports/{id}/retry`, `GET /exports/{id}/download`                                                                               | reel exports (MP4 by the worker). POST `{quality}` (720p default; 1080p → 422 below a 1080p recording) → `ExportPublic` queued; what's rendered is fixed then (later edits don't change it) and is always the Rallies-only result. 409 no clips / this reel already exporting, 429 three of yours active, 404 `reel_missing`. Status `queued`→`processing`→`done`/`failed` (`failure_reason`), `progress`, `duration`, `size_bytes`, `filename`, `created_at` (the edit it shows), `expires_at` (+7 days). Retry: a failed one again, same snapshot (409/410/429). Download: `{url, filename, expires_at}` signed link (relative: prefix `VITE_API_URL`), the file is an attachment with Range (plays in `<video>`) |
 
 Off-screen corners (decided in the backend — the app only displays the result):
@@ -148,7 +147,8 @@ Protected pages go under `src/routes/_layout/` (requires login, has the sidebar)
    page any more; `/videos/$id/reels/$reelId` only redirects here (old links).
    - Shared: header (back to Home, title, "73 rallies · 18:20 play", "Saved" once a
      reel exists, **Export** (sheet, below), ⋮ Re-mark court / Delete video), the
-     video with the rally badge and skip pill, the Highlights | Edit tabs.
+     video (the rally badge and skip pill in Highlights only), the Highlights | Edit
+     tabs.
    - **Export** (`ExportSheet.tsx`, `useReelExports.ts`, `exports.ts`): bottom sheet
      on phones. What the export will be (always the Rallies-only result, said in the
      sheet), quality (1080p only for a ≥1080p recording; `can1080p` repeats the
@@ -165,7 +165,10 @@ Protected pages go under `src/routes/_layout/` (requires login, has the sidebar)
      when jumping/playing (detector boundaries can be 1–2 s off). The rally list:
      check circles (pick for the reel), filters All / Picked / Longest, ⋮ rally fixes,
      "+ Missed rally", the `court_out_of_frame` warning.
-   - **Edit = the reel:** timeline and tools; with nothing picked an empty state with
+   - **Edit = the reel (Editor v2):** header "N clips · length", the timeline (edge
+     handles, pinch zoom, hold and drag a clip to move it, "+" Add footage) and the
+     tools (Cut, Delete, Slow-mo, Text, Format). Clips show no rally names and the
+     video no rally badge: a clip is footage; with nothing picked an empty state with
      quick starts (Longest 5, All rallies, Pick from the list → Highlights + hint).
 
 Keep from the template: login, signup, recover/reset password, user settings, admin
@@ -185,30 +188,51 @@ modes never create one). The edit list lives in one reducer with undo/redo
 (`components/Reels/reelEdit.ts`; every change is an action there) and is autosaved
 (`useReelAutosave`: the empty list counts as saved; 800 ms debounce, one save at a
 time, the first PUT sends `updated_at: null` to create; 409 → reload + toast;
-`flush`/`hold`/`adopt`/`rebase` for rally fixes). Query key `["videos", id, "reel"]`
+`flush` before an export or re-analysis). Query key `["videos", id, "reel"]`
 (null = none yet), never refetched in the background (the screen owns the edit list
 once loaded); the screen is keyed by video, so creating the reel doesn't remount it.
 
-- **Cut model (edit list v2):** a clip is a rally cut into pieces. Each rally has a
-  _window_ (`rallyWindows`): the rally ± the reel's lead, never past the video or into a
-  neighbour's window (close rallies share the gap). Pieces live in the window; the rest
-  of it is a soft "cut". Cut splits the selected piece at the playhead (not within
-  0.3 s of an edge), Delete removes it (the last one takes the rally out). Changing the
-  lead or a rally's bounds `refit`s clips: an edge at the window's edge moves with it.
-- `components/Reels/timeline.ts` turns the edit list into items in reel order (pieces,
-  cut parts, breaks, unpicked rallies, collapsed gaps) with source and reel times; the
-  timeline, the time row and preview playback all read it. In Rallies only, breaks AND
-  cut parts collapse into gap markers (a tap restores both); in Full video cut parts
-  are pink stripes. Preview playback is `useVideoPlayer`'s playback rule (spans that
-  play + speed + loop), checked on every video frame. The selected piece follows the
-  playhead.
+- **Edit list v5 (`reelEdit.ts`):** a flat list of clips (`Clip` = the API's
+  Segment), played in list order. All operations are pure functions on the 0.1 s grid
+  (`fitBounds`: inside the video, ≥ 0.3 s): pick (rally ± `CLIP_PADDING`, inserted
+  before the first clip that starts after it = match order relative to what's there),
+  unpick (all its clips), cut (both parts ≥ 0.3 s), delete, slow-mo, `setClipBounds`
+  (edges anywhere in the video), `moveClip`, `insertClip`, captions. New ids from
+  `newClipIds` (pure, so the screen knows them before dispatching). One undo step per
+  action: an edge drag and a move dispatch once, on release.
+- **Timeline math (`timeline.ts`):** reel spans (slow-mo counts double), layout at any
+  zoom (px per second, 2 px gaps, min 4 px), x ↔ reel time, `dragEdge` (snap to the
+  clip's own rally's detected start / end within 10 px, else 0.1 s). Source time can't
+  locate the playhead (clips can be out of order or show a moment twice), so the
+  screen keeps a **cursor**: the playing clip, which is also the selected one; reel
+  time = its reel start + how far into it the video is.
+- **Playback** (`useVideoPlayer`'s `PlaybackRule`: `next(t)` → keep / seek / end,
+  `rate`, `restart`; `spansRule` for skip-breaks): Edit plays the cursor's clip, then
+  the next in the list (seeking back in time if needed), slow-mo at 0.5, stops after
+  the last. A jump of the video from outside the reel (> 0.5 s between frames)
+  re-finds the clip that shows that moment. A clip running to the video's end moves on
+  0.08 s early (after `ended`, WebKit's play() restarts from 0).
+- **Timeline UI (`EditPanel.tsx`, `ReorderStrip.tsx`, `AddFootageSheet.tsx`):**
+  gestures are pointer events; one finger scrolls natively (`touch-pan-x`), and a
+  non-passive `touchmove` listener on the panel cancels the browser's scrolling / page
+  zoom while one of ours runs (edge drag, lifted clip, two fingers). Edge handles are
+  `touch-none`; a handle press that doesn't move passes through as a tap on the clip
+  under it. Moving a clip has no mode: a long press (250 ms, cancelled by moving more
+  than 8 px first, so a swipe scrolls) hands its pointer to `ReorderStrip`, shown only
+  until that press ends; it follows the press on `window` (the timeline stays mounted,
+  invisible, so the touch keeps its target), moves the held clip relative to where the
+  press was, drops on release and selects it. Alt + ← / → on a focused clip moves it.
+  A scroll caused by focus (a dialog returning focus to "+") snaps back instead of
+  seeking. Add footage excludes "+" from Radix's outside taps, restores focus with
+  `preventScroll`, and sits above its overlay (`z-[51]`: on a quick reopen Radix can
+  append the overlay after the content).
 - **Rally fixes** (`rallyFixes.ts`, Highlights' ⋮ menu): server changes to the match's
-  rallies, shown everywhere. The editor saves first, holds autosave, calls the
-  endpoint, writes the returned list into `["videos", id, "rallies"]` (the
-  chapters), reloads the reel if the server adjusted it, refits, and pushes one
-  history entry carrying the fix. Undo calls the reverse endpoint(s) (edit ↔ edit,
-  add ↔ delete, split ↔ merge, merge ↔ split + edit), redo the forward one; those make
-  new rally ids, so the history entries on that side of the fix are remapped
+  rallies (chapters, list); they never change the reel. The editor calls the endpoint,
+  writes the returned list into `["videos", id, "rallies"]`, relabels clips whose rally
+  is gone (`relabel`: the rally they show most of, or null) and pushes one history
+  entry carrying the fix. Undo calls the reverse endpoint(s) (edit ↔ edit, add ↔
+  delete, split ↔ merge, merge ↔ split + edit), redo the forward one; those make new
+  rally ids, so the labels in the history entries on that side are remapped
   (`undo-fix` / `redo-fix`).
 - Thumbnails (`thumbnails.tsx`): sprite-sheet tiles as CSS backgrounds; the timeline
   draws only tiles near the view, rally rows load theirs when scrolled into view.

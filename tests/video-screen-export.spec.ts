@@ -59,9 +59,10 @@ async function setUp(page: Page, { reel = true } = {}) {
   if (reel) {
     const rallies = await readRallies(token, videoId)
     await createReel(token, videoId, {
-      clips: [
-        { rally_id: rallies[0].id, pieces: [{ start: 0, end: 2.3 }] },
-        { rally_id: rallies[1].id, pieces: [{ start: 3.4, end: 6.5 }] },
+      version: 5,
+      segments: [
+        { id: "c1", start: 0, end: 2.3, rally_id: rallies[0].id },
+        { id: "c2", start: 3.4, end: 6.5, rally_id: rallies[1].id },
       ],
     })
   }
@@ -126,11 +127,9 @@ test("start an export: progress in the sheet and on the button; later edits don'
 }) => {
   const { token, videoId } = await setUp(page)
   await page.goto(`/videos/${videoId}?mode=edit`)
-  // Full video on screen: the export is still the Rallies-only result
-  await page.getByRole("radio", { name: "Full video" }).click()
   await openSheet(page)
   await expect(sheet(page)).toContainText(
-    "You're viewing Full video, but the export is the Rallies only version",
+    "It plays what Edit plays: your clips in their order",
   )
   await expect(fact(page, "Length")).toContainText("0:05")
   await expect(fact(page, "Clips")).toContainText("2")

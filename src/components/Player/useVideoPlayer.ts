@@ -10,16 +10,29 @@ import { useFullscreenPlayer } from "./useFullscreenPlayer"
 const API_URL = import.meta.env.VITE_API_URL ?? ""
 
 /**
- * What plays: only these stretches of the video, in order (null: all of it), and
- * how fast at each moment (slow-mo). The player's skip-breaks is spans = rallies; the
- * highlight editor's preview is spans = the reel's clips (and kept footage). `loop`:
- * after the last span, start the first again (the editor's Loop tool).
+ * What plays, checked on every video frame while playing. `next(t)`: undefined = keep
+ * playing, a number = jump there, null = this is the end (pause). `rate(t)`: how fast
+ * (slow-mo). `restart()`: Play pressed at the end, where to start again (undefined:
+ * just play on). The player's skip-breaks plays its rallies (`spansRule`); the editor
+ * plays the reel's clips in list order, which can go back in time (replays, reordered
+ * clips), so it keeps its own cursor.
  */
 export type PlaybackRule = {
-  spans: { start: number; end: number }[] | null
-  rateAt?: (t: number) => number
-  loop?: boolean
+  next: (t: number) => number | null | undefined
+  rate?: (t: number) => number
+  restart?: () => number | undefined
 }
+
+/** Everything plays. */
+export const FREE_PLAYBACK: PlaybackRule = { next: () => undefined }
+
+/** Only these stretches, in time order (skip-breaks: the rallies). */
+export const spansRule = (
+  spans: { start: number; end: number }[],
+): PlaybackRule => ({
+  next: (t) => skipTarget(spans, t),
+  restart: () => spans[0]?.start,
+})
 
 /**
  * Everything about playing one video, shared by the player and the highlight
@@ -91,11 +104,14 @@ export function useVideoPlayer(
   const play = () => {
     const element = videoRef.current
     if (!element) return
-    // Past the last stretch that plays (end of the reel): start again from the top.
-    const { spans } = rule.current()
-    if (spans?.length && skipTarget(spans, element.currentTime) === null) {
-      seek(spans[0].start)
-    }
+    // At the end (of the rallies, of the reel): start again from the top. Outside
+    // what plays: go to where it continues.
+    const { next, restart } = rule.current()
+    const target = next(element.currentTime)
+    if (target === null) {
+      const from = restart?.()
+      if (from !== undefined) seek(from)
+    } else if (target !== undefined) seek(target)
     element.play().catch(() => {})
   }
   const pause = () => videoRef.current?.pause()
@@ -115,15 +131,16 @@ export function useVideoPlayer(
   const enforcePlayback = (t: number) => {
     const element = videoRef.current
     if (!element || element.paused) return
-    const { spans, rateAt, loop } = rule.current()
-    const rate = rateAt?.(t) ?? 1
+    if (scrubbingRef.current) return
+    const { next, rate: rateAt } = rule.current()
+    const target = next(t)
+    if (target === null) {
+      element.pause()
+      return
+    }
+    if (target !== undefined) seek(target)
+    const rate = rateAt?.(target ?? t) ?? 1
     if (element.playbackRate !== rate) element.playbackRate = rate
-    if (!spans || scrubbingRef.current) return
-    const target = skipTarget(spans, t)
-    if (target === undefined) return
-    if (target !== null) seek(target)
-    else if (loop && spans.length) seek(spans[0].start)
-    else element.pause()
   }
   const enforceRef = useRef(enforcePlayback)
   enforceRef.current = enforcePlayback
@@ -189,7 +206,15 @@ export function useVideoPlayer(
       wasPlaying.current = false
       setPaused(true)
     },
-    onEnded: () => setPaused(true),
+    onEnded: (event: VideoEvent) => {
+      // A reel can go on after the video's last frame (a clip at the very end, then
+      // others): play on from there.
+      const target = rule.current().next(event.currentTarget.currentTime)
+      if (typeof target === "number") {
+        seek(target)
+        event.currentTarget.play().catch(() => {})
+      } else setPaused(true)
+    },
     onError: () => {
       // An expired link fails as a network/source error. Get a fresh link once.
       if (!retriedError.current) {

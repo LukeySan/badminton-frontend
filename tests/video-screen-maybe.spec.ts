@@ -240,24 +240,25 @@ test("quick starts leave maybes out; the timeline draws them dashed", async ({
   await expect
     .poll(
       async () =>
-        (await readReel(token, videoId))?.edit.clips.map((c) => c.rally_id),
+        (await readReel(token, videoId))?.edit.segments.map((c) => c.rally_id),
       { timeout: 10_000 },
     )
     .toEqual([0, 1, 3, 4, 6].map((i) => rallies[i].id))
+  await expect(page.locator('[data-testid="clip"][data-maybe]')).toHaveCount(0)
 
-  // Full video shows the unpicked maybes, faded and dashed; one tap adds one
-  await page.getByRole("radio", { name: "Full video" }).click()
-  const unpicked = page.locator('[data-testid="unpicked"][data-maybe]')
-  await expect(unpicked).toHaveCount(2)
+  // A maybe picked by hand: its clip is faded and dashed, and says so
+  await page.getByRole("radio", { name: "Highlights" }).click()
   await page
-    .getByRole("button", {
-      name: "Rally 3 (maybe), not in the reel. Tap to add",
-    })
+    .getByRole("checkbox", { name: "Rally 3 in the reel" })
+    .locator("..")
     .click()
-  await expect(page.locator('[data-testid="clip"][data-maybe]')).toHaveCount(1)
+  await page.getByRole("radio", { name: "Edit" }).click()
+  const maybe = page.locator('[data-testid="clip"][data-maybe]')
+  await expect(maybe).toHaveCount(1)
+  await expect(maybe).toHaveAccessibleName(/^Clip 3 of 6 \(maybe\),/)
 
-  // Undo the add, Full video and Longest 5
-  for (let i = 0; i < 3; i++)
+  // Undo the pick and Longest 5
+  for (let i = 0; i < 2; i++)
     await page.getByRole("button", { name: "Undo" }).click()
   await expect(page.getByText("Your reel is empty")).toBeVisible()
   await page.getByRole("button", { name: /^All rallies/ }).click()
