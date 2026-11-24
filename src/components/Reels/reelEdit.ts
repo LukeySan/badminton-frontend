@@ -1,13 +1,24 @@
 import type { RallyPublic, ReelEdit } from "@/client"
+import {
+  clampToReel,
+  cleanPatch,
+  cutOverlay,
+  fitOverlaySpan,
+  MAX_OVERLAYS,
+  OVERLAY_SIZE,
+  type Overlay,
+  type OverlayPatch,
+} from "./overlays"
 import type { RallyFix } from "./rallyFixes"
 
 // A reel is a non-destructive edit list over one match video (the backend's ReelEdit,
-// version 5): a flat list of clips, played one after another in list order. Each clip
+// version 6): a flat list of clips, played one after another in list order. Each clip
 // is a stretch of the original video (seconds, stored to 0.1 s, at least 0.3 s long).
 // Clips may overlap in source time (a replay) and can be in any order. `rally_id` is
 // only a label (which rally the footage shows; null for footage outside rallies): it
-// never changes what plays. Captions are in source time and show in every clip that
-// shows that moment.
+// never changes what plays. Overlays (text) are on the reel's own timeline (reel
+// seconds), so they stay where they are in the reel when clips change under them
+// (overlays.ts).
 
 export type Span = { start: number; end: number }
 /** One clip of the reel (the API's Segment; the app calls them clips). */
@@ -18,14 +29,12 @@ export type Clip = {
   slow_mo: boolean
   rally_id: number | null
 }
-export type Caption = Span & { text: string }
-
 /** Every optional field filled in, so the editor never has to check. */
 export type Edit = {
-  version: 5
+  version: 6
   format: "16:9" | "9:16"
   segments: Clip[]
-  captions: Caption[]
+  overlays: Overlay[]
 }
 
 export type ReelFormat = Edit["format"]
@@ -37,14 +46,12 @@ export const MIN_CLIP = 0.3
 export const CLIP_PADDING = 1
 /** Most clips in a reel (the backend's MAX_REEL_SEGMENTS). */
 export const MAX_CLIPS = 200
-/** Longest caption (the backend's CAPTION_MAX_LENGTH). */
-export const CAPTION_MAX = 80
 /** How many rallies the "Longest 5" quick start picks. */
 export const QUICK_PICKS = 5
 
 export function normalizeEdit(edit: ReelEdit | undefined): Edit {
   return {
-    version: 5,
+    version: 6,
     format: edit?.format ?? "16:9",
     segments: (edit?.segments ?? []).map((s) => ({
       id: s.id,
@@ -53,10 +60,9 @@ export function normalizeEdit(edit: ReelEdit | undefined): Edit {
       slow_mo: s.slow_mo ?? false,
       rally_id: s.rally_id ?? null,
     })),
-    captions: (edit?.captions ?? []).map((c) => ({
-      start: c.start,
-      end: c.end,
-      text: c.text,
+    overlays: (edit?.overlays ?? []).map((o) => ({
+      ...o,
+      size: o.size ?? OVERLAY_SIZE.default,
     })),
   }
 }
@@ -99,7 +105,7 @@ export function fitBounds(
 export const clipLength = (clip: Pick<Clip, "start" | "end" | "slow_mo">) =>
   (clip.end - clip.start) * (clip.slow_mo ? 2 : 1)
 
-export const reelLength = (edit: Edit) =>
+export const reelLength = (edit: Pick<Edit, "segments">) =>
   edit.segments.reduce((sum, clip) => sum + clipLength(clip), 0)
 
 /** A new clip for a rally: its detected bounds plus CLIP_PADDING each side. */
@@ -261,26 +267,47 @@ export function rallyOver(
   return best?.id ?? null
 }
 
-// --- Captions ---------------------------------------------------------------------------
+// --- Overlays ----------------------------------------------------------------------------
 
-/** Shorter than this (seconds) counts as no overlap. */
-const MIN_OVERLAP = 0.05
+const mapOverlay = (
+  edit: Edit,
+  id: string,
+  change: (overlay: Overlay) => Overlay,
+): Edit => ({
+  ...edit,
+  overlays: edit.overlays.map((o) => (o.id === id ? change(o) : o)),
+})
 
-/** The caption shown over a stretch (the first one overlapping it). */
-export const captionOf = (edit: Edit, span: Span) =>
-  edit.captions.find((c) => overlap(c, span) >= MIN_OVERLAP)
+/** Add an overlay (on top of the others), up to MAX_OVERLAYS. */
+export const addOverlay = (edit: Edit, overlay: Overlay): Edit =>
+  edit.overlays.length >= MAX_OVERLAYS ||
+  edit.overlays.some((o) => o.id === overlay.id)
+    ? edit
+    : { ...edit, overlays: [...edit.overlays, overlay] }
 
-/** Set (or with an empty text, remove) the caption over a stretch. */
-export function setCaption(edit: Edit, span: Span, text: string): Edit {
-  const others = edit.captions.filter((c) => overlap(c, span) < MIN_OVERLAP)
-  const trimmed = text.trim().slice(0, CAPTION_MAX)
-  return {
-    ...edit,
-    captions: trimmed
-      ? [...others, { start: span.start, end: span.end, text: trimmed }]
-      : others,
-  }
+/** Change how an overlay looks: position, size, text (a finished move, resize or edit). */
+export const updateOverlay = (
+  edit: Edit,
+  id: string,
+  patch: OverlayPatch,
+): Edit => mapOverlay(edit, id, (o) => ({ ...o, ...cleanPatch(patch) }))
+
+/** New start / end in reel time (a finished edge drag or move on the timeline). */
+export function setOverlayTimes(edit: Edit, id: string, span: Span): Edit {
+  const old = edit.overlays.find((o) => o.id === id)
+  if (!old) return edit
+  const keep =
+    span.start !== old.start && span.end === old.end ? "end" : "start"
+  return mapOverlay(edit, id, (o) => ({
+    ...o,
+    ...fitOverlaySpan(span, reelLength(edit), keep),
+  }))
 }
+
+export const deleteOverlay = (edit: Edit, id: string): Edit => ({
+  ...edit,
+  overlays: edit.overlays.filter((o) => o.id !== id),
+})
 
 // --- Quick starts -------------------------------------------------------------------------
 
@@ -360,7 +387,13 @@ export type EditAction =
   /** A finished reorder drag. */
   | { type: "move"; id: string; to: number }
   | { type: "insert"; clip: Clip; index: number }
-  | { type: "set-caption"; span: Span; text: string }
+  | { type: "add-overlay"; overlay: Overlay }
+  /** A finished move, resize or text edit of an overlay (one undo step). */
+  | { type: "update-overlay"; id: string; patch: OverlayPatch }
+  /** A finished edge drag or move of an overlay on the timeline. */
+  | { type: "set-overlay-times"; id: string; span: Span }
+  | { type: "cut-overlay"; id: string; at: number; newId: string }
+  | { type: "delete-overlay"; id: string }
   /** A rally fix went through: the reel as it is after it (one undo step). */
   | { type: "fix"; fix: RallyFix; edit: Edit }
   | { type: "undo" }
@@ -384,8 +417,14 @@ function push(history: EditHistory, entry: HistoryEntry): EditHistory {
   return { entries, index: entries.length - 1 }
 }
 
-/** A change: the old state stays on the undo stack, redo is cleared. */
-function commit(history: EditHistory, next: Edit): EditHistory {
+/**
+ * A change: the old state stays on the undo stack, redo is cleared. Overlays are kept
+ * inside the reel as the backend keeps them (so what's here is what it saves).
+ */
+function commit(history: EditHistory, changed: Edit): EditHistory {
+  const overlays = clampToReel(changed.overlays, reelLength(changed))
+  const next =
+    overlays === changed.overlays ? changed : { ...changed, overlays }
   if (JSON.stringify(next) === JSON.stringify(presentEdit(history)))
     return history
   return push(history, { edit: next })
@@ -488,7 +527,18 @@ export function editReducer(
       return commit(history, moveClip(edit, action.id, action.to))
     case "insert":
       return commit(history, insertClip(edit, action.clip, action.index))
-    case "set-caption":
-      return commit(history, setCaption(edit, action.span, action.text))
+    case "add-overlay":
+      return commit(history, addOverlay(edit, action.overlay))
+    case "update-overlay":
+      return commit(history, updateOverlay(edit, action.id, action.patch))
+    case "set-overlay-times":
+      return commit(history, setOverlayTimes(edit, action.id, action.span))
+    case "cut-overlay":
+      return commit(history, {
+        ...edit,
+        overlays: cutOverlay(edit.overlays, action.id, action.at, action.newId),
+      })
+    case "delete-overlay":
+      return commit(history, deleteOverlay(edit, action.id))
   }
 }

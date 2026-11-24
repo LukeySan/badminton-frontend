@@ -1,5 +1,5 @@
 /// <reference types="bun" />
-// Edit list v5: a flat list of clips in playback order. The operations the editor's
+// Edit list v6: a flat list of clips in playback order, overlays in reel time. The operations the editor's
 // reducer runs, and undo / redo. Run: `bun run test:unit`.
 
 import { describe, expect, test } from "bun:test"
@@ -22,7 +22,6 @@ import {
   rallyOver,
   reelLength,
   relabel,
-  setCaption,
   setClipBounds,
   unpickRally,
 } from "./reelEdit"
@@ -58,10 +57,10 @@ const spans = (edit: Edit) =>
 describe("normalizeEdit", () => {
   test("fills in the defaults", () => {
     expect(normalizeEdit(undefined)).toEqual({
-      version: 5,
+      version: 6,
       format: "16:9",
       segments: [],
-      captions: [],
+      overlays: [],
     })
     expect(
       normalizeEdit({ segments: [{ id: "s1", start: 1, end: 2 }] }).segments,
@@ -178,16 +177,6 @@ describe("editing clips", () => {
     expect(reelLength(reel(clip("a", 0, 2), clip("b", 5, 6, null, true)))).toBe(
       4,
     )
-  })
-
-  test("captions are in source time and replace what's under the clip", () => {
-    const edit = setCaption(
-      reel(clip("a", 10, 20)),
-      { start: 10, end: 20 },
-      "Wow",
-    )
-    expect(edit.captions).toEqual([{ start: 10, end: 20, text: "Wow" }])
-    expect(setCaption(edit, { start: 12, end: 14 }, "").captions).toEqual([])
   })
 
   test("new ids never repeat one in the reel", () => {

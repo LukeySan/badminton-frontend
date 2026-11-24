@@ -23,7 +23,7 @@ export function usePlayerKeys(keys: Record<string, () => void>) {
       const target = event.target as HTMLElement
       if (
         target.closest(
-          "input, textarea, select, [contenteditable='true'], [role='combobox'], [role='listbox'], [role='menu'], [role='dialog']:not([data-player-fullscreen])",
+          "input, textarea, select, [contenteditable]:not([contenteditable='false']), [role='combobox'], [role='listbox'], [role='menu'], [role='dialog']:not([data-player-fullscreen])",
         )
       )
         return

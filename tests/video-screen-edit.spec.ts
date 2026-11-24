@@ -1,7 +1,8 @@
-import { expect, type Locator, type Page, test } from "@playwright/test"
+import { expect, type Page, test } from "@playwright/test"
 
 import { createUser } from "./utils/privateApi"
 import { randomEmail, randomPassword } from "./utils/random"
+import { center, drag, type Point, tapOn, touch } from "./utils/touch"
 import { logInUser } from "./utils/user"
 import {
   apiToken,
@@ -73,7 +74,7 @@ async function setUp(
     { id: "c5", start: 5.8, end: 9.6, rally_id: ids[4] },
     { id: "c7", start: 9.6, end: 12, rally_id: ids[6] },
   ]
-  await createReel(token, videoId, { version: 5, segments })
+  await createReel(token, videoId, { version: 6, segments })
   await logInUser(page, email, password)
   // The rallies too (edges snap to them, the drag label measures from them)
   const ralliesLoaded = page.waitForResponse(
@@ -114,72 +115,6 @@ async function expectSaved(
 
 // --- Synthetic touch -----------------------------------------------------------------
 
-type Point = { x: number; y: number }
-async function center(locator: Locator): Promise<Point> {
-  const box = await locator.boundingBox()
-  if (!box) throw new Error("Not visible")
-  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
-}
-/** Pointer events of a finger (pointerType "touch") on whatever is under it. */
-async function touch(
-  page: Page,
-  type: "pointerdown" | "pointermove" | "pointerup",
-  points: (Point & { id: number })[],
-  target?: Locator,
-) {
-  const handle = target ? await target.elementHandle() : null
-  await page.evaluate(
-    ({ type, points, hasTarget, el }) => {
-      for (const p of points) {
-        const element =
-          hasTarget && el ? el : document.elementFromPoint(p.x, p.y)
-        element?.dispatchEvent(
-          new PointerEvent(type, {
-            bubbles: true,
-            cancelable: true,
-            composed: true,
-            pointerId: p.id,
-            pointerType: "touch",
-            isPrimary: p.id === 1,
-            clientX: p.x,
-            clientY: p.y,
-            button: type === "pointermove" ? -1 : 0,
-            buttons: type === "pointerup" ? 0 : 1,
-          }),
-        )
-      }
-    },
-    { type, points, hasTarget: Boolean(handle), el: handle },
-  )
-}
-/**
- * A tap where the element is. Not `locator.tap()` / `click()` for things on the
- * timeline: Playwright scrolls them into view first (WebKit even when visible), and
- * scrolling the timeline is moving the playhead.
- */
-async function tapOn(page: Page, target: Locator) {
-  const { x, y } = await center(target)
-  await page.touchscreen.tap(x, y)
-}
-/** A finger down on `target`, moved `dx` px in steps, then up. */
-async function drag(page: Page, target: Locator, dx: number, steps = 8) {
-  const start = await center(target)
-  await touch(page, "pointerdown", [{ id: 1, ...start }], target)
-  for (let i = 1; i <= steps; i++)
-    await touch(
-      page,
-      "pointermove",
-      [{ id: 1, x: start.x + (dx * i) / steps, y: start.y }],
-      target,
-    )
-  await touch(
-    page,
-    "pointerup",
-    [{ id: 1, x: start.x + dx, y: start.y }],
-    target,
-  )
-}
-/** Two fingers on the timeline, spread from 60 px apart to 60 × scale. */
 async function pinch(page: Page, scale: number, at?: Point) {
   const c = at ?? (await center(timeline(page)))
   const fingers = (gap: number) => [

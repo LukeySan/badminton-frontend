@@ -210,3 +210,132 @@ export function dragEdge({
       snapped !== undefined && end === round1(snapped) ? snapped : undefined,
   }
 }
+
+// --- Overlays on the timeline (reel time) -----------------------------------------------
+
+/** Shortest overlay (the backend's MIN_OVERLAY_SECONDS). */
+const MIN_OVERLAY = 0.3
+
+/** Where clips meet (and the reel's start and end): an overlay's edges snap there. */
+export function clipBoundaries(placed: PlacedClip[]): number[] {
+  return [0, ...placed.map((item) => item.reel.end)]
+}
+
+/** Reel time → x on the track, for overlay bars: their edges in reel time. */
+export function overlayBar(placed: PlacedClip[], span: Span) {
+  const x = xAtReelTime(placed, span.start)
+  return { x, w: Math.max(MIN_CLIP_WIDTH, xAtReelTime(placed, span.end) - x) }
+}
+
+/**
+ * Overlays that overlap in time go in separate lanes (rows) so none hides another:
+ * each takes the first lane where it fits, in list order.
+ */
+export function overlayLanes(spans: Span[]): number[] {
+  const lanes: Span[][] = []
+  return spans.map((span) => {
+    let lane = lanes.findIndex((taken) =>
+      taken.every(
+        (o) => o.end <= span.start + 1e-9 || o.start >= span.end - 1e-9,
+      ),
+    )
+    if (lane < 0) lane = lanes.push([]) - 1
+    lanes[lane].push(span)
+    return lane
+  })
+}
+
+/** The snap point within SNAP_PX of x, if any (the nearest). */
+function snapAt(placed: PlacedClip[], x: number, snaps: number[]) {
+  let snapped: number | undefined
+  let best = SNAP_PX
+  for (const point of snaps) {
+    const distance = Math.abs(xAtReelTime(placed, point) - x)
+    if (distance <= best) {
+      best = distance
+      snapped = point
+    }
+  }
+  return snapped
+}
+
+const reelTimeAtX = (placed: PlacedClip[], x: number) =>
+  atX(placed, x)?.reelTime ?? 0
+
+/**
+ * An overlay's span after dragging one edge `dx` pixels: snaps to a clip boundary
+ * within SNAP_PX, else to 0.1 s; inside the reel, at least MIN_OVERLAY long.
+ */
+export function dragOverlayEdge({
+  placed,
+  origin,
+  edge,
+  dx,
+  length,
+}: {
+  placed: PlacedClip[]
+  origin: Span
+  edge: "start" | "end"
+  dx: number
+  /** The reel's length (seconds). */
+  length: number
+}): { span: Span; snapped: number | undefined } {
+  const x = xAtReelTime(placed, origin[edge]) + dx
+  const snapped = snapAt(placed, x, clipBoundaries(placed))
+  const t = round1(snapped ?? reelTimeAtX(placed, x))
+  const limit = round1(length)
+  if (edge === "start") {
+    const start = Math.max(0, Math.min(t, round1(origin.end - MIN_OVERLAY)))
+    return {
+      span: { start, end: origin.end },
+      snapped:
+        snapped !== undefined && start === round1(snapped)
+          ? snapped
+          : undefined,
+    }
+  }
+  const end = Math.min(limit, Math.max(t, round1(origin.start + MIN_OVERLAY)))
+  return {
+    span: { start: origin.start, end },
+    snapped:
+      snapped !== undefined && end === round1(snapped) ? snapped : undefined,
+  }
+}
+
+/**
+ * An overlay's span after holding and dragging it `dx` pixels: the same length,
+ * its start or end snapped to a clip boundary within SNAP_PX (else 0.1 s steps),
+ * inside the reel.
+ */
+export function dragOverlayMove({
+  placed,
+  origin,
+  dx,
+  length,
+}: {
+  placed: PlacedClip[]
+  origin: Span
+  dx: number
+  length: number
+}): { span: Span; snapped: number | undefined } {
+  const duration = round1(origin.end - origin.start)
+  const raw = reelTimeAtX(placed, xAtReelTime(placed, origin.start) + dx)
+  const latest = Math.max(0, round1(length - duration))
+  const snaps = clipBoundaries(placed)
+  const fromStart = snapAt(placed, xAtReelTime(placed, raw), snaps)
+  const fromEnd = snapAt(placed, xAtReelTime(placed, raw + duration), snaps)
+  let start = round1(raw)
+  let snapped: number | undefined
+  if (fromStart !== undefined) {
+    start = round1(fromStart)
+    snapped = fromStart
+  } else if (fromEnd !== undefined) {
+    start = round1(fromEnd - duration)
+    snapped = fromEnd
+  }
+  const clamped = Math.min(latest, Math.max(0, start))
+  return {
+    span: { start: clamped, end: round1(clamped + duration) },
+    snapped: clamped === start ? snapped : undefined,
+  }
+}

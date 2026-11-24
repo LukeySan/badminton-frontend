@@ -45,24 +45,6 @@ export type Body_videos_upload_video = {
 };
 
 /**
- * Caption
- */
-export type Caption = {
-    /**
-     * Start
-     */
-    start: number;
-    /**
-     * End
-     */
-    end: number;
-    /**
-     * Text
-     */
-    text: string;
-};
-
-/**
  * CourtUpdate
  */
 export type CourtUpdate = {
@@ -593,16 +575,16 @@ export type ReelCreate = {
  *
  * The edit list, stored as JSON. `version` changes when the format does; an
  * Alembic migration converts stored reels, so the code only knows the current one.
- * v5 (this): a flat list of segments in playback order (Editor v2). v4 and before
- * described a reel as rally clips cut into pieces, with lead-in/out, deleted cuts
- * and restored breaks; migration 8f3a5c2d9e14 turned each into the segments it
- * played.
+ * v6 (this): overlays on the reel's own timeline. v5 had captions in source time
+ * (migration 4c1e7a9b2d60 turned them into text overlays). v4 and before described
+ * a reel as rally clips cut into pieces; migration 8f3a5c2d9e14 turned each into
+ * the segments it played.
  */
 export type ReelEdit = {
     /**
      * Version
      */
-    version?: 5;
+    version?: 6;
     /**
      * Format
      */
@@ -614,11 +596,13 @@ export type ReelEdit = {
      */
     segments?: Array<Segment>;
     /**
-     * Captions
+     * Overlays
      *
-     * Shown while the source time is inside [start, end), in every segment that shows it (seconds in the original video)
+     * Drawn in list order (later ones on top), each while the reel time is inside [start, end). Types: "text". Reserved for later: "score" (same timing, position and size fields; no stored content, it shows the score of the scored match at the source time of the segment underneath).
      */
-    captions?: Array<Caption>;
+    overlays?: Array<{
+        type: 'text';
+    } & TextOverlay>;
 };
 
 /**
@@ -741,6 +725,58 @@ export type Segment = {
      * Label only: the rally this footage shows; null for footage from outside the rallies, and for a rally that was deleted since. Never changes what plays.
      */
     rally_id?: number | null;
+};
+
+/**
+ * TextOverlay
+ *
+ * Text in a rounded box (the app's caption style), centred on (x, y).
+ */
+export type TextOverlay = {
+    /**
+     * Id
+     *
+     * Chosen by the app, unique within the reel; kept as is
+     */
+    id: string;
+    /**
+     * Start
+     *
+     * Seconds of REEL time (the reel's own timeline: segments one after another, slow-mo counted double), stored to 0.1 s
+     */
+    start: number;
+    /**
+     * End
+     *
+     * Reel seconds, at least 0.3 s after start. Clamped to the reel's length when saved
+     */
+    end: number;
+    /**
+     * X
+     *
+     * Centre, as a fraction of the output frame's width
+     */
+    x: number;
+    /**
+     * Y
+     *
+     * Centre, as a fraction of the output frame's height
+     */
+    y: number;
+    /**
+     * Size
+     *
+     * Text height (font size, CSS font-size) as a fraction of the output frame's height
+     */
+    size?: number;
+    /**
+     * Type
+     */
+    type: 'text';
+    /**
+     * Text
+     */
+    text: string;
 };
 
 /**

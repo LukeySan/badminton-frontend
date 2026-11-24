@@ -21,10 +21,22 @@ for _ in $(seq 1 30); do
   sleep 0.5
 done
 
+# Playwright's image plus ffmpeg (the overlay export test reads frames of exported
+# MP4s with it), built once per Playwright version and kept by Docker.
+IMAGE="badminton-playwright-ffmpeg:v$PW_VERSION"
+if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+  echo "Building $IMAGE (Playwright's image + ffmpeg, once)..."
+  docker build -t "$IMAGE" - <<DOCKERFILE
+FROM mcr.microsoft.com/playwright:v$PW_VERSION-noble
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
+DOCKERFILE
+fi
+
 docker run --rm --ipc=host \
   -v "$PWD:/app" -w /app \
   -e PLAYWRIGHT_BASE_URL=http://localhost:5173 -e PW_WEBKIT=1 \
-  "mcr.microsoft.com/playwright:v$PW_VERSION-noble" \
+  "$IMAGE" \
   sh -c 'node scripts/docker-forward.cjs & sleep 1;
          node node_modules/@playwright/test/cli.js test --project=webkit --project=iphone \
            --output=/tmp/pw-results "$@"' -- "$@"

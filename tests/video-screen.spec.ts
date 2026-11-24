@@ -349,7 +349,7 @@ test("Highlights is the player: chapters, stats, previous / next and keys", asyn
 async function reelWithTwoClips(token: string, videoId: string) {
   const rallies = await readRallies(token, videoId)
   await createReel(token, videoId, {
-    version: 5,
+    version: 6,
     segments: [
       { id: "c1", start: 0, end: 2.3, rally_id: rallies[0].id },
       { id: "c5", start: 5.8, end: 9.6, rally_id: rallies[4].id },
@@ -534,7 +534,7 @@ test.describe("Highlights mode", () => {
   test("filters: picked only, and longest first", async ({ page }) => {
     const { token, videoId, rallies } = await setUp(page)
     await createReel(token, videoId, {
-      version: 5,
+      version: 6,
       segments: [rallies[2], rallies[6]].map((r, i) => ({
         id: `c${i + 1}`,
         start: r.start,
@@ -866,7 +866,7 @@ test.describe("Edit mode timeline", () => {
 // --- Edit mode: the tools --------------------------------------------------------------
 
 test.describe("The tools", () => {
-  test("cut at the playhead; slow-mo, Text and Format on one clip", async ({
+  test("cut at the playhead; slow-mo and Format on one clip", async ({
     page,
   }) => {
     const { token, videoId } = await setUp(page)
@@ -890,12 +890,6 @@ test.describe("The tools", () => {
     // Part 2 (2.1 s) plays twice as long: 2.3 + 1.7 + 4.2 = 8.2 s
     await expect(page.getByTestId("reel-time")).toContainText("/ 0:08")
 
-    await tools(page).getByRole("button", { name: "Text" }).click()
-    await page.getByLabel("Caption").fill("What a rally")
-    await page.getByRole("button", { name: "Save" }).click()
-    await expect(page.getByTestId("caption-track")).toContainText(
-      "What a rally",
-    )
     await tools(page).getByRole("button", { name: "Format 16:9" }).click()
     await expect(
       page.getByRole("button", { name: /^Format 9:16/ }).first(),
@@ -912,7 +906,6 @@ test.describe("The tools", () => {
           { start: 5.8, end: 7.5, slow_mo: false },
           { start: 7.5, end: 9.6, slow_mo: true },
         ],
-        captions: [{ start: 7.5, end: 9.6, text: "What a rally" }],
       })
 
     // Delete takes just that clip out; undo puts it back

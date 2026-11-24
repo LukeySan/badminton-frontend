@@ -59,7 +59,7 @@ export async function deleteVideo(token: string, id: string) {
   })
 }
 
-/** A clip of a reel (edit list v5: the API's Segment). */
+/** A clip of a reel (edit list v6: the API's Segment). */
 export type TestClip = {
   id: string
   start: number
@@ -68,15 +68,27 @@ export type TestClip = {
   rally_id?: number | null
 }
 
+/** A text overlay (edit list v6): reel seconds, centre and size as fractions. */
+export type TestOverlay = {
+  id: string
+  type: "text"
+  start: number
+  end: number
+  x: number
+  y: number
+  size: number
+  text: string
+}
+
 export type TestReel = {
   id: string
   title: string
   updated_at: string
   edit: {
-    version: 5
+    version: 6
     format: string
     segments: (TestClip & { slow_mo: boolean; rally_id: number | null })[]
-    captions: { start: number; end: number; text: string }[]
+    overlays: TestOverlay[]
   }
 }
 
@@ -252,4 +264,34 @@ export async function renderExport(exportId: string) {
     method: "POST",
   })
   if (!response.ok) throw new Error(`Render failed: ${response.status}`)
+}
+
+/** POST /videos/{id}/reel/exports (the saved reel, 720p): the new export's id. */
+export async function startExport(token: string, videoId: string) {
+  const response = await fetch(`${API}/videos/${videoId}/reel/exports`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({}),
+  })
+  if (!response.ok) throw new Error(`Export failed: ${response.status}`)
+  return ((await response.json()) as { id: string }).id
+}
+
+/** A finished export's MP4, saved to `file`. */
+export async function downloadExport(
+  token: string,
+  exportId: string,
+  file: string,
+) {
+  const response = await fetch(`${API}/exports/${exportId}/download`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) throw new Error(`Download link failed: ${response.status}`)
+  const { url } = (await response.json()) as { url: string }
+  const video = await fetch(`${process.env.VITE_API_URL}${url}`)
+  if (!video.ok) throw new Error(`Download failed: ${video.status}`)
+  fs.writeFileSync(file, Buffer.from(await video.arrayBuffer()))
 }

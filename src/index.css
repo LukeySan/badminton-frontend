@@ -3,6 +3,23 @@
 /* Bundled with the app (works offline in the future iOS app), not from Google Fonts */
 @import "@fontsource-variable/manrope";
 
+/* Overlays on the video (Edit: text on the reel) use the export's own font files
+   (backend worker/fonts, OFL; licenses next to them), so the preview wraps and sizes
+   text exactly like the exported MP4: Manrope ExtraBold, then Noto Sans Thai
+   ExtraBold for Thai (Manrope has none). Loaded only when an overlay is drawn. */
+@font-face {
+  font-family: "Overlay Manrope";
+  src: url("./assets/fonts/Manrope-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-display: block;
+}
+@font-face {
+  font-family: "Overlay Thai";
+  src: url("./assets/fonts/NotoSansThai-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-display: block;
+}
+
 /* Theme values come from DESIGN.md — change them there first, then here. */
 
 /* `.light` lets a part of the page force the light theme (used by /styleguide to
@@ -26,6 +43,7 @@
 
 @theme inline {
   --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-overlay: "Overlay Manrope", "Overlay Thai", sans-serif;
 
   /* --radius is 14px: sm 10, md 12 (buttons), lg 14, xl 18 (cards) */
   --radius-sm: calc(var(--radius) - 4px);

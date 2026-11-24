@@ -2,9 +2,10 @@
 // Where text overlays may wrap, shared with the backend: the export draws overlays
 // with Pillow and wraps them with ICU's line breaking (PyICU), the preview lets the
 // browser wrap them with CSS (also ICU: dictionary word breaks for Thai, which has
-// no spaces). This test derives the breaks from Intl.Segmenter and checks them
-// against tests/fixtures/line-breaks/thai.json; the backend checks the same file
-// (its copy: backend/tests/fixtures/line_breaks/thai.json) against PyICU.
+// no spaces), with a <wbr> at each Thai word boundary from `linePieces` (overlays.ts,
+// Intl.Segmenter). This test checks those pieces against
+// tests/fixtures/line-breaks/thai.json; the backend checks the same file (its copy:
+// backend/tests/fixtures/line_breaks/thai.json) against PyICU.
 //
 // Run: `bun run test:unit`. After changing the cases below, rewrite the fixture
 // with `UPDATE_LINE_BREAKS=1 bun test src/components/Reels/lineBreaks` and copy it
@@ -13,6 +14,7 @@
 import { expect, test } from "bun:test"
 import { readFileSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
+import { linePieces as pieces } from "./overlays"
 
 const FIXTURE = join(
   import.meta.dir,
@@ -33,20 +35,7 @@ const CASES: [string, string, number][] = [
   ["80-characters", "ลูกนี้สุดยอดมาก".repeat(5), 20],
 ]
 
-const words = new Intl.Segmenter("th", { granularity: "word" })
 const graphemes = new Intl.Segmenter("th", { granularity: "grapheme" })
-
-/** Where a line may break: after each word, with the spaces and punctuation
- * that follow it (a line never starts with them). For Thai, words come from
- * ICU's dictionary, the same one browsers use for CSS line breaking. */
-function pieces(text: string): string[] {
-  const out: string[] = []
-  for (const s of words.segment(text)) {
-    if (!s.isWordLike && out.length) out[out.length - 1] += s.segment
-    else out.push(s.segment)
-  }
-  return out
-}
 
 /** Width without fonts: characters that take space (combining marks, \p{Mn},
  * such as Thai vowels above/below and tone marks, don't). */

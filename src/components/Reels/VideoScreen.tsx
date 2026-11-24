@@ -78,10 +78,21 @@ import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 import { AddFootageSheet } from "./AddFootageSheet"
 import { clipMaybes, type Edge, EditPanel } from "./EditPanel"
-import { EditTools } from "./EditTools"
+import { EditTools, OverlayTools } from "./EditTools"
 import { EmptyReel } from "./EmptyReel"
 import { ExportSheet } from "./ExportSheet"
 import { type FixKind, HighlightsPanel } from "./HighlightsPanel"
+import { OverlayLayer } from "./OverlayLayer"
+import {
+  canCutOverlay,
+  cleanText,
+  fitOverlaySpan,
+  isActive,
+  MAX_OVERLAYS,
+  newOverlayId,
+  newTextOverlay,
+  type Overlay,
+} from "./overlays"
 import {
   type FixRequest,
   type FixValues,
@@ -100,7 +111,6 @@ import {
   canCut,
   canRedo,
   canUndo,
-  captionOf,
   type Edit,
   editReducer,
   fitBounds,
@@ -191,10 +201,13 @@ export function VideoScreen({
     onReload,
   })
 
-  // A 9:16 reel shows the middle of the (landscape) footage, as it will be cut.
+  // A 9:16 reel shows the middle of the (landscape) footage, as it will be cut. Edit
+  // shows the output frame (16:9 letterboxes footage of another shape, like the
+  // export), so overlays sit where the export puts them.
   const videoAspect =
     video.width && video.height ? video.width / video.height : 16 / 9
-  const frameAspect = edit.format === "9:16" ? 9 / 16 : videoAspect
+  const frameAspect =
+    edit.format === "9:16" ? 9 / 16 : mode === "edit" ? 16 / 9 : videoAspect
 
   const [skipBreaks, setSkipBreaks] = useState(false)
   const player = useVideoPlayer(video, {
@@ -256,6 +269,11 @@ export function VideoScreen({
     setCursor(id)
     lastSource.current = source
     player.seek(source)
+  }
+  /** Edit: put the playhead at a reel time. */
+  const seekReel = (t: number) => {
+    const at = atReelTime(clips, t)
+    if (at) seekClip(clips[at.index].id, at.source)
   }
 
   // Entering Edit (or the first clip arriving): the cursor and the video agree
@@ -350,6 +368,14 @@ export function VideoScreen({
     window.clearTimeout(previewSeek.current.timer)
     previewSeek.current = { last: 0 }
   }
+  /** While an overlay's edge or bar moves: the playhead follows it (throttled). */
+  const previewReel = (t: number) => {
+    const at = atReelTime(clips, t)
+    if (!at) return
+    if (clips[at.index].id !== cursorRef.current) setCursor(clips[at.index].id)
+    lastSource.current = at.source
+    preview(at.source)
+  }
 
   // --- Previous / next -----------------------------------------------------------------
   const playSegment = (segment: Segment | undefined) => {
@@ -398,9 +424,37 @@ export function VideoScreen({
     }))
   }, [clips, maybes])
 
-  // What's on screen now: a slow-mo clip (Edit plays it slowly) and the caption.
+  // What's on screen now: a slow-mo clip (Edit plays it slowly).
   const playingSlow = mode === "edit" && Boolean(cursorClip?.slow_mo)
-  const caption = edit.captions.find((c) => time >= c.start && time < c.end)
+
+  // --- Overlays (Edit): on the reel's timeline, drawn on the video -----------------
+  // One can be selected (its tools replace the clip tools; selecting a clip brings
+  // those back) and one typed into: a double-tapped one, or a new one (`draft`, not in
+  // the edit list until it has text, so adding is one undo step).
+  const [overlayId, setOverlayId] = useState<string | undefined>()
+  const [typing, setTyping] = useState<{ id: string; draft?: Overlay }>()
+  const selectedOverlay =
+    edit.overlays.find((o) => o.id === overlayId) ??
+    (typing?.draft?.id === overlayId ? typing?.draft : undefined)
+  // Undone, deleted, or another mode: nothing selected
+  useEffect(() => {
+    if (overlayId && !selectedOverlay) setOverlayId(undefined)
+  }, [overlayId, selectedOverlay])
+  useEffect(() => {
+    if (mode !== "edit") {
+      setOverlayId(undefined)
+      setTyping(undefined)
+    }
+  }, [mode])
+  const shownOverlays =
+    mode === "edit"
+      ? [
+          ...edit.overlays.filter(
+            (o) => isActive(o, reelTime) || o.id === typing?.id,
+          ),
+          ...(typing?.draft ? [typing.draft] : []),
+        ]
+      : []
 
   // --- Rally fixes ---------------------------------------------------------------------
   const [fixBusy, setFixBusy] = useState(false)
@@ -642,6 +696,100 @@ export function VideoScreen({
     seekClip(clip.id, clip.start)
   }
 
+  // --- Overlay tools ----------------------------------------------------------------
+  /** Inside an overlay: a little after its start (seeks can land a frame early). */
+  const insideOf = (o: Span) => o.start + Math.min(0.1, (o.end - o.start) / 2)
+  const selectOverlay = (id: string | undefined) => {
+    setOverlayId(id)
+    const overlay = edit.overlays.find((o) => o.id === id)
+    // A bar tapped away from the playhead: go to it, so it shows on the video
+    if (overlay && !isActive(overlay, reelTime)) seekReel(insideOf(overlay))
+  }
+  const onAddText = () => {
+    if (edit.overlays.length >= MAX_OVERLAYS || clips.length === 0) return
+    player.pause()
+    const draft = newTextOverlay({
+      id: newOverlayId(edit.overlays),
+      at: reelTime,
+      length: reelSeconds,
+      text: "",
+    })
+    setOverlayId(draft.id)
+    setTyping({ id: draft.id, draft })
+  }
+  const startTyping = (id: string) => {
+    const overlay = edit.overlays.find((o) => o.id === id)
+    if (overlay?.type !== "text") return
+    player.pause()
+    setOverlayId(id)
+    setTyping({ id })
+  }
+  const finishTyping = (id: string, text: string | null) => {
+    const current = typing
+    if (!current || current.id !== id) return
+    setTyping(undefined)
+    const clean = text === null ? "" : cleanText(text)
+    if (current.draft) {
+      // A new text exists once it has some: one undo step
+      if (clean)
+        dispatch({
+          type: "add-overlay",
+          overlay: { ...current.draft, text: clean },
+        })
+      else setOverlayId(undefined)
+      return
+    }
+    const overlay = edit.overlays.find((o) => o.id === id)
+    if (overlay?.type === "text" && clean && clean !== overlay.text)
+      dispatch({ type: "update-overlay", id, patch: { text: clean } })
+  }
+  /** Ends typing the way a tap elsewhere would (blur keeps the text). */
+  const stopTyping = () => {
+    const active = document.activeElement
+    if (active instanceof HTMLElement && active.isContentEditable) active.blur()
+  }
+  const onCutOverlay = () => {
+    if (!selectedOverlay || !canCutOverlay(selectedOverlay, reelTime)) return
+    const newId = newOverlayId(edit.overlays)
+    dispatch({
+      type: "cut-overlay",
+      id: selectedOverlay.id,
+      at: reelTime,
+      newId,
+    })
+    setOverlayId(newId)
+  }
+  const onDeleteOverlay = () => {
+    if (!selectedOverlay) return
+    if (typing?.draft) {
+      setTyping(undefined)
+      setOverlayId(undefined)
+      return
+    }
+    setTyping(undefined)
+    dispatch({ type: "delete-overlay", id: selectedOverlay.id })
+    setOverlayId(undefined)
+  }
+  const onSetOverlayTimes = (
+    id: string,
+    span: Span,
+    how: "start" | "end" | "move",
+  ) => {
+    stopPreview()
+    dispatch({ type: "set-overlay-times", id, span })
+    // The playhead on what moved, inside the overlay (so it shows)
+    const fitted = fitOverlaySpan(
+      span,
+      reelSeconds,
+      how === "start" ? "end" : "start",
+    )
+    seekReel(
+      how === "end"
+        ? fitted.end - Math.min(0.1, (fitted.end - fitted.start) / 2)
+        : insideOf(fitted),
+    )
+  }
+
   const pickRally = (rally: RallyPublic) =>
     dispatch({ type: "pick-rally", rally, duration })
   // Quick starts (Edit with nothing picked): one undo step each
@@ -744,15 +892,24 @@ export function VideoScreen({
                   Slow-mo
                 </span>
               )}
-              {caption && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-[46px] flex justify-center px-4">
-                  <span
-                    data-testid="caption"
-                    className="rounded-[8px] bg-court-ink/75 px-2.5 py-1 text-center text-sm font-extrabold text-court-foreground"
-                  >
-                    {caption.text}
-                  </span>
-                </div>
+              {mode === "edit" && (
+                <OverlayLayer
+                  overlays={shownOverlays}
+                  format={edit.format}
+                  selectedId={overlayId}
+                  editingId={typing?.id}
+                  interactive={!inFullscreen}
+                  onSelect={(id) => {
+                    if (typing && id !== typing.id) stopTyping()
+                    setOverlayId(id)
+                  }}
+                  onChange={(id, patch) =>
+                    dispatch({ type: "update-overlay", id, patch })
+                  }
+                  onGestureStart={player.pause}
+                  onStartEdit={startTyping}
+                  onFinishEdit={finishTyping}
+                />
               )}
             </>
           }
@@ -1065,7 +1222,10 @@ export function VideoScreen({
           rallies={rallyList}
           duration={duration}
           reelTime={reelTime}
-          selectedId={cursorClip?.id}
+          // An overlay selected: its handles, not the clip's
+          selectedId={overlayId ? undefined : cursorClip?.id}
+          selectedOverlayId={overlayId}
+          atOverlayLimit={edit.overlays.length >= MAX_OVERLAYS}
           thumbs={thumbs}
           callbacks={{
             onScrubStart: player.pause,
@@ -1073,7 +1233,12 @@ export function VideoScreen({
               const clip = clips[index]
               if (clip) seekClip(clip.id, source)
             },
-            onSelect: seekClip,
+            // A clip tapped: the clip tools again
+            onSelect: (id, source) => {
+              if (typing) stopTyping()
+              setOverlayId(undefined)
+              seekClip(id, source)
+            },
             onEdgeDragStart: player.pause,
             onPreview: preview,
             onSetBounds,
@@ -1082,34 +1247,54 @@ export function VideoScreen({
             onMoveStart: player.pause,
             // Dropped (or not): that clip is selected, the playhead at its start
             onMoveEnd: (id) => {
+              setOverlayId(undefined)
               const moved = clips.find((clip) => clip.id === id)
               if (moved) seekClip(moved.id, moved.start)
             },
+            onSelectOverlay: (id) => {
+              if (typing && typing.id !== id) stopTyping()
+              selectOverlay(id)
+            },
+            onOverlayDragStart: player.pause,
+            onOverlayPreview: previewReel,
+            onSetOverlayTimes,
           }}
         >
-          <EditTools
-            format={edit.format}
-            clip={cursorClip}
-            name={`clip ${cursorIndex + 1}`}
-            canCut={canCut(cursorClip, time)}
-            caption={cursorClip ? captionOf(edit, cursorClip)?.text : undefined}
-            onCut={onCut}
-            onDelete={onDelete}
-            onToggleSlowMo={() =>
-              cursorClip &&
-              dispatch({ type: "toggle-slow-mo", id: cursorClip.id })
-            }
-            onSetCaption={(text) =>
-              cursorClip &&
-              dispatch({ type: "set-caption", span: cursorClip, text })
-            }
-            onToggleFormat={() =>
-              dispatch({
-                type: "set-format",
-                format: edit.format === "16:9" ? "9:16" : "16:9",
-              })
-            }
-          />
+          {selectedOverlay ? (
+            <OverlayTools
+              canCut={!typing && canCutOverlay(selectedOverlay, reelTime)}
+              onEditText={() =>
+                typing ? undefined : startTyping(selectedOverlay.id)
+              }
+              onCut={onCutOverlay}
+              onDelete={onDeleteOverlay}
+              onDone={() => {
+                if (typing) stopTyping()
+                setOverlayId(undefined)
+              }}
+            />
+          ) : (
+            <EditTools
+              format={edit.format}
+              clip={cursorClip}
+              name={`clip ${cursorIndex + 1}`}
+              canCut={canCut(cursorClip, time)}
+              canAddText={edit.overlays.length < MAX_OVERLAYS}
+              onCut={onCut}
+              onDelete={onDelete}
+              onToggleSlowMo={() =>
+                cursorClip &&
+                dispatch({ type: "toggle-slow-mo", id: cursorClip.id })
+              }
+              onAddText={onAddText}
+              onToggleFormat={() =>
+                dispatch({
+                  type: "set-format",
+                  format: edit.format === "16:9" ? "9:16" : "16:9",
+                })
+              }
+            />
+          )}
         </EditPanel>
       )}
 
@@ -1394,7 +1579,12 @@ function useUndoKeys({
     const onKeyDown = (event: KeyboardEvent) => {
       if (!(event.metaKey || event.ctrlKey) || event.altKey) return
       const target = event.target as HTMLElement
-      if (target.closest("input, textarea, [contenteditable='true']")) return
+      if (
+        target.closest(
+          "input, textarea, [contenteditable]:not([contenteditable='false'])",
+        )
+      )
+        return
       if (target.closest("[role='dialog']")) return
       const key = event.key.toLowerCase()
       if (key === "z") {
