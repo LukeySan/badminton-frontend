@@ -8,7 +8,7 @@ interface AuthLayoutProps {
 
 export function AuthLayout({ children }: AuthLayoutProps) {
   return (
-    <div className="grid min-h-svh lg:grid-cols-2">
+    <div className="grid min-h-page lg:grid-cols-2">
       <div className="bg-muted relative hidden lg:flex lg:items-center lg:justify-center">
         <Logo variant="full" className="scale-150" asLink={false} />
       </div>

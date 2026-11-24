@@ -1,36 +1,36 @@
-import { RectangleVertical, Scissors, Timer, Trash2, Type } from "lucide-react"
-import { type ReactNode, useState } from "react"
-
-import { Button } from "@/components/ui/button"
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+  Check,
+  PencilLine,
+  RectangleVertical,
+  Scissors,
+  Timer,
+  Trash2,
+  Type,
+} from "lucide-react"
+import type { ReactNode } from "react"
+
 import { cn } from "@/lib/utils"
-import { CAPTION_MAX, type Clip, type ReelFormat } from "./reelEdit"
+import type { Clip, ReelFormat } from "./reelEdit"
 
 /**
  * The tool row under the timeline, pinned to the bottom of the screen. Every change
  * is a callback that goes through the reducer. (Moving a clip is on the timeline:
  * press and hold it.)
+ *
+ * Two sets: the clip tools (Cut, Delete, Slow-mo, Text, Format), and while an overlay
+ * is selected its own (Edit text, Cut, Delete, Done). Selecting a clip brings the
+ * clip tools back.
  */
 export function EditTools({
   format,
   clip,
   name,
   canCut,
-  caption,
+  canAddText,
   onCut,
   onDelete,
   onToggleSlowMo,
-  onSetCaption,
+  onAddText,
   onToggleFormat,
 }: {
   format: ReelFormat
@@ -40,72 +40,104 @@ export function EditTools({
   name: string
   /** The playhead is inside the selected clip, at least 0.3 s from its edges. */
   canCut: boolean
-  caption: string | undefined
+  /** Below the reel's overlay limit (the hint above says why not). */
+  canAddText: boolean
   onCut: () => void
   onDelete: () => void
   onToggleSlowMo: () => void
-  onSetCaption: (text: string) => void
+  /** Text: a new text overlay at the playhead, typed into right away. */
+  onAddText: () => void
   onToggleFormat: () => void
 }) {
-  const [captionOpen, setCaptionOpen] = useState(false)
   const hasClip = clip !== undefined
-
   return (
-    <>
-      <div
-        role="toolbar"
-        aria-label="Edit tools"
-        // Pinned to the bottom of the screen (EditPanel's timeline takes the space above)
-        className="flex shrink-0 gap-2 overflow-x-auto border-t border-track px-3 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom))] [scrollbar-width:none] md:px-0 [&::-webkit-scrollbar]:hidden"
-      >
-        <Tool
-          label="Cut"
-          ariaLabel={hasClip ? `Cut ${name} at the playhead` : "Cut"}
-          icon={<Scissors />}
-          primary
-          disabled={!canCut}
-          onClick={onCut}
-        />
-        <Tool
-          label="Delete"
-          ariaLabel={hasClip ? `Delete ${name}` : "Delete"}
-          icon={<Trash2 />}
-          disabled={!hasClip}
-          onClick={onDelete}
-        />
-        <Tool
-          label="Slow-mo"
-          icon={<Timer />}
-          active={Boolean(clip?.slow_mo)}
-          disabled={!hasClip}
-          onClick={onToggleSlowMo}
-        />
-        <Tool
-          label="Text"
-          icon={<Type />}
-          active={Boolean(caption)}
-          disabled={!hasClip}
-          onClick={() => setCaptionOpen(true)}
-        />
-        <Tool
-          label={format}
-          ariaLabel={`Format ${format}`}
-          icon={<RectangleVertical />}
-          onClick={onToggleFormat}
-        />
-      </div>
+    <ToolRow label="Edit tools">
+      <Tool
+        label="Cut"
+        ariaLabel={hasClip ? `Cut ${name} at the playhead` : "Cut"}
+        icon={<Scissors />}
+        primary
+        disabled={!canCut}
+        onClick={onCut}
+      />
+      <Tool
+        label="Delete"
+        ariaLabel={hasClip ? `Delete ${name}` : "Delete"}
+        icon={<Trash2 />}
+        disabled={!hasClip}
+        onClick={onDelete}
+      />
+      <Tool
+        label="Slow-mo"
+        icon={<Timer />}
+        active={Boolean(clip?.slow_mo)}
+        disabled={!hasClip}
+        onClick={onToggleSlowMo}
+      />
+      <Tool
+        label="Text"
+        ariaLabel="Add text at the playhead"
+        icon={<Type />}
+        disabled={!canAddText}
+        onClick={onAddText}
+      />
+      <Tool
+        label={format}
+        ariaLabel={`Format ${format}`}
+        icon={<RectangleVertical />}
+        onClick={onToggleFormat}
+      />
+    </ToolRow>
+  )
+}
 
-      {hasClip && (
-        <CaptionDialog
-          key={`${clip.id}-${captionOpen}`}
-          open={captionOpen}
-          onOpenChange={setCaptionOpen}
-          name={name}
-          initial={caption ?? ""}
-          onSave={onSetCaption}
-        />
-      )}
-    </>
+/** The tools for the selected overlay (a text). */
+export function OverlayTools({
+  canCut,
+  onEditText,
+  onCut,
+  onDelete,
+  onDone,
+}: {
+  /** The playhead is inside the overlay, at least 0.3 s from its start and end. */
+  canCut: boolean
+  onEditText: () => void
+  onCut: () => void
+  onDelete: () => void
+  onDone: () => void
+}) {
+  return (
+    <ToolRow label="Text tools">
+      <Tool label="Edit text" icon={<PencilLine />} onClick={onEditText} />
+      <Tool
+        label="Cut"
+        ariaLabel="Cut the text at the playhead"
+        icon={<Scissors />}
+        primary
+        disabled={!canCut}
+        onClick={onCut}
+      />
+      <Tool
+        label="Delete"
+        ariaLabel="Delete the text"
+        icon={<Trash2 />}
+        onClick={onDelete}
+      />
+      <Tool label="Done" icon={<Check />} onClick={onDone} />
+    </ToolRow>
+  )
+}
+
+function ToolRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div
+      role="toolbar"
+      aria-label={label}
+      // Pinned to the bottom of the screen (EditPanel's timeline takes the space above)
+      className="flex shrink-0 gap-2 overflow-x-auto border-t border-track px-3 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom))] [scrollbar-width:none] md:px-0 [&::-webkit-scrollbar]:hidden"
+    >
+      {children}
+    </div>
   )
 }
 
@@ -162,80 +194,5 @@ function Tool({
         {label}
       </span>
     </button>
-  )
-}
-
-/** Text tool: one caption per clip, up to 80 characters (empty removes it). */
-function CaptionDialog({
-  open,
-  onOpenChange,
-  name,
-  initial,
-  onSave,
-}: {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  name: string
-  initial: string
-  onSave: (text: string) => void
-}) {
-  const [text, setText] = useState(initial)
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <form
-          onSubmit={(event) => {
-            event.preventDefault()
-            onSave(text)
-            onOpenChange(false)
-          }}
-          className="flex flex-col gap-4"
-        >
-          <DialogHeader>
-            <DialogTitle>Text on {name}</DialogTitle>
-            <DialogDescription>
-              Shown at the bottom of the video while this clip plays.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-2">
-            <Label htmlFor="caption-text">Caption</Label>
-            <Input
-              id="caption-text"
-              value={text}
-              maxLength={CAPTION_MAX}
-              onChange={(event) => setText(event.target.value)}
-              placeholder="Longest rally of the night"
-              autoFocus
-            />
-            <span className="text-right text-xs text-muted-foreground tabular-nums">
-              {text.length}/{CAPTION_MAX}
-            </span>
-          </div>
-          <DialogFooter>
-            {initial && (
-              <Button
-                type="button"
-                variant="outline"
-                size="lg"
-                onClick={() => {
-                  onSave("")
-                  onOpenChange(false)
-                }}
-              >
-                Remove text
-              </Button>
-            )}
-            <DialogClose asChild>
-              <Button type="button" variant="outline" size="lg">
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button type="submit" size="lg">
-              Save
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
   )
 }

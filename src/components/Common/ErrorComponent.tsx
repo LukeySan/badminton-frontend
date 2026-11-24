@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 const ErrorComponent = () => {
   return (
     <div
-      className="flex min-h-screen items-center justify-center flex-col p-4"
+      className="flex min-h-page items-center justify-center flex-col p-4"
       data-testid="error-component"
     >
       <div className="flex items-center z-10">

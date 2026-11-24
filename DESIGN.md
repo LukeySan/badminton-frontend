@@ -8,6 +8,18 @@ They are plain HTML mockups, not React; rebuild them with our shadcn/ui componen
 Their rally data is generated placeholder data (match 5's real totals: 73 rallies,
 21:24 long, 5:09 of play) — use real API data in the app.
 
+**App icon and splash (iOS app, home screen):** the app mark (the bars, `--court-foreground`
+on `--court`) full-bleed as the icon; the splash is the rounded mark centered on the
+dark `--background` (the default theme), up until the first screen is drawn. Drawn by
+`scripts/make-icons.ts` (`bun run icons`). The status bar's text follows the app's theme
+(`lib/native.ts`), hidden in the player's full screen.
+
+**Top safe area (notch, status bar):** in the iOS app and a home-screen web app the page
+runs under the status bar. `body` is padded by `env(safe-area-inset-top)` and a strip of
+`--background` covers that area (z-40: below dialogs, above sticky headers), so pages
+need nothing for it; full-height screens use `h-page` / `min-h-page`. In a browser tab
+it's 0.
+
 ## Rules (read first)
 
 1. **No hard-coded colors, fonts or radii in components or pages.** Use the theme
@@ -109,6 +121,9 @@ uses both to show the themes side by side.
 
 - Font: **Manrope** (install `@fontsource-variable/manrope`, bundled so it works
   offline in the iOS app; set it as the Tailwind `--font-sans`).
+- Text on the video (Edit's overlays) uses `font-overlay`: the export's own font
+  files (Manrope ExtraBold, then Noto Sans Thai ExtraBold for Thai; `src/assets/fonts/`,
+  OFL), so the preview matches the exported MP4. One font, no font picker.
 - Weights: 800 titles/numbers that matter, 700 labels/buttons, 600 secondary, 400-500 body.
 - Sizes: page title 26/800 (tracking -0.01em); section title 15/800; body 14; secondary 12-13;
   badge 11/800; stat numbers 20/800; app name 18/800.
@@ -268,8 +283,8 @@ sideways is wide but short, so it keeps the phone layout.
   for Edit (one prototype in four starting states; the v1 `EditorEdit` /
   `EditorFull` are superseded; since then, decided: no Reorder tool or mode, no
   rally tags on clips, no rally badge in Edit, as described below) and, for the player parts, `player-*.mockup.html`. Phones (portrait):
-  one screen, exactly the viewport (`h-dvh`, never `h-screen`: iOS Safari's toolbar
-  would make it overflow), a flex column that **never scrolls**. The top half
+  one screen, exactly the viewport below the status bar (`h-page` = `100dvh` minus the
+  top safe area; never `h-screen`: iOS Safari's toolbar would make it overflow), a flex column that **never scrolls**. The top half
   (header, video, controls, mode toggle) keeps its size; the mode's panel is `flex-1
   min-h-0` with its last row **pinned to the bottom** (Edit: the tool row; Highlights:
   the bottom bar), padded `calc(1rem + env(safe-area-inset-bottom))`. What's between
@@ -334,7 +349,7 @@ sideways is wide but short, so it keeps the phone layout.
     `secondary` buttons: −1 s, −0.1, ⌖ at the playhead, +0.1, +1 s. The backend's
     refusal (overlaps) shows inline in `text-highlight-text`.
   - **Edit (Editor v2):** the reel is a flat list of clips played in list order
-    (edit list v5): no "Rallies only | Full video", no Lead, no gap markers, cut
+    (edit list v6): no "Rallies only | Full video", no Lead, no gap markers, cut
     stripes or restored breaks, no skip pill on the video. Picking a rally (the
     Highlights check, quick starts) adds a clip of it plus 1 s each side (inside the
     video), in match order relative to the clips already there; unchecking removes
@@ -353,8 +368,14 @@ sideways is wide but short, so it keeps the phone layout.
     at the bottom. **No rally names on clips** (no "R19" tags, here or while moving
     one): a clip is footage, its edges can go anywhere. Maybe rallies as
     below. After the last clip a 48×72 **+** tile (1.5px dashed
-    `border-muted-foreground/60`, 8px radius): Add footage. Caption bars "Aa …"
-    (`bg-secondary`) under their clips.
+    `border-muted-foreground/60`, 8px radius): Add footage.
+  - **Overlay track** under the clips, in reel time: a 28px bar per text (`bg-secondary`,
+    6px radius, "Aa" 11/800 then the start of the text 11/700), lanes 32px apart when
+    texts overlap in time. Selected: 2px pink inset ring and 12px `bg-highlight` edge
+    tabs with a 3×14 grip (44px targets); while an edge or the bar moves, a pink label
+    above it says the time ("0:03.2", "0:01.0 – 0:03.0"). Edges snap to 0.1 s and to
+    where clips meet (10px); hold 250 ms and drag to move it in time (it lifts 4px with
+    a shadow). Tapping a bar selects its text and puts the playhead in it.
   - Selection: the clip under the playhead is selected (a tap selects a clip and
     puts the playhead where you tapped): a 3px pink inset ring over its frames and
     two **edge handles**: 16px `bg-highlight` tabs with a 3×22 `bg-highlight-foreground`
@@ -407,10 +428,29 @@ sideways is wide but short, so it keeps the phone layout.
     inset ring, which only shows in light, on the mint page; it splits the selected
     clip at the playhead, off within 0.3 s of its edges: the tile stays mint and only
     its icon and label fade to 40%, never a grey tile), Delete, Slow-mo (per clip),
-    Text (caption dialog, 80 characters), Format. Others `bg-card`; active =
+    Text (a new text at the playhead, typed on the video), Format. With a text
+    selected the row is **Edit text, Cut** (primary; splits the text at the
+    playhead), **Delete, Done**; tapping a clip brings the clip tools back. At 20
+    texts Text is off and the hint says why. Others `bg-card`; active =
     `bg-success-soft text-success-text` with a 1.5px `--chapter` ring. On the video:
-    "Slow-mo" tag top-right while a slow clip plays, and the caption bottom center
-    (`bg-court-ink/75`). Every change (a drag, a drop, an add) is one undo step.
+    "Slow-mo" tag top-right while a slow clip plays. Every change (a drag, a drop,
+    an add, a resize, a text edit) is one undo step.
+  - **Text on the video (overlays):** Edit shows the output frame (16:9, or 9:16 cut
+    from the middle) and the texts on screen at the playhead, drawn exactly as the
+    export draws them: `font-overlay` (the export's Manrope ExtraBold + Noto Sans
+    Thai ExtraBold files), `text-court-foreground` on `bg-court-ink/75`, padding
+    0.7 / 0.3 em, corners 0.5 em, centred lines, font size = size × the frame's
+    height (0.03-0.15, new texts 0.06), kept 3% of the frame's shorter side from every
+    edge, the box as wide as its widest line. Lines break at spaces, Thai between
+    words, a word too long for a line anywhere. Selected: 2px pink ring 3px outside
+    the box and a 14px pink dot with a mint ring on its bottom-right corner (44px
+    target) to resize; two fingers anywhere on the video pinch it. Dragging snaps to
+    the frame's centre lines (1px `bg-highlight` guides while snapped). Double tap
+    (or Edit text) types into it in place, with "Your text" as the placeholder; a tap
+    on the empty video deselects. In 9:16, while a text is selected or moved, a faint
+    guide (`bg-court-foreground/12`, dashed `border-court-foreground/45`, 9px label
+    "TikTok / Reels buttons") marks the right-hand button column and the bottom
+    caption area; only a hint, texts can go there.
   - **Export sheet** (header Export): a bottom sheet on phones (`bg-sheet shadow-sheet`,
     22px top radius, max 90dvh, scrolls), a right side panel on desktop. Title 15/800
     "Export highlight", 13px muted line. On the sheet, sections are `bg-background`

@@ -48,7 +48,7 @@ export function EmptyReel({
           ? maybeCount > 0
             ? `Only rallies to check were found. Keep the real ones in Highlights, or pick them from the list.`
             : "No rallies were found in this match."
-          : "Start with some rallies, then cut, slow down and caption them here."}
+          : "Start with some rallies, then cut, slow down and add text here."}
       </p>
       <div className="mt-4 flex w-full max-w-sm flex-col gap-2 text-left">
         <QuickStart

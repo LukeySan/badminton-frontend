@@ -33,3 +33,6 @@ dist-ssr
 
 # TanStack Router plugin scratch files
 .tanstack/
+
+# The iOS app's backend URL for `bun run ios:build` (copy .env.ios.example)
+.env.ios

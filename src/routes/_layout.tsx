@@ -39,7 +39,7 @@ function Layout() {
       <AppSidebar />
       <SidebarInset>
         {/* Desktop (md+) keeps the sidebar and its toggle; phones use the tab bar */}
-        <header className="sticky top-0 z-10 hidden h-16 shrink-0 items-center gap-2 border-b bg-background px-4 md:flex">
+        <header className="sticky top-[env(safe-area-inset-top)] z-10 hidden h-16 shrink-0 items-center gap-2 border-b bg-background px-4 md:flex">
           <SidebarTrigger className="-ml-1 text-muted-foreground" />
         </header>
         <main

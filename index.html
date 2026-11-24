@@ -1,16 +1,49 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <!-- viewport-fit=cover: lets the full-screen player and the tab bar use the whole
          screen and read the notch / home-indicator insets (env(safe-area-inset-*)) -->
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <title>Full Stack FastAPI Project</title>
-    <link rel="icon" type="image/x-icon" href="/assets/images/favicon.png" />
+    <title>Rally Analyzer</title>
+    <meta
+      name="description"
+      content="Finds every rally in your badminton match video."
+    />
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+
+    <!-- "Add to Home Screen" (scripts/make-icons.ts draws the icons). theme-color is
+         the theme's --background; lib/native.ts updates it when the theme changes. -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#191923" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Rally Analyzer" />
+    <!-- The page runs under the status bar (light text) and pads itself by the safe
+         area (index.css body). Set once when installed: light text suits the default
+         dark theme. -->
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+
+    <!-- The saved theme before the first paint (no flash of the other theme behind
+         the splash screen). Same key and default as ThemeProvider in main.tsx. -->
+    <script>
+      try {
+        const saved = localStorage.getItem("vite-ui-theme") || "dark"
+        document.documentElement.className =
+          saved !== "system"
+            ? saved
+            : matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light"
+      } catch (_e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

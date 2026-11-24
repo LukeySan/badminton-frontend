@@ -17,13 +17,14 @@ import type { RallyPublic } from "@/client"
 import { isMaybe } from "@/components/Player/rallies"
 import { formatDuration, formatPlayhead } from "@/lib/format"
 import { capturePointer, cn } from "@/lib/utils"
+import type { Overlay } from "./overlays"
 import { ReorderStrip } from "./ReorderStrip"
 import {
   type Clip,
-  captionOf,
   clipLength,
   type Edit,
   MIN_CLIP,
+  reelLength,
   round1,
   type Span,
 } from "./reelEdit"
@@ -33,8 +34,12 @@ import {
   clampZoom,
   DEFAULT_PX_PER_SECOND,
   dragEdge,
+  dragOverlayEdge,
+  dragOverlayMove,
   layOut,
   MIN_CLIP_WIDTH,
+  overlayBar,
+  overlayLanes,
   type PlacedClip,
   rulerStep,
   rulerTicks,
@@ -64,7 +69,18 @@ export type TimelineCallbacks = {
   onMoveStart: () => void
   /** The move is over (dropped or not): select that clip. */
   onMoveEnd: (id: string) => void
+  /** An overlay's bar was tapped (or lifted to move it). */
+  onSelectOverlay: (id: string) => void
+  /** An overlay's edge drag or move started (pause). */
+  onOverlayDragStart: () => void
+  /** While an overlay's edge or the whole bar moves: show this reel time. */
+  onOverlayPreview: (reelTime: number) => void
+  /** A finished edge drag or move of an overlay (one undo step), or an arrow-key step. */
+  onSetOverlayTimes: (id: string, span: Span, how: Edge | "move") => void
 }
+
+/** What's moving on the overlay track, for the hint. */
+type OverlayDrag = Edge | "move"
 
 /**
  * Whether each clip shows a "maybe" rally (drawn faded and dashed). Clips carry no
@@ -120,6 +136,8 @@ export function EditPanel({
   duration,
   reelTime,
   selectedId,
+  selectedOverlayId,
+  atOverlayLimit,
   thumbs,
   callbacks,
   children,
@@ -129,7 +147,11 @@ export function EditPanel({
   duration: number
   /** Where the playhead is, in reel time. */
   reelTime: number
+  /** The selected clip (none while an overlay is selected). */
   selectedId: string | undefined
+  selectedOverlayId: string | undefined
+  /** The reel has as many overlays as it may: say why Text is off. */
+  atOverlayLimit: boolean
   thumbs: Thumbnails | undefined
   callbacks: TimelineCallbacks
   /** The tool row. */
@@ -139,6 +161,7 @@ export function EditPanel({
   /** One of our gestures owns the touch: the browser mustn't scroll or zoom. */
   const blockTouch = useRef(false)
   const [drag, setDrag] = useState<DragInfo | null>(null)
+  const [overlayDrag, setOverlayDrag] = useState<OverlayDrag | null>(null)
   /** A held clip being moved (the press is still down): the strip follows it. */
   const [moving, setMoving] = useState<Handoff | null>(null)
   const maybes = useMemo(
@@ -163,8 +186,17 @@ export function EditPanel({
     }
   }, [])
 
+  const lanes = useMemo(() => overlayLanes(edit.overlays), [edit.overlays])
+  const laneCount = edit.overlays.length > 0 ? Math.max(...lanes) + 1 : 0
+
   const hint = moving ? (
     "Drag it where you want it and let go. The other clips make room."
+  ) : overlayDrag === "move" ? (
+    "Drag it to when it should show and let go. Snaps to where clips meet."
+  ) : overlayDrag ? (
+    "Drag to change when the text shows. Snaps to where clips meet."
+  ) : selectedOverlayId ? (
+    "Drag the text on the video to move it. Pinch or drag its corner to resize, double-tap to edit. Pink edges: when it shows."
   ) : drag ? (
     beyondText(drag)?.startsWith("+") ? (
       drag.edge === "end" ? (
@@ -175,6 +207,8 @@ export function EditPanel({
     ) : (
       "Drag out to show more, in to shorten. Snaps to the detected rally start and end."
     )
+  ) : atOverlayLimit ? (
+    `Text is off: a reel can have up to ${edit.overlays.length} texts. Delete one to add another.`
   ) : (
     <>
       Drag the pink edges to show more or less. Hold and drag a clip to move it.{" "}
@@ -197,7 +231,8 @@ export function EditPanel({
         className="relative h-(--tracks) shrink-0 max-md:portrait:h-auto max-md:portrait:min-h-(--tracks) max-md:portrait:flex-1"
         style={
           {
-            "--tracks": `${118 + (edit.captions.length > 0 ? 30 : 0)}px`,
+            // The clip track, plus up to two overlay lanes (more scroll)
+            "--tracks": `${118 + (laneCount > 0 ? 6 + Math.min(2, laneCount) * LANE_PITCH : 0)}px`,
           } as CSSProperties
         }
       >
@@ -208,10 +243,13 @@ export function EditPanel({
           duration={duration}
           reelTime={reelTime}
           selectedId={selectedId}
+          selectedOverlayId={selectedOverlayId}
+          lanes={lanes}
           thumbs={thumbs}
           hidden={moving !== null}
           blockTouch={blockTouch}
           onDrag={setDrag}
+          onOverlayDrag={setOverlayDrag}
           onLongPress={(press) => {
             setMoving(press)
             callbacks.onMoveStart()
@@ -271,6 +309,9 @@ const THUMB_MARGIN = 360
 /** The "+" tile after the last clip. */
 const ADD_TILE = { gap: 6, width: 48 }
 const TRACK_HEIGHT = 72
+/** Overlay bars: height, and from one lane to the next. */
+const BAR_HEIGHT = 28
+const LANE_PITCH = 32
 
 type EdgeGesture = {
   pointerId: number
@@ -291,10 +332,22 @@ type EdgeGesture = {
   lastY: number
 }
 
+/** An overlay's edge being dragged, or its bar held and moved (in reel time). */
+type OverlayGesture = {
+  kind: OverlayDrag
+  pointerId: number
+  id: string
+  startX: number
+  origin: Span
+  span: Span
+}
+
 /**
  * TikTok-style timeline: a fixed playhead in the middle, the reel moving under it.
  * While playing, the timeline follows the video; while the user moves it, the video
- * follows the timeline. The selected clip has pink edge handles.
+ * follows the timeline. The selected clip has pink edge handles. Under the clips, the
+ * overlay track: a bar per overlay in reel time (lanes when they overlap); the
+ * selected one has pink edge handles too, and any can be held and moved in time.
  */
 function Timeline({
   edit,
@@ -303,10 +356,13 @@ function Timeline({
   duration,
   reelTime,
   selectedId,
+  selectedOverlayId,
+  lanes,
   thumbs,
   hidden,
   blockTouch,
   onDrag,
+  onOverlayDrag,
   onLongPress,
   onScrubStart,
   onScrub,
@@ -316,6 +372,10 @@ function Timeline({
   onSetBounds,
   onAdd,
   onMove,
+  onSelectOverlay,
+  onOverlayDragStart,
+  onOverlayPreview,
+  onSetOverlayTimes,
 }: {
   edit: Edit
   maybes: boolean[]
@@ -323,11 +383,15 @@ function Timeline({
   duration: number
   reelTime: number
   selectedId: string | undefined
+  selectedOverlayId: string | undefined
+  /** Each overlay's lane (row), in list order. */
+  lanes: number[]
   thumbs: Thumbnails | undefined
   /** Reordering: kept in place (a press that started here carries on) but not shown. */
   hidden: boolean
   blockTouch: RefObject<boolean>
   onDrag: (drag: DragInfo | null) => void
+  onOverlayDrag: (drag: OverlayDrag | null) => void
   onLongPress: (press: Handoff) => void
 } & TimelineCallbacks) {
   const [pxPerSecond, setPxPerSecond] = useState(DEFAULT_PX_PER_SECOND)
@@ -387,7 +451,8 @@ function Timeline({
     }
     window.clearTimeout(idleTimer.current)
     idleTimer.current = window.setTimeout(() => {
-      if (!edgeDrag.current && !pinch.current) userActive.current = false
+      if (!edgeDrag.current && !pinch.current && !overlayGesture.current)
+        userActive.current = false
     }, SCRUB_IDLE_MS)
   }
 
@@ -441,7 +506,7 @@ function Timeline({
     )
       return
     ourScrollLeft.current = null
-    if (edgeDrag.current) return
+    if (edgeDrag.current || overlayGesture.current) return
     if (
       focusScroll.current &&
       pointers.current.size === 0 &&
@@ -529,6 +594,8 @@ function Timeline({
     y: number
     timer: number
   } | null>(null)
+  const overlaysRef = useRef(edit.overlays)
+  overlaysRef.current = edit.overlays
   const mouseDrag = useRef<{
     x: number
     scrollLeft: number
@@ -574,6 +641,9 @@ function Timeline({
       abandonEdge()
       pointers.current.set(edge.pointerId, { x: edge.lastX, y: edge.lastY })
     }
+    // ...or while an overlay's edge or bar moves: that stops, unchanged
+    const held = overlayGesture.current
+    if (held && held.pointerId !== event.pointerId) finishOverlay(false)
     if (pointers.current.size === 2) {
       cancelPress()
       mouseDrag.current = null
@@ -587,7 +657,25 @@ function Timeline({
       "[data-clip-id]",
     )
     const id = clipElement?.dataset.clipId
-    if (id) {
+    const overlayId = (event.target as HTMLElement).closest<HTMLElement>(
+      "[data-overlay-id]",
+    )?.dataset.overlayId
+    if (overlayId) {
+      // Hold an overlay's bar: move it in time
+      const { pointerId, clientX, clientY } = event
+      press.current = {
+        pointerId,
+        id: overlayId,
+        x: clientX,
+        y: clientY,
+        timer: window.setTimeout(() => {
+          const current = press.current
+          press.current = null
+          mouseDrag.current = null
+          if (current) liftOverlay(overlayId, pointerId, current.x)
+        }, LONG_PRESS_MS),
+      }
+    } else if (id) {
       const { pointerId, clientX, clientY } = event
       press.current = {
         pointerId,
@@ -618,6 +706,19 @@ function Timeline({
     if (!point) return
     point.x = event.clientX
     point.y = event.clientY
+    const lifted = overlayGesture.current
+    if (lifted?.kind === "move" && lifted.pointerId === event.pointerId) {
+      const { span } = dragOverlayMove({
+        placed: layout.current,
+        origin: lifted.origin,
+        dx: event.clientX - lifted.startX,
+        length: reelLength(edit),
+      })
+      lifted.span = span
+      setOverlayDraft({ id: lifted.id, span })
+      onOverlayPreview(span.start)
+      return
+    }
     if (pinch.current && pointers.current.size >= 2) {
       const { distance, centerX } = spread()
       if (pinch.current.distance > 0)
@@ -648,6 +749,9 @@ function Timeline({
   }
   const onPointerEnd = (event: ReactPointerEvent<HTMLElement>) => {
     pointers.current.delete(event.pointerId)
+    const lifted = overlayGesture.current
+    if (lifted?.kind === "move" && lifted.pointerId === event.pointerId)
+      finishOverlay(event.type !== "pointercancel")
     if (press.current?.pointerId === event.pointerId) cancelPress()
     if (pinch.current && pointers.current.size < 2) {
       pinch.current = null
@@ -661,6 +765,133 @@ function Timeline({
       })
     }
     mouseDrag.current = null
+  }
+
+  // --- Overlays: hold a bar to move it, drag the selected one's edges ----------------
+  const overlayGesture = useRef<OverlayGesture | null>(null)
+  const [overlayDraft, setOverlayDraft] = useState<{
+    id: string
+    span: Span
+  } | null>(null)
+  const beginOverlay = (gesture: OverlayGesture) => {
+    overlayGesture.current = gesture
+    blockTouch.current = true
+    userActive.current = true
+    window.clearTimeout(idleTimer.current)
+    onOverlayDragStart()
+    onOverlayDrag(gesture.kind)
+    setOverlayDraft({ id: gesture.id, span: gesture.origin })
+  }
+  /** A held bar: it lifts and follows the press (selected). */
+  const liftOverlay = (id: string, pointerId: number, clientX: number) => {
+    const overlay = overlaysRef.current.find((o) => o.id === id)
+    if (!overlay) return
+    swallowUntilUp()
+    navigator.vibrate?.(12)
+    capturePointer(scrollRef.current!, pointerId)
+    const origin = { start: overlay.start, end: overlay.end }
+    onSelectOverlay(id)
+    beginOverlay({
+      kind: "move",
+      pointerId,
+      id,
+      startX: clientX,
+      origin,
+      span: origin,
+    })
+  }
+  /** The edge drag or move is over: one undo step (or back as it was). */
+  const finishOverlay = (commit: boolean) => {
+    const gesture = overlayGesture.current
+    if (!gesture) return
+    overlayGesture.current = null
+    blockTouch.current = false
+    userActive.current = false
+    setOverlayDraft(null)
+    onOverlayDrag(null)
+    onSetOverlayTimes(
+      gesture.id,
+      commit ? gesture.span : gesture.origin,
+      gesture.kind,
+    )
+  }
+  const startOverlayEdge = (
+    event: ReactPointerEvent<HTMLElement>,
+    overlay: Overlay,
+    edge: Edge,
+  ) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return
+    event.stopPropagation()
+    capturePointer(event.currentTarget, event.pointerId)
+    cancelPress()
+    const origin = { start: overlay.start, end: overlay.end }
+    beginOverlay({
+      kind: edge,
+      pointerId: event.pointerId,
+      id: overlay.id,
+      startX: event.clientX,
+      origin,
+      span: origin,
+    })
+    onOverlayPreview(edge === "start" ? origin.start : origin.end - 0.05)
+  }
+  const moveOverlayEdge = (event: ReactPointerEvent<HTMLElement>) => {
+    const gesture = overlayGesture.current
+    if (
+      !gesture ||
+      gesture.kind === "move" ||
+      gesture.pointerId !== event.pointerId
+    )
+      return
+    const { span, snapped } = dragOverlayEdge({
+      placed: layout.current,
+      origin: gesture.origin,
+      edge: gesture.kind,
+      dx: event.clientX - gesture.startX,
+      length: reelLength(edit),
+    })
+    if (
+      snapped !== undefined &&
+      span[gesture.kind] !== gesture.span[gesture.kind]
+    )
+      navigator.vibrate?.(8)
+    gesture.span = span
+    setOverlayDraft({ id: gesture.id, span })
+    onOverlayPreview(
+      gesture.kind === "start"
+        ? span.start
+        : Math.max(span.start, span.end - 0.05),
+    )
+  }
+  const endOverlayEdge = (
+    event: ReactPointerEvent<HTMLElement>,
+    commit: boolean,
+  ) => {
+    const gesture = overlayGesture.current
+    if (!gesture || gesture.pointerId !== event.pointerId) return
+    swallowClick.current = true
+    window.setTimeout(() => {
+      swallowClick.current = false
+    })
+    finishOverlay(commit)
+  }
+  /** Arrow keys on an overlay's handle: 0.1 s (Shift: 1 s) per press. */
+  const onOverlayEdgeKey = (
+    event: KeyboardEvent<HTMLElement>,
+    overlay: Overlay,
+    edge: Edge,
+  ) => {
+    const step =
+      event.key === "ArrowLeft" ? -1 : event.key === "ArrowRight" ? 1 : 0
+    if (!step) return
+    event.preventDefault()
+    const delta = step * (event.shiftKey ? 1 : 0.1)
+    const span = {
+      start: overlay.start + (edge === "start" ? delta : 0),
+      end: overlay.end + (edge === "end" ? delta : 0),
+    }
+    if (span.end - span.start < 0.3 - 1e-9 || span.start < 0) return
+    onSetOverlayTimes(overlay.id, span, edge)
   }
 
   // --- Edge handles -----------------------------------------------------------------
@@ -816,10 +1047,17 @@ function Timeline({
 
   const step = rulerStep(pxPerSecond)
   const ticks = useMemo(() => rulerTicks(placed, step), [placed, step])
-  const captioned = placed.flatMap((item) => {
-    const caption = captionOf(edit, item.clip)
-    return caption ? [{ item, text: caption.text }] : []
+  const bars = edit.overlays.map((overlay, index) => {
+    const span = overlayDraft?.id === overlay.id ? overlayDraft.span : overlay
+    return {
+      overlay,
+      index,
+      span,
+      lane: lanes[index] ?? 0,
+      ...overlayBar(placed, span),
+    }
   })
+  const laneCount = bars.length > 0 ? Math.max(...lanes) + 1 : 0
   // Frames only around the view (a zoomed-in reel is many screens wide)
   const visible = {
     from: playheadX - half - THUMB_MARGIN,
@@ -950,18 +1188,38 @@ function Timeline({
             </button>
           </div>
 
-          {/* Captions, under their clips */}
-          {captioned.length > 0 && (
-            <div className="relative mt-1.5 h-6" style={{ width }}>
-              {captioned.map(({ item, text }) => (
-                <div
-                  key={item.clip.id}
-                  data-testid="caption-track"
-                  className="absolute top-0 flex h-6 items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[6px] bg-secondary px-2 text-[11px] font-bold text-foreground"
-                  style={{ left: item.x, width: item.w }}
-                >
-                  <span className="font-extrabold">Aa</span> {text}
-                </div>
+          {/* Overlays, in reel time under the clips (a lane per overlap) */}
+          {laneCount > 0 && (
+            <div
+              data-testid="overlay-track"
+              className="relative mt-1.5"
+              style={{
+                width,
+                height: laneCount * LANE_PITCH - (LANE_PITCH - BAR_HEIGHT),
+              }}
+            >
+              {bars.map((bar) => (
+                <OverlayBar
+                  key={bar.overlay.id}
+                  bar={bar}
+                  count={bars.length}
+                  selected={bar.overlay.id === selectedOverlayId}
+                  dragging={
+                    overlayGesture.current?.id === bar.overlay.id
+                      ? overlayGesture.current.kind
+                      : undefined
+                  }
+                  onTap={() => onSelectOverlay(bar.overlay.id)}
+                  onEdgeDown={(event, edge) =>
+                    startOverlayEdge(event, bar.overlay, edge)
+                  }
+                  onEdgeMove={moveOverlayEdge}
+                  onEdgeUp={(event) => endOverlayEdge(event, true)}
+                  onEdgeCancel={(event) => endOverlayEdge(event, false)}
+                  onEdgeKey={(event, edge) =>
+                    onOverlayEdgeKey(event, bar.overlay, edge)
+                  }
+                />
               ))}
             </div>
           )}
@@ -1196,6 +1454,146 @@ function ClipItem({
           style={dragging === "end" ? { right: 0 } : { left: 0 }}
         >
           {dragText}
+        </span>
+      )}
+    </div>
+  )
+}
+
+/** An overlay's handles: drawn width (the touch area is 44 px around it). */
+const BAR_HANDLE_WIDTH = 12
+
+/**
+ * One overlay on the timeline: "Aa" and the start of its text, from its start to its
+ * end in reel time. Selected: a pink ring and two edge handles (when it shows); any
+ * bar can be held and dragged to move it in time.
+ */
+function OverlayBar({
+  bar,
+  count,
+  selected,
+  dragging,
+  onTap,
+  onEdgeDown,
+  onEdgeMove,
+  onEdgeUp,
+  onEdgeCancel,
+  onEdgeKey,
+}: {
+  bar: {
+    overlay: Overlay
+    index: number
+    span: Span
+    lane: number
+    x: number
+    w: number
+  }
+  count: number
+  selected: boolean
+  dragging: OverlayDrag | undefined
+  onTap: () => void
+  onEdgeDown: (event: ReactPointerEvent<HTMLElement>, edge: Edge) => void
+  onEdgeMove: (event: ReactPointerEvent<HTMLElement>) => void
+  onEdgeUp: (event: ReactPointerEvent<HTMLElement>) => void
+  onEdgeCancel: (event: ReactPointerEvent<HTMLElement>) => void
+  onEdgeKey: (event: KeyboardEvent<HTMLElement>, edge: Edge) => void
+}) {
+  const { overlay, span, x, w, lane } = bar
+  const text = overlay.type === "text" ? overlay.text : ""
+  const inside = w >= 3 * BAR_HANDLE_WIDTH
+  const handle = (edge: Edge) => {
+    const visibleLeft =
+      edge === "start"
+        ? inside
+          ? 0
+          : -BAR_HANDLE_WIDTH
+        : inside
+          ? w - BAR_HANDLE_WIDTH
+          : w
+    const value = span[edge]
+    return (
+      <div
+        role="slider"
+        tabIndex={0}
+        aria-label={
+          edge === "start"
+            ? "Drag to change when the text starts"
+            : "Drag to change when the text ends"
+        }
+        aria-valuemin={0}
+        aria-valuenow={value}
+        aria-valuetext={formatPlayhead(value)}
+        data-testid={`overlay-edge-${edge}`}
+        onPointerDown={(event) => onEdgeDown(event, edge)}
+        onPointerMove={onEdgeMove}
+        onPointerUp={onEdgeUp}
+        onPointerCancel={onEdgeCancel}
+        onKeyDown={(event) => onEdgeKey(event, edge)}
+        // 44 × 44 around the 12 × 28 tab
+        className="group absolute -top-2 z-10 flex h-11 touch-none items-center justify-center outline-none"
+        style={{
+          left: visibleLeft - (HANDLE_TOUCH - BAR_HANDLE_WIDTH) / 2,
+          width: HANDLE_TOUCH,
+        }}
+      >
+        <span
+          className={cn(
+            "flex items-center justify-center bg-highlight group-focus-visible:ring-2 group-focus-visible:ring-ring",
+            edge === "start" ? "rounded-l-[6px]" : "rounded-r-[6px]",
+          )}
+          style={{ width: BAR_HANDLE_WIDTH, height: BAR_HEIGHT }}
+        >
+          <span className="h-3.5 w-[3px] rounded-[2px] bg-highlight-foreground" />
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      data-overlay-id={overlay.id}
+      className={cn(
+        "absolute transition-transform",
+        dragging === "move" && "z-20 -translate-y-1",
+      )}
+      style={{ left: x, top: lane * LANE_PITCH, width: w, height: BAR_HEIGHT }}
+    >
+      <button
+        type="button"
+        data-testid="overlay-bar"
+        data-selected={selected || undefined}
+        aria-pressed={selected}
+        aria-label={`Text ${bar.index + 1} of ${count}: ${text}, ${formatPlayhead(span.start)} to ${formatPlayhead(span.end)}`}
+        onClick={onTap}
+        className={cn(
+          "absolute inset-0 flex items-center gap-1.5 overflow-hidden whitespace-nowrap rounded-[6px] bg-secondary px-2 text-left text-[11px] font-bold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
+          selected && inside && "px-[16px]",
+          dragging === "move" && "shadow-letterbox/40 shadow-lg",
+        )}
+      >
+        <span className="shrink-0 font-extrabold">Aa</span>
+        <span className="truncate">{text}</span>
+        {selected && (
+          <span className="pointer-events-none absolute inset-0 rounded-[6px] ring-2 ring-highlight ring-inset" />
+        )}
+      </button>
+      {selected && (
+        <>
+          {handle("start")}
+          {handle("end")}
+        </>
+      )}
+      {dragging && (
+        <span
+          data-testid="overlay-drag-label"
+          className="pointer-events-none absolute -top-[26px] z-20 whitespace-nowrap rounded-[8px] bg-highlight px-2 py-[3px] text-[11px] font-extrabold text-highlight-foreground tabular-nums"
+          style={dragging === "end" ? { right: 0 } : { left: 0 }}
+        >
+          {dragging === "end"
+            ? formatPlayhead(span.end)
+            : dragging === "start"
+              ? formatPlayhead(span.start)
+              : `${formatPlayhead(span.start)} – ${formatPlayhead(span.end)}`}
         </span>
       )}
     </div>

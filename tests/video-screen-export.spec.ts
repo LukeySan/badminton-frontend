@@ -59,7 +59,7 @@ async function setUp(page: Page, { reel = true } = {}) {
   if (reel) {
     const rallies = await readRallies(token, videoId)
     await createReel(token, videoId, {
-      version: 5,
+      version: 6,
       segments: [
         { id: "c1", start: 0, end: 2.3, rally_id: rallies[0].id },
         { id: "c2", start: 3.4, end: 6.5, rally_id: rallies[1].id },

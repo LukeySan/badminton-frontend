@@ -8,6 +8,12 @@ import {
 } from "react"
 import { flushSync } from "react-dom"
 
+import {
+  enterNativeFullscreen,
+  exitNativeFullscreen,
+  isNativeApp,
+} from "@/lib/native"
+
 // Our own full-screen mode for the player (CLAUDE.md: never native video full
 // screen for previews). A fixed layer over the whole viewport shows OUR player:
 // iPhone's native video full screen would hand playback to Apple's player, which
@@ -16,7 +22,9 @@ import { flushSync } from "react-dom"
 //
 // On top of the layer, where the Fullscreen API works on a normal element (desktop,
 // iPad, Android), the layer also goes truly full screen and asks for landscape. On
-// iPhone Safari the fixed layer alone is the full screen.
+// iPhone Safari the fixed layer alone is the full screen. In the native app (no
+// Fullscreen API in its web view) the layer hides the status bar and turns the app
+// to landscape with the screen-orientation plugin (lib/native.ts).
 
 declare module "@tanstack/history" {
   interface HistoryState {
@@ -46,10 +54,6 @@ function canUseFullscreenApi() {
 }
 
 async function lockLandscape() {
-  // TODO(capacitor): in the native app, lock with the screen-orientation plugin
-  // instead (`ScreenOrientation.lock({ orientation: "landscape" })` from
-  // @capacitor/screen-orientation) and unlock in unlockOrientation(): the web API
-  // below doesn't exist in iOS WebViews.
   try {
     await (screen.orientation as LockableOrientation).lock?.("landscape")
   } catch {
@@ -112,7 +116,9 @@ export function useFullscreenPlayer({ landscape }: { landscape: boolean }) {
     wakeControls()
 
     const layer = layerRef.current as FullscreenElement | null
-    if (layer && canUseFullscreenApi()) {
+    if (isNativeApp) {
+      enterNativeFullscreen({ landscape })
+    } else if (layer && canUseFullscreenApi()) {
       // Unprefixed returns a promise; Safari's older prefixed one returns nothing.
       const requested: Promise<void> | void = layer.requestFullscreen
         ? layer.requestFullscreen()
@@ -214,6 +220,7 @@ export function useFullscreenPlayer({ landscape }: { landscape: boolean }) {
           .finally(refocus)
       }
       unlockOrientation()
+      exitNativeFullscreen()
       refocus()
       requestAnimationFrame(() => requestAnimationFrame(refocus))
     }
