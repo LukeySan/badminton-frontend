@@ -2862,30 +2862,6 @@
         "required": ["file"],
         "title": "Body_videos-upload_video"
       },
-      "Caption": {
-        "properties": {
-          "start": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "Start"
-          },
-          "end": {
-            "type": "number",
-            "minimum": 0.0,
-            "title": "End"
-          },
-          "text": {
-            "type": "string",
-            "maxLength": 80,
-            "minLength": 1,
-            "title": "Text"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": ["start", "end", "text"],
-        "title": "Caption"
-      },
       "CourtUpdate": {
         "properties": {
           "corners": {
@@ -3619,9 +3595,9 @@
         "properties": {
           "version": {
             "type": "integer",
-            "const": 5,
+            "const": 6,
             "title": "Version",
-            "default": 5
+            "default": 6
           },
           "format": {
             "type": "string",
@@ -3639,21 +3615,31 @@
             "description": "In playback order. May overlap in source time (a replay).",
             "default": []
           },
-          "captions": {
+          "overlays": {
             "items": {
-              "$ref": "#/components/schemas/Caption"
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/TextOverlay"
+                }
+              ],
+              "discriminator": {
+                "propertyName": "type",
+                "mapping": {
+                  "text": "#/components/schemas/TextOverlay"
+                }
+              }
             },
             "type": "array",
-            "maxItems": 500,
-            "title": "Captions",
-            "description": "Shown while the source time is inside [start, end), in every segment that shows it (seconds in the original video)",
+            "maxItems": 20,
+            "title": "Overlays",
+            "description": "Drawn in list order (later ones on top), each while the reel time is inside [start, end). Types: \"text\". Reserved for later: \"score\" (same timing, position and size fields; no stored content, it shows the score of the scored match at the source time of the segment underneath).",
             "default": []
           }
         },
         "additionalProperties": false,
         "type": "object",
         "title": "ReelEdit",
-        "description": "The edit list, stored as JSON. `version` changes when the format does; an\nAlembic migration converts stored reels, so the code only knows the current one.\nv5 (this): a flat list of segments in playback order (Editor v2). v4 and before\ndescribed a reel as rally clips cut into pieces, with lead-in/out, deleted cuts\nand restored breaks; migration 8f3a5c2d9e14 turned each into the segments it\nplayed."
+        "description": "The edit list, stored as JSON. `version` changes when the format does; an\nAlembic migration converts stored reels, so the code only knows the current one.\nv6 (this): overlays on the reel's own timeline. v5 had captions in source time\n(migration 4c1e7a9b2d60 turned them into text overlays). v4 and before described\na reel as rally clips cut into pieces; migration 8f3a5c2d9e14 turned each into\nthe segments it played."
       },
       "ReelPublic": {
         "properties": {
@@ -3818,6 +3804,67 @@
         "required": ["id", "start", "end"],
         "title": "Segment",
         "description": "One clip of the reel: a stretch of the original video."
+      },
+      "TextOverlay": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Id",
+            "description": "Chosen by the app, unique within the reel; kept as is"
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Start",
+            "description": "Seconds of REEL time (the reel's own timeline: segments one after another, slow-mo counted double), stored to 0.1 s"
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "End",
+            "description": "Reel seconds, at least 0.3 s after start. Clamped to the reel's length when saved"
+          },
+          "x": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "X",
+            "description": "Centre, as a fraction of the output frame's width"
+          },
+          "y": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Y",
+            "description": "Centre, as a fraction of the output frame's height"
+          },
+          "size": {
+            "type": "number",
+            "maximum": 0.15,
+            "minimum": 0.03,
+            "title": "Size",
+            "description": "Text height (font size, CSS font-size) as a fraction of the output frame's height",
+            "default": 0.06
+          },
+          "type": {
+            "type": "string",
+            "const": "text",
+            "title": "Type"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "start", "end", "x", "y", "type", "text"],
+        "title": "TextOverlay",
+        "description": "Text in a rounded box (the app's caption style), centred on (x, y)."
       },
       "ThumbnailUrls": {
         "properties": {

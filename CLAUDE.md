@@ -60,6 +60,17 @@ commands above). Commit `openapi.json` and `src/client/` together.
 **Unit tests** (`bun run test:unit`, also in CI): `bun test` over `src/**/*.test.ts`
 (excluded from the build's type-check).
 
+**Shared fixture: Thai line breaks** (`tests/fixtures/line-breaks/thai.json`, owned
+here). Text overlays wrap with CSS in the preview and with ICU (PyICU) in the
+backend's export; both break Thai (no spaces) between ICU dictionary words.
+`src/components/Reels/lineBreaks.fixtures.test.ts` derives the break opportunities
+from `Intl.Segmenter` (word boundaries; spaces and punctuation stay with the word
+before) plus a font-free greedy wrap, and checks the file; the backend checks its copy
+(`backend/tests/fixtures/line_breaks/thai.json`) against PyICU. Change a case: edit
+`CASES`, run `UPDATE_LINE_BREAKS=1 bun test src/components/Reels/lineBreaks`, copy the
+file to the backend unchanged. Preview CSS to match: `overflow-wrap: anywhere` (a
+word wider than the line breaks between characters), no `word-break: break-all`.
+
 **Editor v2 (branch feat/editor-v2).** Built against the backend's edit list v5 (see
 "The reel" below; designs docs/design/EditV2*.dc.html; decided: no "match order", no
 Lead pill, new clips get a fixed 1 s padding on each side). The shared reel-segments
