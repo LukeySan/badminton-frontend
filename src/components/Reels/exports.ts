@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query"
 
 import { type ExportPublic, ExportsService, type VideoPublic } from "@/client"
 import { parseApiDate } from "@/lib/format"
+import { isNativeApp, shareFileNatively } from "@/lib/native"
 
 // Reel exports: the video's reel rendered into an MP4 by the worker. What's rendered
 // is fixed when the export is requested (later edits don't change it): the reel's
@@ -115,20 +116,24 @@ export function downloadExport(file: Blob, filename: string) {
  * browser can share files; otherwise download it. "shared" / "downloaded" /
  * "cancelled" (the user closed the share sheet).
  *
- * TODO(capacitor): in the iOS/Android app, share with the Capacitor Share plugin
- * (@capacitor/share, after writing the file with @capacitor/filesystem) instead of
- * the Web Share API, which WKWebView doesn't offer for files.
+ * In the iOS/Android app the Capacitor Share plugin does it from a native download
+ * of `url` (lib/native.ts): WKWebView's Web Share API can't share files, and its
+ * share sheet has Save Video, so the app needs no Download.
  */
 export async function shareExport({
   getFile,
+  url,
   filename,
   title,
 }: {
-  /** The file (cached once read: see exportFileQueryOptions). */
+  /** The file (cached once read: see exportFileQueryOptions). Browsers only. */
   getFile: () => Promise<Blob>
+  /** The signed link (exportLinkQueryOptions), for the app's native download. */
+  url: string
   filename: string
   title: string
 }): Promise<"shared" | "downloaded" | "cancelled"> {
+  if (isNativeApp) return shareFileNatively({ url, filename, title })
   const blob = await getFile()
   const files = [new File([blob], filename, { type: "video/mp4" })]
   if (

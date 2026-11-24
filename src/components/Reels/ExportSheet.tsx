@@ -22,6 +22,7 @@ import {
   formatWhen,
   parseApiDate,
 } from "@/lib/format"
+import { isNativeApp } from "@/lib/native"
 import { cn } from "@/lib/utils"
 import { extractErrorMessage } from "@/utils"
 import {
@@ -296,9 +297,12 @@ function DoneExport({
   const queryClient = useQueryClient()
   const [preview, setPreview] = useState(previewFirst)
   const link = useQuery(exportLinkQueryOptions(item.id))
-  // Read the file ahead for Share (see exportFileQueryOptions), where it can help
+  // Read the file ahead for Share (see exportFileQueryOptions), where it can help.
+  // Not in the app: it shares a native download (shareExport).
   const canShareFiles =
-    typeof navigator !== "undefined" && typeof navigator.canShare === "function"
+    !isNativeApp &&
+    typeof navigator !== "undefined" &&
+    typeof navigator.canShare === "function"
   useQuery({
     ...exportFileQueryOptions(item.id, link.data?.url),
     enabled: Boolean(link.data?.url) && preview && canShareFiles,
@@ -319,6 +323,7 @@ function DoneExport({
       if (kind === "share")
         await shareExport({
           getFile,
+          url: ready.url,
           filename: ready.filename,
           title: item.title,
         })
@@ -368,7 +373,8 @@ function DoneExport({
           Preview
         </button>
       )}
-      <div className="grid grid-cols-2 gap-2">
+      {/* The app has one button: its share sheet has Save Video (shareExport) */}
+      <div className={cn("grid gap-2", !isNativeApp && "grid-cols-2")}>
         <LoadingButton
           size="lg"
           loading={busy === "share"}
@@ -377,19 +383,21 @@ function DoneExport({
           className="font-extrabold"
         >
           {busy !== "share" && <Share />}
-          Share
+          {isNativeApp ? "Save or share" : "Share"}
         </LoadingButton>
-        <LoadingButton
-          size="lg"
-          variant="secondary"
-          loading={busy === "download"}
-          disabled={!link.data || Boolean(busy)}
-          onClick={run("download")}
-          className="font-extrabold"
-        >
-          {busy !== "download" && <Download />}
-          Download
-        </LoadingButton>
+        {!isNativeApp && (
+          <LoadingButton
+            size="lg"
+            variant="secondary"
+            loading={busy === "download"}
+            disabled={!link.data || Boolean(busy)}
+            onClick={run("download")}
+            className="font-extrabold"
+          >
+            {busy !== "download" && <Download />}
+            Download
+          </LoadingButton>
+        )}
       </div>
       <p className="text-xs text-muted-foreground tabular-nums">
         Available until {formatShortDate(item.expires_at)}

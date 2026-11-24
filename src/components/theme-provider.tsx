@@ -6,6 +6,8 @@ import {
   useState,
 } from "react"
 
+import { applySystemChrome } from "@/lib/native"
+
 export type Theme = "dark" | "light" | "system"
 
 type ThemeProviderProps = {
@@ -72,6 +74,7 @@ export function ThemeProvider({
   useEffect(() => {
     updateTheme(theme)
     setResolvedTheme(getResolvedTheme(theme))
+    applySystemChrome(getResolvedTheme(theme))
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
 
@@ -79,6 +82,7 @@ export function ThemeProvider({
       if (theme === "system") {
         updateTheme("system")
         setResolvedTheme(getResolvedTheme("system"))
+        applySystemChrome(getResolvedTheme("system"))
       }
     }
 

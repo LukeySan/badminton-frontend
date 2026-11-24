@@ -8,6 +8,18 @@ They are plain HTML mockups, not React; rebuild them with our shadcn/ui componen
 Their rally data is generated placeholder data (match 5's real totals: 73 rallies,
 21:24 long, 5:09 of play) — use real API data in the app.
 
+**App icon and splash (iOS app, home screen):** the app mark (the bars, `--court-foreground`
+on `--court`) full-bleed as the icon; the splash is the rounded mark centered on the
+dark `--background` (the default theme), up until the first screen is drawn. Drawn by
+`scripts/make-icons.ts` (`bun run icons`). The status bar's text follows the app's theme
+(`lib/native.ts`), hidden in the player's full screen.
+
+**Top safe area (notch, status bar):** in the iOS app and a home-screen web app the page
+runs under the status bar. `body` is padded by `env(safe-area-inset-top)` and a strip of
+`--background` covers that area (z-40: below dialogs, above sticky headers), so pages
+need nothing for it; full-height screens use `h-page` / `min-h-page`. In a browser tab
+it's 0.
+
 ## Rules (read first)
 
 1. **No hard-coded colors, fonts or radii in components or pages.** Use the theme
@@ -268,8 +280,8 @@ sideways is wide but short, so it keeps the phone layout.
   for Edit (one prototype in four starting states; the v1 `EditorEdit` /
   `EditorFull` are superseded; since then, decided: no Reorder tool or mode, no
   rally tags on clips, no rally badge in Edit, as described below) and, for the player parts, `player-*.mockup.html`. Phones (portrait):
-  one screen, exactly the viewport (`h-dvh`, never `h-screen`: iOS Safari's toolbar
-  would make it overflow), a flex column that **never scrolls**. The top half
+  one screen, exactly the viewport below the status bar (`h-page` = `100dvh` minus the
+  top safe area; never `h-screen`: iOS Safari's toolbar would make it overflow), a flex column that **never scrolls**. The top half
   (header, video, controls, mode toggle) keeps its size; the mode's panel is `flex-1
   min-h-0` with its last row **pinned to the bottom** (Edit: the tool row; Highlights:
   the bottom bar), padded `calc(1rem + env(safe-area-inset-bottom))`. What's between

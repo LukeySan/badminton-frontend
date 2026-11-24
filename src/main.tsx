@@ -12,6 +12,7 @@ import { client } from "./client/client.gen"
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "./components/ui/sonner"
 import "./index.css"
+import { hideSplash } from "./lib/native"
 import { routeTree } from "./routeTree.gen"
 
 client.setConfig({
@@ -54,3 +55,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     </ThemeProvider>
   </StrictMode>,
 )
+// The app's splash screen until the first screen is drawn (no-op in a browser)
+requestAnimationFrame(() => requestAnimationFrame(hideSplash))

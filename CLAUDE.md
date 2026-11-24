@@ -67,8 +67,21 @@ fixtures are gone (the backend keeps them as v4→v5 migration tests). Don't mer
 branch (or the backend's) into main alone: merge both together.
 
 `.env`: `VITE_API_URL=http://localhost:8000`. It must stay an absolute URL: the
-Capacitor app will not be served from the API's origin. The backend's CORS settings
+Capacitor app is not served from the API's origin. The backend's CORS settings
 must allow `http://localhost:5173`.
+
+**iOS app (Capacitor 8, see `IOS.md`):** `bun run ios:dev` (live reload: Vite on the
+Mac's LAN IP, `CAP_SERVER_URL` → `server.url`; Ctrl+C restores the bundled files),
+`bun run ios:build` (bundled, backend URL from `.env.ios`), `bun run ios:open`, then ▶
+in Xcode. `scripts/ios.sh` runs the Capacitor CLI with `bun --bun x cap` (it needs
+Node 22+). App origins the backend must allow (its `EXTRA_CORS_ORIGINS`):
+`capacitor://localhost` and `http://<LAN IP>:5173`; it must listen on `0.0.0.0`.
+Native differences live in `src/lib/native.ts` (`isNativeApp`; status bar style,
+splash, full-screen orientation, native share), all no-ops in a browser. Plain HTTP to
+the Mac is allowed in Debug builds only (a build phase adds `NSAllowsLocalNetworking`).
+Icons / splash: `bun run icons`. Top safe area: `body` is padded by
+`env(safe-area-inset-top)` with a background strip over it; full-height screens use
+`h-page` / `min-h-page` (index.css), not `h-dvh` / `min-h-svh`.
 
 `VITE_FEEDBACK_EMAIL`: Profile's "Send feedback" mailto address (hidden when empty).
 
@@ -154,7 +167,8 @@ Protected pages go under `src/routes/_layout/` (requires login, has the sidebar)
      sheet), quality (1080p only for a ≥1080p recording; `can1080p` repeats the
      backend's check), Export (flushes the autosave first: the server exports the
      saved reel). "Your exports": progress, preview + Share (Web Share API with the
-     file, read ahead; else Download; TODO Capacitor Share plugin) + Download,
+     file, read ahead; else Download) + Download; in the iOS app one "Save or
+     share" (native download + `@capacitor/share`, `shareFileNatively`),
      failed → reason + Try again (`POST /exports/{id}/retry`, same snapshot), delete.
      The list `["videos", id, "exports"]` is polled every 2 s only while one is
      queued/processing, by the screen (not the sheet): the header badge and the
@@ -261,12 +275,13 @@ web can't lock rotation outside full screen, so a phone held sideways sees
 `RotateToPortrait` (the `phone-landscape` variant in index.css: touch, landscape,
 under 480 px tall); the player's full screen asks for landscape with
 `screen.orientation.lock` (Android only; iPhone Safari can't, so the phone is turned
-by hand). In Capacitor: lock
-portrait in Info.plist / AndroidManifest and unlock only for full-screen video
-(`@capacitor/screen-orientation`).
+by hand). In the iOS app: Info.plist allows landscape (so the plugin can turn it),
+`MainViewController` (`ios/App/App/SceneDelegate.swift`) starts iPhones in portrait,
+the full screen locks landscape with `@capacitor/screen-orientation` and `unlock()`
+returns to portrait (`lib/native.ts`). Android: not set up yet.
 
-Mobile later (not now, but don't block it): Capacitor build, photo-library picker,
-push notifications, downscaling the video on the phone before upload (native encoder
+Mobile later (not now, but don't block it): Android, photo-library picker, push
+notifications, downscaling the video on the phone before upload (native encoder
 plugin) and playing the local original. Design screens to work at phone width now.
 
 ## Milestones (do in order, one per session, commit after each)
@@ -293,7 +308,8 @@ plugin) and playing the local original. Design screens to work at phone width no
   processing). Done when match 4 shows 31 chapters and skip-breaks plays them back to back
 
 **Then:** Playwright tests for the upload → court → player flow; corrections (edit
-rally boundaries, delete fakes — needs backend endpoints); Capacitor.
+rally boundaries, delete fakes — needs backend endpoints); Capacitor (iOS done:
+`IOS.md`).
 
 ## Conventions
 

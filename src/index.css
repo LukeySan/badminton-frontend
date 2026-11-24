@@ -205,6 +205,15 @@
   --sidebar-ring: var(--ring);
 }
 
+/* Heights of the page area under the top safe area (body is padded by it, below):
+   use these instead of h-dvh / min-h-svh for full-height screens. */
+@utility h-page {
+  height: calc(100dvh - env(safe-area-inset-top));
+}
+@utility min-h-page {
+  min-height: calc(100svh - env(safe-area-inset-top));
+}
+
 /* Soft shadow above the light theme's bottom sheet (DESIGN.md); none in dark mode. */
 @utility shadow-sheet {
   box-shadow: 0 -2px 12px color-mix(in oklab, var(--court) 8%, transparent);
@@ -219,6 +228,22 @@
   }
   body {
     @apply bg-background text-foreground;
+    /* The top safe area (status bar, notch) in the iOS app and a home-screen web
+       app; 0 in a browser tab. The page starts below it… */
+    padding-top: env(safe-area-inset-top);
+  }
+  /* …and the page's background covers it, so content scrolled up goes under the
+     status bar instead of behind its text. Below dialogs (z-50) and the player's
+     full screen, above sticky headers. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset-inline: 0;
+    top: 0;
+    z-index: 40;
+    height: env(safe-area-inset-top);
+    background: var(--background);
+    pointer-events: none;
   }
   button,
   [role="button"] {
